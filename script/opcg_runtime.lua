@@ -107,6 +107,10 @@ function runtime.can_resolve(card, effect_id, context)
     context.card = context.card or card
     context.definition = definition
     context.effect = effect
+    if context.timing and opcg.contract_ops and opcg.contract_ops.timing_negated
+        and opcg.contract_ops.timing_negated(card, context.timing, context) then
+        return false, "TIMING_NEGATED"
+    end
 
     if effect.don_attached and adapter.get_attached_don
         and adapter:get_attached_don(card, context) < effect.don_attached then
@@ -137,15 +141,23 @@ local function resolve_effect(card, effect, context)
             runtime._once_usage[card] = usage
         end
         local action_results = {}
+        local previous_action_succeeded = true
         for index, action in ipairs(effect.actions) do
-            context.last_action_succeeded = nil
-            action_results[index] = adapter:execute_action(action, context)
-            context.last_action_result = action_results[index]
-            if type(action_results[index]) == "table" and #action_results[index] > 0 then
-                context.last_targets = action_results[index]
-                context.last_target = action_results[index][1]
+            if action["then"] == true and previous_action_succeeded ~= true then
+                action_results[index] = {}
+                context.last_action_result = action_results[index]
+                context.last_action_succeeded = false
+            else
+                context.last_action_succeeded = nil
+                action_results[index] = adapter:execute_action(action, context)
+                context.last_action_result = action_results[index]
+                if type(action_results[index]) == "table" and #action_results[index] > 0 then
+                    context.last_targets = action_results[index]
+                    context.last_target = action_results[index][1]
+                end
+                if context.last_action_succeeded == nil then context.last_action_succeeded = true end
             end
-            if context.last_action_succeeded == nil then context.last_action_succeeded = true end
+            previous_action_succeeded = context.last_action_succeeded == true
         end
         return action_results
     end)
@@ -178,6 +190,7 @@ end
 
 function runtime.dispatch(card, timing, context)
     context = context or {}
+    context.timing = timing
     local definition = runtime._definitions[card]
     if not definition then
         if runtime._review_definitions[card] then return {}, "REVIEW_QUARANTINED" end

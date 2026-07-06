@@ -140,6 +140,7 @@ end
 function Q.enqueue(card, effect, resolver, context, options)
 	options = options or {}
 	context = shallow_copy(context)
+	if options.timing ~= nil then context.timing = options.timing end
 	Q._serial = Q._serial + 1
 	local generation
 	if Q._active_item then
@@ -268,6 +269,7 @@ function Q.register_trigger(card, effect, code, options)
 		Q._active_item = item
 		local context = item.context
 		context.player = item.player
+		context.timing = context.timing or item.timing
 		local can_resolve = opcg.runtime.can_resolve(item.card,
 			item.effect.effect_id, context)
 		local accepted = can_resolve
@@ -299,11 +301,13 @@ function Q.register_trigger(card, effect, code, options)
 		if options.context then
 			context = options.context(e, tp, eg, ep, ev, re, r, rp, context) or context
 		end
+		if options.timing ~= nil then context.timing = options.timing end
 		local ok = opcg.runtime.can_resolve(handler, effect.effect_id, context)
 		if not ok then return end
 		Q.enqueue(handler, effect, resolver, context, {
 			optional=options.optional,
 			description=description,
+			timing=options.timing,
 		})
 		Q.flush()
 	end)
@@ -375,7 +379,12 @@ function Q.has_timing(card, timing, context)
 	if not definition then return false end
 	for _, effect in ipairs(definition.effects or {}) do
 		if timing_matches(effect, timing) then
-			if not context or opcg.runtime.can_resolve(card, effect.effect_id, context) then
+			local item_context = shallow_copy(context)
+			item_context.card = card
+			item_context.player = item_context.player == nil and card:GetControler()
+				or item_context.player
+			item_context.timing = timing
+			if opcg.runtime.can_resolve(card, effect.effect_id, item_context) then
 				return true
 			end
 		end
@@ -400,6 +409,7 @@ function Q.enqueue_timing(cards, timing, context)
 				local item_context = shallow_copy(context)
 				item_context.card = card
 				item_context.player = card:GetControler()
+				item_context.timing = timing
 				if opcg.runtime.can_resolve(card, effect.effect_id, item_context) then
 					Q._direct_serial = Q._direct_serial + 1
 					local generation = Q._direct_active
@@ -442,6 +452,7 @@ function Q.drain_direct(options, timing, context)
 			elseif choice then selected = choice end
 		end
 		remove_direct(selected)
+		selected.context.timing = selected.context.timing or selected.timing
 
 		local accepted = opcg.runtime.can_resolve(selected.card,
 			selected.effect.effect_id, selected.context)

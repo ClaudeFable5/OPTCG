@@ -247,6 +247,7 @@ local known_condition = {
     CHARACTER_COUNT_LT=true,
     ACTIVE_DON_LTE=true,
     SOURCE_EFFECT_DRAW_UNUSED_THIS_TURN=true,
+    OWN_CHARACTERS_COST_SUM_GTE=true,
 }
 
 local known_cost = {

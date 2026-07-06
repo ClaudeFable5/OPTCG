@@ -191,6 +191,16 @@ local function selector_payable(selector, context)
 	local available = selector_count(selector, context)
 	return available ~= nil and available >= selector_minimum(selector)
 end
+local function selector_with_state(selector, state)
+	selector = selector or {}
+	local out = {}
+	for key, value in pairs(selector) do out[key] = value end
+	local filter = {}
+	for key, value in pairs(selector.filter or {}) do filter[key] = value end
+	if filter.state == nil then filter.state = state end
+	out.filter = filter
+	return out
+end
 local function remove_cards(cards, reason, destination)
 	if opcg.contract_ops and opcg.contract_ops.before_remove then
 		cards = opcg.contract_ops.before_remove(cards, reason, destination,
@@ -550,6 +560,43 @@ end
 local function life_count(player)
 	return Duel.GetFieldGroupCount(player, LOCATION_EXTRA, 0)
 end
+-- FLIP_LIFE_TOP support. Flipping keeps a life card at its sequence, so
+-- "위에서 N장" is the fixed top slice of the stack, not N repeated top picks.
+local function life_from_top(player)
+	local stack = {}
+	for card in aux.Next(Duel.GetFieldGroup(player, LOCATION_EXTRA, 0)) do stack[#stack + 1] = card end
+	table.sort(stack, function(left, right) return left:GetSequence() > right:GetSequence() end)
+	return stack
+end
+local function faceup_life_group(player)
+	return Duel.GetFieldGroup(player, LOCATION_EXTRA, 0):Filter(Card.IsPosition, nil, POS_FACEUP)
+end
+-- The exact cards a FLIP_LIFE_TOP would turn over, or nil while unpayable:
+-- every card in the slice must still show the face the flip starts from.
+local function life_flip_slice(player, cost, n)
+	local stack = life_from_top(player)
+	if cost.position == "BOTTOM" then
+		local reversed = {}
+		for index = #stack, 1, -1 do reversed[#reversed + 1] = stack[index] end
+		stack = reversed
+	end
+	if #stack < n then return nil end
+	local required = cost.faceup ~= false and POS_FACEDOWN or POS_FACEUP
+	local slice = {}
+	for index = 1, n do
+		if not stack[index]:IsPosition(required) then return nil end
+		slice[index] = stack[index]
+	end
+	return slice
+end
+local function flip_life(cards, faceup)
+	local position = faceup and POS_FACEUP_DEFENSE or POS_FACEDOWN_DEFENSE
+	local flipped = 0
+	for _, card in ipairs(cards) do
+		flipped = flipped + Duel.ChangePosition(card, position)
+	end
+	return flipped
+end
 local function reveal_cards_to(player, cards)
 	for _, card in ipairs(cards or {}) do Duel.ConfirmCards(player, card) end
 end
@@ -644,8 +691,13 @@ function C.CanPayCost(op, cost, context)
 		return available ~= nil and available >= n
 	end
 	if op == "RETURN_ATTACHED_DON" then return opcg.GetAttachedDon(context.card) >= n end
-	if op == "TAKE_LIFE_TO_HAND" or op == "TRASH_LIFE_TOP" or op == "FLIP_LIFE_TOP" then
+	if op == "TAKE_LIFE_TO_HAND" or op == "TRASH_LIFE_TOP" then
 		return life_count(player) >= n
+	end
+	if op == "FLIP_LIFE_TOP" then
+		-- target="ANY_FACEUP": "자신의 앞면인 라이프 1장을" (e.g. ST13-009)
+		if cost.target == "ANY_FACEUP" then return faceup_life_group(player):GetCount() >= n end
+		return life_flip_slice(player, cost, n) ~= nil
 	end
 	if op == "MILL_DECK" then
 		return cost.mode == "OPTIONAL" or Duel.GetFieldGroupCount(player, LOCATION_DECK, 0) >= n
@@ -739,23 +791,28 @@ function C.PayCost(op, cost, context)
 		local maximum = cost.max_count or n
 		assert(opcg.ReturnAttachedDonToCost(context.card, n, maximum, player, cost.state) >= n,
 			"RETURN_ATTACHED_DON failed")
-	elseif op == "TAKE_LIFE_TO_HAND" or op == "TRASH_LIFE_TOP" or op == "FLIP_LIFE_TOP" then
+	elseif op == "TAKE_LIFE_TO_HAND" or op == "TRASH_LIFE_TOP" then
 		for _ = 1, n do
 			local card = assert(choose_life(player, cost.position or "TOP", player), "life is empty")
 			cards[#cards + 1] = card
 			if op == "TAKE_LIFE_TO_HAND" then
 				Duel.SendtoHand(card, player, REASON_COST)
-			elseif op == "TRASH_LIFE_TOP" then
-				Duel.SendtoGrave(card, REASON_COST)
 			else
-				Duel.ChangePosition(card, cost.faceup == false and POS_FACEDOWN_DEFENSE or POS_FACEUP_DEFENSE)
-				if cost.faceup ~= false then
-					-- flipping life face-up is a public reveal in OPCG
-					Duel.ConfirmCards(player, card)
-					Duel.ConfirmCards(other(player), card)
-				end
+				Duel.SendtoGrave(card, REASON_COST)
 			end
 		end
+	elseif op == "FLIP_LIFE_TOP" then
+		-- the core flips life in place and broadcasts MSG_POS_CHANGE, so a
+		-- face-up flip is already the public reveal (no ConfirmCards hack)
+		if cost.target == "ANY_FACEUP" then
+			local group = faceup_life_group(player)
+			assert(group:GetCount() >= n, "FLIP_LIFE_TOP: no face-up life")
+			local selected = group:Select(player, n, n, nil)
+			for card in aux.Next(selected) do cards[#cards + 1] = card end
+		else
+			cards = assert(life_flip_slice(player, cost, n), "FLIP_LIFE_TOP: top of life cannot be flipped")
+		end
+		assert(flip_life(cards, cost.faceup ~= false) == #cards, "FLIP_LIFE_TOP failed")
 	elseif op == "MILL_DECK" then
 		local available = Duel.GetFieldGroupCount(player, LOCATION_DECK, 0)
 		local amount = math.min(n, available)
@@ -1108,7 +1165,18 @@ local function nested_conditions_match(conditions, context)
 end
 local function execute_nested(actions, context)
 	local out = {}
-	for _, action in ipairs(actions or {}) do out[#out + 1] = C.ExecuteAction(action.op, action, context) end
+	local previous_action_succeeded = true
+	for _, action in ipairs(actions or {}) do
+		if action["then"] == true and previous_action_succeeded ~= true then
+			context.last_action_succeeded = false
+			out[#out + 1] = {}
+		else
+			context.last_action_succeeded = nil
+			out[#out + 1] = C.ExecuteAction(action.op, action, context)
+			if context.last_action_succeeded == nil then context.last_action_succeeded = true end
+		end
+		previous_action_succeeded = context.last_action_succeeded == true
+	end
 	return out
 end
 
@@ -1154,7 +1222,10 @@ function C.ExecuteAction(op, action, context)
 	elseif op == "REST" or op == "SET_ACTIVE" or op == "KO" or op == "TRASH"
 		or op == "RETURN_TO_HAND" or op == "RETURN_TO_DECK_BOTTOM" or op == "MODIFY_POWER"
 		or op == "MODIFY_COST" or op == "MODIFY_COUNTER" or op == "GAIN_KEYWORD" then
-		cards = choose_selector(action.selector, context)
+		local selector = action.selector
+		if op == "REST" then selector = selector_with_state(selector, "ACTIVE")
+		elseif op == "SET_ACTIVE" then selector = selector_with_state(selector, "RESTED") end
+		cards = choose_selector(selector, context)
 		if op == "REST" then for _, card in ipairs(cards) do opcg.SetRested(card) end
 		elseif op == "SET_ACTIVE" then for _, card in ipairs(cards) do opcg.SetActive(card) end
 		elseif op == "KO" then remove_cards(cards, REASON_EFFECT + REASON_DESTROY, "TRASH")
@@ -1539,11 +1610,12 @@ end
 function C.EffectShapeSupported(effect, card)
 	return effect_shape_supported(effect, card)
 end
-local function register_trigger(card, effect, code, range, effect_index)
+local function register_trigger(card, effect, code, range, effect_index, timing)
 	if opcg.effect_queue then
 		local collector = opcg.effect_queue.register_trigger(card, effect, code, {
 			range=range,
 			description_index=effect_index,
+			timing=timing,
 		})
 		return collector
 	end
@@ -1553,11 +1625,14 @@ local function register_trigger(card, effect, code, range, effect_index)
 	native:SetCode(code)
 	if range then native:SetRange(range) end
 	native:SetCondition(function(e)
-		return opcg.runtime.can_resolve(e:GetHandler(), effect.effect_id,
-			runtime_context(e:GetHandler(), e:GetHandler():GetControler()))
+		local context = runtime_context(e:GetHandler(), e:GetHandler():GetControler())
+		context.timing = timing
+		return opcg.runtime.can_resolve(e:GetHandler(), effect.effect_id, context)
 	end)
 	native:SetOperation(function(e, player)
-		opcg.runtime.resolve(e:GetHandler(), effect.effect_id, runtime_context(e:GetHandler(), player))
+		local context = runtime_context(e:GetHandler(), player)
+		context.timing = timing
+		opcg.runtime.resolve(e:GetHandler(), effect.effect_id, context)
 	end)
 	card:RegisterEffect(native)
 	return native
@@ -1701,10 +1776,10 @@ function C.BindCard(card, definition)
 					-- Do not bind it to native YGO summon/special-summon success.
 				end
 				if timing == "WHEN_ATTACKING" then
-					register_trigger(card, effect, EVENT_ATTACK_ANNOUNCE, LOCATION_MZONE, effect_index)
+					register_trigger(card, effect, EVENT_ATTACK_ANNOUNCE, LOCATION_MZONE, effect_index, timing)
 				end
 				if timing == "ON_KO" then
-					local native = register_trigger(card, effect, EVENT_DESTROYED, nil, effect_index)
+					local native = register_trigger(card, effect, EVENT_DESTROYED, nil, effect_index, timing)
 					native:SetCondition(function(e)
 						local handler = e:GetHandler()
 						return handler:IsReason(REASON_DESTROY)
@@ -1717,6 +1792,7 @@ function C.BindCard(card, definition)
 							field=true,
 							range=opcg.IsStage(card) and LOCATION_FZONE or LOCATION_MZONE,
 							description_index=effect_index,
+							timing=timing,
 						})
 					native:SetCondition(function(e, _, _, event_player)
 						return event_player ~= e:GetHandler():GetControler()
@@ -1725,11 +1801,13 @@ function C.BindCard(card, definition)
 				if timing == "ACTIVATE_MAIN" or timing == "MAIN" then register_main(card, effect) end
 				if timing == "YOUR_TURN_END" then
 					local native = register_trigger(card, effect, EVENT_PHASE + PHASE_END,
-						opcg.IsStage(card) and LOCATION_FZONE or LOCATION_MZONE, effect_index)
+						opcg.IsStage(card) and LOCATION_FZONE or LOCATION_MZONE, effect_index, timing)
 					native:SetCondition(function(e)
 						local player = e:GetHandler():GetControler()
+						local context = runtime_context(e:GetHandler(), player)
+						context.timing = timing
 						return Duel.GetTurnPlayer() == player and opcg.runtime.can_resolve(e:GetHandler(),
-							effect.effect_id, runtime_context(e:GetHandler(), player))
+							effect.effect_id, context)
 					end)
 				end
 			end

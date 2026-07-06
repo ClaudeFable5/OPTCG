@@ -176,7 +176,17 @@ local function send_life(card, player, faceup, bottom)
 	return moved and moved ~= 0
 end
 local function execute_nested(actions, context)
-	for _, action in ipairs(actions or {}) do OPCGCore.ExecuteAction(action.op, action, context) end
+	local previous_action_succeeded = true
+	for _, action in ipairs(actions or {}) do
+		if action["then"] == true and previous_action_succeeded ~= true then
+			context.last_action_succeeded = false
+		else
+			context.last_action_succeeded = nil
+			OPCGCore.ExecuteAction(action.op, action, context)
+			if context.last_action_succeeded == nil then context.last_action_succeeded = true end
+		end
+		previous_action_succeeded = context.last_action_succeeded == true
+	end
 end
 local function conditions_match(conditions, context)
 	for _, condition in ipairs(conditions or {}) do
@@ -397,8 +407,7 @@ function X.execute(op, action, context)
 	elseif op == "LOOK_DECK_TOP" then
 		local count = math.min(action.count or 1, Duel.GetFieldGroupCount(player, LOCATION_DECK, 0))
 		if count > 0 then
-			if Duel.ConfirmDecktop then Duel.ConfirmDecktop(chooser, count)
-			else Duel.ConfirmCards(chooser, Duel.GetDecktopGroup(player, count)) end
+			Duel.ConfirmCards(chooser, Duel.GetDecktopGroup(player, count))
 		end
 		context.last_action_succeeded = count > 0
 		return {}

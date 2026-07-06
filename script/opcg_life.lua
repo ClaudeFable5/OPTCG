@@ -56,6 +56,7 @@ local function default_bridge()
 		end,
 		sequence=function(card) return card:GetSequence() end,
 		has_trigger=function(card) return opcg.HasLifeTrigger(card) end,
+		is_facedown=function(card) return card:IsPosition(POS_FACEDOWN) end,
 		can_add_to_hand=function(card, player, context)
 			return life_replacement(player, card) == nil and not cannot_take_life(player, context)
 		end,
@@ -163,7 +164,10 @@ function L.damage_leader(player, amount, context)
 				end
 			else
 				-- MSG_CONFIRM_CARDS for an EXTRA card is routed only to this player.
-				bridge.confirm_private(player, card)
+				-- A face-up life card is public knowledge already: nothing to peek.
+				if bridge.is_facedown == nil or bridge.is_facedown(card) ~= false then
+					bridge.confirm_private(player, card)
+				end
 				local has_trigger = bridge.has_trigger(card) == true
 				local activate = has_trigger and bridge.choose_trigger(player, card, context) == true
 				item.has_trigger = has_trigger
