@@ -1,0 +1,16 @@
+-- Invisible DON-deck host. gframe hides KIND.HOST cards; Lua keeps it inert.
+local s, id = GetID()
+function s.initial_effect(c)
+	local e = Effect.CreateEffect(c)
+	e:SetType(EFFECT_TYPE_SINGLE)
+	e:SetProperty(EFFECT_FLAG_CANNOT_DISABLE + EFFECT_FLAG_UNCOPYABLE)
+	e:SetCode(EFFECT_IMMUNE_EFFECT)
+	e:SetValue(function() return true end)
+	c:RegisterEffect(e)
+	local e2 = Effect.CreateEffect(c)
+	e2:SetType(EFFECT_TYPE_SINGLE)
+	e2:SetProperty(EFFECT_FLAG_CANNOT_DISABLE + EFFECT_FLAG_UNCOPYABLE)
+	e2:SetCode(EFFECT_CANNOT_BE_EFFECT_TARGET)
+	e2:SetValue(aux.tgoval)
+	c:RegisterEffect(e2)
+end
