@@ -44,15 +44,6 @@ function module.new(bridge)
         return self.bridge.ExecuteAction(action.op, action, context)
     end
 
-    -- fail-closed shape gate for the queue/dispatch path (see runtime.can_resolve);
-    -- bridges without the hook keep the old permissive behavior
-    function adapter:effect_supported(effect, card)
-        if self.bridge.EffectShapeSupported then
-            return self.bridge.EffectShapeSupported(effect, card)
-        end
-        return true
-    end
-
     function adapter:begin_transaction(context)
         if self.bridge.BeginTransaction then return self.bridge.BeginTransaction(context) end
         return nil

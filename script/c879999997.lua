@@ -10,12 +10,6 @@ function s.initial_effect(c)
 	e:SetProperty(EFFECT_FLAG_SINGLE_RANGE)
 	e:SetCode(EFFECT_UPDATE_ATTACK)
 	e:SetRange(LOCATION_MZONE)
-	-- official rule: an attached DON!! gives +1000 only during YOUR turn.
-	-- (the core invokes continuous conditions with exactly ONE arg -- the
-	-- effect: effect.cpp check_condition(condition, 1). Get the card from it.)
-	e:SetCondition(function(e)
-		return Duel.GetTurnPlayer() == e:GetHandler():GetControler()
-	end)
 	e:SetValue(1000)
 	c:RegisterEffect(e)
 end

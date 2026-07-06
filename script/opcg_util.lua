@@ -2,56 +2,7 @@
 -- Card scripts use this layer so native core hooks can replace individual operations later.
 opcg = opcg or {}
 
--- Native Effect:SetValue accepts only an integer or a Lua function. OPCG
--- operators also need to associate structured action tables and strings with
--- effects, so keep those values in a label-keyed Lua side table.
-opcg._effect_payloads = opcg._effect_payloads or {}
-opcg._next_effect_payload = opcg._next_effect_payload or 0
-function opcg.SetEffectValue(effect, value)
-    if value == nil then return end
-    local kind = type(value)
-    if kind == "number" or kind == "function" then
-        effect:SetValue(value)
-        return
-    end
-    if type(effect) == "table" then
-        effect._opcg_payload = value
-        return
-    end
-    opcg._next_effect_payload = opcg._next_effect_payload - 1
-    local label = opcg._next_effect_payload
-    opcg._effect_payloads[label] = value
-    effect:SetLabel(label)
-end
-function opcg.GetEffectValue(effect)
-    if not effect then return nil end
-    if type(effect) == "table" and effect._opcg_payload ~= nil then
-        return effect._opcg_payload
-    end
-    if effect.GetLabel then
-        local payload = opcg._effect_payloads[effect:GetLabel()]
-        if payload ~= nil then return payload end
-    end
-    return effect:GetValue()
-end
-
 opcg.KIND  = { LEADER = 1, CHARACTER = 2, EVENT = 3, STAGE = 4, DON = 5, HOST = 6 }
-
--- OPCG encodes the card KIND in cdb race, but stock card::get_race() returns 0
--- for non-MONSTER frames -- events (SPELL) and stages (FIELD SPELL) read as
--- kind 0 through GetRace(), which silently killed every IsEvent/IsStage gate.
--- GetOriginalRace() returns the raw cdb race for every frame.
--- NOTE: this core overrides type(): cards report "Card", not "userdata".
-opcg.UTIL_REV = 20260705
-local function kind_of(c)
-	local t = type(c)
-	if t ~= "Card" and t ~= "userdata" then return 0 end
-	if c.GetOriginalRace then
-		local r = c:GetOriginalRace()
-		if r and r ~= 0 then return r end
-	end
-	return c.GetRace and c:GetRace() or 0
-end
 opcg.COLOR = { RED = 0x01, GREEN = 0x02, BLUE = 0x04, PURPLE = 0x08, BLACK = 0x10, YELLOW = 0x20 }
 opcg.ATTRIBUTE = {
 	SLASH = "SLASH", STRIKE = "STRIKE", RANGED = "RANGED",
@@ -63,14 +14,7 @@ opcg.KEYWORD_EFFECT = opcg.KEYWORD_EFFECT or {
 	RUSH = 0x7f4f1102,
 	DOUBLE_ATTACK = 0x7f4f1103,
 	BANISH = 0x7f4f1104,
-	UNBLOCKABLE = 0x7f4f1105,
 }
-opcg.EFFECT_ALLOW_ATTACK_ACTIVE_CHARACTER = opcg.EFFECT_ALLOW_ATTACK_ACTIVE_CHARACTER or 0x7f4f1201
-opcg.EFFECT_ALLOW_ATTACK_CHARACTER = opcg.EFFECT_ALLOW_ATTACK_CHARACTER or 0x7f4f1202
-opcg.EFFECT_CANNOT_ATTACK_LEADER = opcg.EFFECT_CANNOT_ATTACK_LEADER or 0x7f4f1203
-opcg.EFFECT_CANNOT_SET_ACTIVE = opcg.EFFECT_CANNOT_SET_ACTIVE or 0x7f4f1204
-opcg.EFFECT_CANNOT_BE_RESTED = opcg.EFFECT_CANNOT_BE_RESTED or 0x7f4f1205
-opcg.EFFECT_PREVENT_BLOCKER_ACTIVATION = opcg.EFFECT_PREVENT_BLOCKER_ACTIVATION or 0x7f4f1206
 opcg.zone = {
 	CHARACTER = { loc = LOCATION_MZONE, seqs = { 0, 1, 2, 3, 4 } },
 	LEADER    = { loc = LOCATION_MZONE, seq = 5 },
@@ -117,23 +61,11 @@ function opcg.GetName(c)
 	if m then return m.name end
 	return tostring(original_code(c))
 end
-function opcg.HasName(c, name)
-	if opcg.GetName(c) == name then return true end
-	if not c or not opcg.EFFECT_NAME_ALIAS or not c.GetCardEffect then return false end
-	for _, effect in ipairs({c:GetCardEffect(opcg.EFFECT_NAME_ALIAS)}) do
-		local value = opcg.GetEffectValue(effect)
-		if type(value) == "function" then
-			if value(effect, name) then return true end
-		elseif value == name then
-			return true
-		end
-	end
-	return false
-end
 function opcg.GetCardType(c)
 	local m = meta(c)
 	if m then return m.card_type end
-	for name, value in pairs(opcg.KIND) do if kind_of(c) == value then return name end end
+	local race = c:GetRace()
+	for name, value in pairs(opcg.KIND) do if race == value then return name end end
 	return nil
 end
 function opcg.HasTrait(c, name)
@@ -182,27 +114,17 @@ function opcg.GrantKeyword(c, keyword, reset, reset_count)
 	c:RegisterEffect(effect)
 	return true
 end
-function opcg.HasMatchingEffect(c, code, target, context)
-	if not c or not code or not c.GetCardEffect then return false end
-	for _, effect in ipairs({ c:GetCardEffect(code) }) do
-		local value = opcg.GetEffectValue(effect)
-		if type(value) == "function" then
-			if value(effect, target, context) then return true end
-		elseif value == nil or value ~= 0 then return true end
-	end
-	return false
-end
 function opcg.IsVanilla(c)
 	local d = definition(c)
 	return d ~= nil and #(d.effects or {}) == 0 and #(d.keywords or {}) == 0
 end
 
-function opcg.IsLeader(c)    return kind_of(c) == opcg.KIND.LEADER end
-function opcg.IsCharacter(c) return kind_of(c) == opcg.KIND.CHARACTER end
-function opcg.IsStage(c)     return kind_of(c) == opcg.KIND.STAGE end
-function opcg.IsEvent(c)     return kind_of(c) == opcg.KIND.EVENT end
-function opcg.IsDon(c)       return kind_of(c) == opcg.KIND.DON end
-function opcg.IsHost(c)      return kind_of(c) == opcg.KIND.HOST end
+function opcg.IsLeader(c)    return c:GetRace() == opcg.KIND.LEADER end
+function opcg.IsCharacter(c) return c:GetRace() == opcg.KIND.CHARACTER end
+function opcg.IsStage(c)     return c:GetRace() == opcg.KIND.STAGE end
+function opcg.IsEvent(c)     return c:GetRace() == opcg.KIND.EVENT end
+function opcg.IsDon(c)       return c:GetRace() == opcg.KIND.DON end
+function opcg.IsHost(c)      return c:GetRace() == opcg.KIND.HOST end
 
 function opcg.IsOnCharacterArea(c) return in_mzone_seq(c, 0, 4) end
 function opcg.IsOnLeaderSlot(c) return in_mzone_seq(c, 5, 5) end
@@ -215,75 +137,18 @@ function opcg.IsInHand(c)  return c:IsLocation(LOCATION_HAND) end
 
 function opcg.IsActive(c) return c:IsPosition(POS_FACEUP_ATTACK) end
 function opcg.IsRested(c) return c:IsPosition(POS_FACEUP_DEFENSE) end
-function opcg.SetActive(c) if opcg.HasMatchingEffect(c, opcg.EFFECT_CANNOT_SET_ACTIVE) then return false end return Duel.ChangePosition(c, POS_FACEUP_ATTACK) end
-function opcg.SetRested(c, context)
-	if opcg.HasMatchingEffect(c, opcg.EFFECT_CANNOT_BE_RESTED) then return false end
-	local event = context or (opcg.contract_ops and opcg.contract_ops.current_context)
-	if opcg.contract_ops and opcg.contract_ops.before_rest
-		and not opcg.contract_ops.before_rest(c, event) then return false end
-	local moved = Duel.ChangePosition(c, POS_FACEUP_DEFENSE)
-	if moved and moved ~= 0 and event and event.effect and opcg.contract_ops then
-		local owner = c:GetControler()
-		local emitted = {}
-		for key, value in pairs(event) do emitted[key] = value end
-		emitted.event_target = c
-		emitted.event_targets = {c}
-		emitted.event_cards = {c}
-		emitted.event_count = 1
-		emitted.reason_player = event.effect_player or event.player
-		opcg.contract_ops.emit("ON_OWN_CHARACTER_RESTED_BY_EFFECT", emitted, owner)
-		if emitted.reason_player ~= nil and emitted.reason_player ~= owner then
-			opcg.contract_ops.emit("ON_SELF_RESTED_BY_OPPONENT_EFFECT", emitted, owner, {c})
-		end
-	end
-	return moved
-end
+function opcg.SetActive(c) return Duel.ChangePosition(c, POS_FACEUP_ATTACK) end
+function opcg.SetRested(c) return Duel.ChangePosition(c, POS_FACEUP_DEFENSE) end
 
 function opcg.GetPower(c) return c:GetAttack() end
 function opcg.GetBasePower(c)
 	if c.GetBaseAttack then return c:GetBaseAttack() end
 	return c:GetAttack()
 end
--- Cost lives in cdb level; get_level() also zeroes non-MONSTER frames, so
--- events/stages fall back to the original printed cost (their cost modifiers
--- flow through the play-discount channel, not EFFECT_UPDATE_LEVEL).
-function opcg.GetCost(c)
-	local t = type(c)
-	if t ~= "Card" and t ~= "userdata" then return 0 end
-	local cost = c:GetLevel()
-	if cost == 0 and c.GetOriginalLevel then cost = c:GetOriginalLevel() end
-	return cost
-end
+function opcg.GetCost(c) return c:GetLevel() end
 function opcg.GetBaseCost(c)
 	if c.GetOriginalLevel then return c:GetOriginalLevel() end
 	return c:GetLevel()
-end
-
--- "the NEXT card you play costs N less" modifiers (e.g. OP12-061 E2).
--- Entries expire by turn and by uses; the play proc consumes them on summon.
-opcg._play_discounts = opcg._play_discounts or {}
-local function discount_applies(d, c)
-	return (d.uses or 0) > 0
-		and d.turn == (Duel.GetTurnCount and Duel.GetTurnCount() or 0)
-		and (not d.predicate or d.predicate(c))
-end
-function opcg.AddPlayDiscount(player, entry)
-	local list = opcg._play_discounts[player] or {}
-	list[#list + 1] = entry
-	opcg._play_discounts[player] = list
-end
-function opcg.EffectivePlayCost(c, player)
-	local cost = opcg.GetCost(c)
-	for _, d in ipairs(opcg._play_discounts[player] or {}) do
-		if discount_applies(d, c) then cost = cost + (d.amount or 0) end
-	end
-	if cost < 0 then cost = 0 end
-	return cost
-end
-function opcg.ConsumePlayDiscounts(c, player)
-	for _, d in ipairs(opcg._play_discounts[player] or {}) do
-		if discount_applies(d, c) then d.uses = (d.uses or 0) - 1 end
-	end
 end
 function opcg.GetCounter(c)
 	if c.GetDefense then return c:GetDefense() end
@@ -336,8 +201,8 @@ local function scalar_filter(c, key, value, context)
 	end
 	if key == "trait_contains" then return opcg.TraitContains(c, value) end
 	if key == "trait_not_contains" then return not opcg.TraitContains(c, value) end
-	if key == "name" then return opcg.HasName(c, value) end
-	if key == "name_neq" then return not opcg.HasName(c, value) end
+	if key == "name" then return opcg.GetName(c) == value end
+	if key == "name_neq" then return opcg.GetName(c) ~= value end
 	if key == "card_type" then return opcg.GetCardType(c) == value end
 	if key == "card_type_any" then
 		for _, kind in ipairs(value) do if opcg.GetCardType(c) == kind then return true end end
@@ -345,9 +210,7 @@ local function scalar_filter(c, key, value, context)
 	end
 	if key == "color" then return opcg.HasColor(c, value) end
 	if key == "attribute" then return opcg.HasAttribute(c, value) end
-	if key == "attribute_neq" then return not opcg.HasAttribute(c, value) end
 	if key == "state" then return state_matches(c, value) end
-	if key == "faceup" then return c:IsFaceup() == value end
 	if key == "cost_eq" then return opcg.GetCost(c) == value end
 	if key == "cost_lte" then return opcg.GetCost(c) <= value end
 	if key == "cost_gte" then return opcg.GetCost(c) >= value end
@@ -361,11 +224,6 @@ local function scalar_filter(c, key, value, context)
 	if key == "base_power_lte" then return opcg.GetBasePower(c) <= value end
 	if key == "base_power_gte" then return opcg.GetBasePower(c) >= value end
 	if key == "counter_eq" then return opcg.GetCounter(c) == value end
-	if key == "keyword" then return opcg.HasKeyword(c, value) end
-	if key == "character_cost_lte" then
-		return opcg.IsLeader(c) or (opcg.IsCharacter(c) and opcg.GetCost(c) <= value)
-	end
-	if key == "power_sum_lte" then return true end
 	if key == "vanilla" then return opcg.IsVanilla(c) == value end
 	if key == "has_trigger" then return opcg.HasLifeTrigger(c) == value end
 	if key == "exclude_self" then return not value or c ~= context.card end
@@ -376,8 +234,7 @@ local function scalar_filter(c, key, value, context)
 		return opcg.GetCost(c) <= opcg.LifeCount(opcg.ResolvePlayer(value, context))
 	end
 	if key == "cost_lte_field_don_of" then
-		-- "field DON" = cost area + attached; TotalDon also counts the DON deck (always 10)
-		return opcg.GetCost(c) <= (opcg.FieldDon and opcg.FieldDon(opcg.ResolvePlayer(value, context)) or 0)
+		return opcg.GetCost(c) <= (opcg.TotalDon and opcg.TotalDon(opcg.ResolvePlayer(value, context)) or 0)
 	end
 	if key == "name_eq_last_target" then
 		local last = context.last_target
@@ -413,12 +270,10 @@ function opcg.CompileFilter(filter, context)
 	local known = {
 		trait=true, trait_any=true, trait_contains=true, trait_not_contains=true,
 		name=true, name_neq=true, card_type=true, card_type_any=true, color=true,
-		attribute=true, attribute_neq=true, state=true, faceup=true,
-		cost_eq=true, cost_lte=true, cost_gte=true,
+		attribute=true, state=true, cost_eq=true, cost_lte=true, cost_gte=true,
 		base_cost_eq=true, base_cost_lte=true, base_cost_gte=true, power_eq=true,
 		power_lte=true, power_gte=true, base_power_eq=true, base_power_lte=true,
 		base_power_gte=true, counter_eq=true, vanilla=true, has_trigger=true,
-		keyword=true, character_cost_lte=true, power_sum_lte=true,
 		exclude_self=true, cost_lte_life_total=true, cost_lte_life_of=true,
 		cost_lte_field_don_of=true, name_eq_last_target=true,
 		color_neq_last_target=true, any=true,
@@ -492,23 +347,6 @@ function opcg.SelectCards(selector, context)
 	local maximum = math.min(wanted, available)
 	if available < minimum then return nil, "NOT_ENOUGH_TARGETS" end
 	if maximum == 0 then return {} end
-	local power_limit = selector.filter and selector.filter.power_sum_lte
-	if power_limit then
-		local selected, remaining = {}, power_limit
-		for _ = 1, maximum do
-			local affordable = candidates:Filter(function(card)
-				return opcg.GetPower(card) <= remaining
-			end, nil)
-			if affordable:GetCount() == 0 then break end
-			local card = affordable:Select(chooser, 0, 1, nil):GetFirst()
-			if not card then break end
-			selected[#selected + 1] = card
-			remaining = remaining - opcg.GetPower(card)
-			candidates:RemoveCard(card)
-		end
-		if #selected < minimum then return nil, "NOT_ENOUGH_TARGETS" end
-		return selected
-	end
 	local selected = candidates:Select(chooser, minimum, maximum, nil)
 	local out = {}
 	for card in aux.Next(selected) do out[#out + 1] = card end

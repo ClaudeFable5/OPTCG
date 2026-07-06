@@ -21,13 +21,7 @@ function s.initial_effect(c)
             reveal=true,
           },
         },
-        conditions={
-          {
-            count=5,
-            op=[[OWN_CHARACTERS_COST_SUM_GTE]],
-            player=[[YOU]],
-          },
-        },
+        conditions={},
         costs={
           {
             count=1,
