@@ -1567,8 +1567,9 @@ local function register_event_play(card, effect)
 	-- resolve the IR effect, and the spent spell reaches the trash through the
 	-- normal resolution flow. EFFECT_TYPE_ACTIVATE is only the carrier.
 	local native = Effect.CreateEffect(card)
-	native:SetType(EFFECT_TYPE_ACTIVATE)
+	native:SetType(EFFECT_TYPE_IGNITION)
 	native:SetCode(EVENT_FREE_CHAIN)
+	native:SetRange(LOCATION_HAND)
 	native:SetCondition(function(e, tp)
 		if Duel.GetCurrentPhase() ~= PHASE_MAIN1 then return false end
 		return opcg.runtime.can_resolve(e:GetHandler(), effect.effect_id,
@@ -1578,6 +1579,7 @@ local function register_event_play(card, effect)
 		local cost = opcg.GetCost(e:GetHandler())
 		if chk == 0 then return opcg.CanRestDon(tp, cost) end
 		opcg.RestDon(tp, cost)
+		Duel.SendtoGrave(e:GetHandler(),REASON_COST)
 	end)
 	native:SetOperation(function(e, tp)
 		local handler = e:GetHandler()
