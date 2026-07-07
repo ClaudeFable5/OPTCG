@@ -311,7 +311,16 @@ end
 
 local function action_life_reorder(action, context)
 	local player = resolve_player(action.player, context)
-	local chooser = action.choose_player and player or source_player(context)
+	local chooser = source_player(context)
+	if action.player == "ANY" then
+		-- cost-host card texts str7/str8 = "자신의 라이프/상대의 라이프"
+		local target = Duel.SelectOption and Duel.SelectOption(chooser,
+			aux.Stringid(opcg.DON_COST_HOST_ID or 879999999, 6),
+			aux.Stringid(opcg.DON_COST_HOST_ID or 879999999, 7)) or 0
+		player = target == 0 and chooser or other(chooser)
+	elseif action.choose_player then
+		chooser = player
+	end
 	local cards = sort_life(life_cards(player), true)
 	local count = choose_number_up_to(chooser, math.min(action.count or #cards, #cards), action.mode)
 	if count == 0 then context.last_action_succeeded = action.mode == "UP_TO" return {} end
@@ -1108,7 +1117,7 @@ function X.after_remove(cards, reason, destination, context)
 			end
 		end
 		if destroyed and opcg.IsCharacter(card) and opcg.GetBasePower(card) >= 6000 then
-			X.emit("ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO", event, source_player)
+			X.emit("ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO", event, owner)
 		end
 	end
 end

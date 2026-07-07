@@ -225,6 +225,7 @@ function L.damage_leader(player, amount, context)
 		end
 		local event = copy(context)
 		event.damage = result.processed
+		opcg.effect_queue.resolve_timing(field_cards(player), "ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO", event)
 		opcg.effect_queue.resolve_timing(field_cards(player), "ON_YOUR_LIFE_DECREASED", event)
 		opcg.effect_queue.resolve_timing(field_cards(1 - player), "ON_OPPONENT_LIFE_DECREASED", event)
 	end

@@ -452,11 +452,9 @@ function B.resolve_attack(attacker, target, context)
 			if state.damage.processed and state.damage.processed > 0 then
 				context.damage = state.damage.processed
 				bridge.dispatch(bridge.field_cards(attacking_player),
-					"ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO", context)
-				bridge.dispatch(bridge.field_cards(attacking_player),
 					"ON_DAMAGE_TO_OPPONENT_LIFE", context)
-				-- ON_YOUR/OPPONENT_LIFE_DECREASED now dispatch centrally inside
-				-- opcg.life.damage_leader (so effect damage fires them too)
+				-- Life decrease timings dispatch centrally inside
+				-- opcg.life.damage_leader (so effect damage fires them too).
 			end
 		else
 			bridge.ko(state.target, state, context)
