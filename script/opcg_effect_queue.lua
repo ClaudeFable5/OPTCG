@@ -23,6 +23,7 @@ Q._active_item = nil
 Q._last_generation = Q._last_generation or 0
 Q._inflight = Q._inflight or nil
 Q._resolvers = Q._resolvers or setmetatable({}, {__mode = "k"})
+Q._timing_resolvers = Q._timing_resolvers or setmetatable({}, {__mode = "k"})
 Q._direct_items = Q._direct_items or {}
 Q._direct_serial = Q._direct_serial or 0
 Q._direct_active = nil
@@ -140,6 +141,7 @@ end
 function Q.enqueue(card, effect, resolver, context, options)
 	options = options or {}
 	context = shallow_copy(context)
+	if options.timing ~= nil then context.timing = options.timing end
 	Q._serial = Q._serial + 1
 	local generation
 	if Q._active_item then
@@ -238,15 +240,41 @@ local function make_context(card, tp, eg, ep, ev, re, r, rp)
 	return context
 end
 
-function Q.register_trigger(card, effect, code, options)
-	options = options or {}
-	Q.install()
+local function resolver_key(effect)
+	if effect and effect.effect_id ~= nil then return effect.effect_id end
+	return effect
+end
 
+local function remember_timing_resolver(card, effect, timing, resolver)
+	if not (card and effect and timing and resolver) then return end
+	local by_timing = Q._timing_resolvers[card]
+	if not by_timing then
+		by_timing = {}
+		Q._timing_resolvers[card] = by_timing
+	end
+	local by_effect = by_timing[timing]
+	if not by_effect then
+		by_effect = {}
+		by_timing[timing] = by_effect
+	end
+	by_effect[resolver_key(effect)] = resolver
+end
+
+local function timing_resolver(card, effect, timing)
+	local by_timing = Q._timing_resolvers[card]
+	if not by_timing then return nil end
+	local by_effect = by_timing[timing]
+	if not by_effect then return nil end
+	return by_effect[resolver_key(effect)]
+end
+
+local function create_resolver(card, effect, description_index)
+	Q.install()
 	local resolver = Effect.CreateEffect(card)
 	resolver:SetType(EFFECT_TYPE_SINGLE + EFFECT_TYPE_TRIGGER_F)
 	resolver:SetCode(Q.EVENT_RESOLVE)
 	resolver:SetProperty(EFFECT_FLAG_DELAY)
-	local description = description_for(card, effect, options.description_index)
+	local description = description_for(card, effect, description_index)
 	if description ~= 0 then resolver:SetDescription(description) end
 	resolver:SetCondition(function(e, _, _, _, ev, re)
 		local _, item = find_index(ev, e)
@@ -268,6 +296,7 @@ function Q.register_trigger(card, effect, code, options)
 		Q._active_item = item
 		local context = item.context
 		context.player = item.player
+		context.timing = context.timing or item.timing
 		local can_resolve = opcg.runtime.can_resolve(item.card,
 			item.effect.effect_id, context)
 		local accepted = can_resolve
@@ -281,6 +310,13 @@ function Q.register_trigger(card, effect, code, options)
 	end)
 	Q._resolvers[resolver] = true
 	card:RegisterEffect(resolver)
+	return resolver, description
+end
+
+function Q.register_trigger(card, effect, code, options)
+	options = options or {}
+	local resolver, description = create_resolver(card, effect, options.description_index)
+	remember_timing_resolver(card, effect, options.timing, resolver)
 
 	local collector = Effect.CreateEffect(card)
 	local field = options.field == true
@@ -299,16 +335,27 @@ function Q.register_trigger(card, effect, code, options)
 		if options.context then
 			context = options.context(e, tp, eg, ep, ev, re, r, rp, context) or context
 		end
+		if options.timing ~= nil then context.timing = options.timing end
 		local ok = opcg.runtime.can_resolve(handler, effect.effect_id, context)
 		if not ok then return end
 		Q.enqueue(handler, effect, resolver, context, {
 			optional=options.optional,
 			description=description,
+			timing=options.timing,
 		})
 		Q.flush()
 	end)
 	card:RegisterEffect(collector)
 	return collector, resolver
+end
+
+function Q.register_semantic(card, effect, timing, options)
+	options = options or {}
+	local resolver = timing_resolver(card, effect, timing)
+	if resolver then return resolver end
+	resolver = create_resolver(card, effect, options.description_index)
+	remember_timing_resolver(card, effect, timing, resolver)
+	return resolver
 end
 
 local function timing_matches(effect, timing)
@@ -375,7 +422,12 @@ function Q.has_timing(card, timing, context)
 	if not definition then return false end
 	for _, effect in ipairs(definition.effects or {}) do
 		if timing_matches(effect, timing) then
-			if not context or opcg.runtime.can_resolve(card, effect.effect_id, context) then
+			local item_context = shallow_copy(context)
+			item_context.card = card
+			item_context.player = item_context.player == nil and card:GetControler()
+				or item_context.player
+			item_context.timing = timing
+			if opcg.runtime.can_resolve(card, effect.effect_id, item_context) then
 				return true
 			end
 		end
@@ -387,7 +439,7 @@ function Q.direct_pending_count()
 	return #Q._direct_items
 end
 
-function Q.resolve_timing(cards, timing, context, options)
+function Q.enqueue_timing(cards, timing, context, options)
 	context = context or {}
 	options = options or {}
 	local enqueued = {}
@@ -401,29 +453,49 @@ function Q.resolve_timing(cards, timing, context, options)
 				local item_context = shallow_copy(context)
 				item_context.card = card
 				item_context.player = card:GetControler()
+				item_context.timing = timing
 				if opcg.runtime.can_resolve(card, effect.effect_id, item_context) then
-					Q._direct_serial = Q._direct_serial + 1
-					local generation = Q._direct_active
-						and (Q._direct_active.generation + 1) or 0
-					local item = {
-						serial=Q._direct_serial,
-						card=card,
-						effect=effect,
-						player=item_context.player,
-						generation=generation,
-						context=item_context,
-						optional=Q.is_optional(effect),
-						description=description_for(card, effect, 0),
-						timing=timing,
-					}
-					Q._direct_items[#Q._direct_items + 1] = item
-					enqueued[#enqueued + 1] = item
+					local resolver = options.engine
+						and timing_resolver(card, effect, timing) or nil
+					if resolver then
+						enqueued[#enqueued + 1] = Q.enqueue(card, effect, resolver,
+							item_context, {
+								optional=options.optional,
+								description=description_for(card, effect,
+									options.description_index or 0),
+								timing=timing,
+							})
+					elseif not options.engine or options.fallback_direct then
+						Q._direct_serial = Q._direct_serial + 1
+						local generation = Q._direct_active
+							and (Q._direct_active.generation + 1) or 0
+						local item = {
+							serial=Q._direct_serial,
+							card=card,
+							effect=effect,
+							player=item_context.player,
+							generation=generation,
+							context=item_context,
+							optional=Q.is_optional(effect),
+							description=description_for(card, effect,
+								options.description_index or 0),
+							timing=timing,
+						}
+						Q._direct_items[#Q._direct_items + 1] = item
+						enqueued[#enqueued + 1] = item
+					end
 				end
 			end
 		end
 	end)
 
-	if Q._direct_draining then return enqueued, {} end
+	return enqueued
+end
+
+function Q.drain_direct(options, timing, context)
+	options = options or {}
+	context = context or {}
+	if Q._direct_draining then return {} end
 	Q._direct_draining = true
 	local resolved = {}
 
@@ -437,6 +509,7 @@ function Q.resolve_timing(cards, timing, context, options)
 			elseif choice then selected = choice end
 		end
 		remove_direct(selected)
+		selected.context.timing = selected.context.timing or selected.timing
 
 		local accepted = opcg.runtime.can_resolve(selected.card,
 			selected.effect.effect_id, selected.context)
@@ -460,7 +533,7 @@ function Q.resolve_timing(cards, timing, context, options)
 		resolved[#resolved + 1] = record
 		if accepted then
 			if options.before_resolve
-				and options.before_resolve(player, selected, context) == false then
+				and options.before_resolve(player, selected, selected.context or context) == false then
 				accepted = false
 				record.accepted = false
 				record.reason = "ACTIVATION_ABORTED"
@@ -481,6 +554,19 @@ function Q.resolve_timing(cards, timing, context, options)
 	end
 
 	Q._direct_draining = false
+	return resolved
+end
+
+function Q.resolve_timing(cards, timing, context, options)
+	context = context or {}
+	options = options or {}
+	local enqueued = Q.enqueue_timing(cards, timing, context, options)
+	if options.engine then
+		if not options.defer then Q.flush() end
+		return enqueued, {}
+	end
+	if options.defer or Q._direct_draining then return enqueued, {} end
+	local resolved = Q.drain_direct(options, timing, context)
 	return enqueued, resolved
 end
 

@@ -1032,13 +1032,13 @@ local function emit_candidates(player, cards)
 	end
 	return field_cards(player)
 end
-local function enqueue_emit(timing, context, player, cards)
+local function enqueue_emit(timing, context, player, cards, options)
 	context = context or {}
 	context.timing = timing
 	local candidates = emit_candidates(player, cards)
 	if #candidates == 0 then return {} end
 	if opcg.effect_queue and opcg.effect_queue.enqueue_timing then
-		return opcg.effect_queue.enqueue_timing(candidates, timing, context)
+		return opcg.effect_queue.enqueue_timing(candidates, timing, context, options)
 	end
 	local results = {}
 	for _, card in ipairs(candidates) do
@@ -1122,22 +1122,29 @@ function X.emit_played(card, player, context)
 	player = player or card:GetControler()
 	local event = played_context(card, player, context)
 	local queue = opcg.effect_queue
-	if queue and queue.enqueue_timing and queue.drain_direct then
+	if queue and queue.enqueue_timing then
 		local enqueued = {}
-		append_all(enqueued, enqueue_emit("ON_PLAY", event, player, {card}))
+		append_all(enqueued, enqueue_emit("ON_PLAY", event, player, {card},
+			{engine=true}))
 		if opcg.IsCharacter(card) then
-			append_all(enqueued, enqueue_emit("ON_OPPONENT_CHARACTER_PLAYED", event, other(player)))
+			append_all(enqueued, enqueue_emit("ON_OPPONENT_CHARACTER_PLAYED",
+				event, other(player), nil, {engine=true}))
 			if opcg.HasLifeTrigger(card) then
-				append_all(enqueued, enqueue_emit("ON_OWN_TRIGGER_CHARACTER_PLAYED", event, player))
+				append_all(enqueued, enqueue_emit("ON_OWN_TRIGGER_CHARACTER_PLAYED",
+					event, player, nil, {engine=true}))
 			end
 			if opcg.IsVanilla(card) and card:IsPreviousLocation(LOCATION_HAND) then
-				append_all(enqueued, enqueue_emit("ON_OWN_VANILLA_CHARACTER_PLAYED_FROM_HAND", event, player))
+				append_all(enqueued, enqueue_emit(
+					"ON_OWN_VANILLA_CHARACTER_PLAYED_FROM_HAND",
+					event, player, nil, {engine=true}))
 			end
 			if opcg.GetBaseCost(card) >= 8 then
-				append_all(enqueued, enqueue_emit("ON_OPPONENT_HIGH_COST_OR_EFFECT_PLAY", event, other(player)))
+				append_all(enqueued, enqueue_emit("ON_OPPONENT_HIGH_COST_OR_EFFECT_PLAY",
+					event, other(player), nil, {engine=true}))
 			end
 		end
-		return enqueued, queue.drain_direct(nil, "ON_PLAY", event)
+		if queue.flush then queue.flush() end
+		return enqueued, {}
 	end
 
 	local results = {}

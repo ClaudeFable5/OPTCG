@@ -27,6 +27,7 @@ function s.initial_effect(c)
             count=1,
             faceup=false,
             op=[[FLIP_LIFE_TOP]],
+            target=[[ANY_FACEUP]],
           },
         },
         effect_id=[[E1]],

@@ -16,7 +16,13 @@ B.STAGE = {
 	END_BATTLE="END_BATTLE",
 }
 B._registered = B._registered or setmetatable({}, {__mode="k"})
-B.PROMPT = B.PROMPT or 222
+-- Prompt strings live on the DON cost host's cdb text entries (aux.Stringid =
+-- code<<20|n -> texts.str(n+1) of card 879999999), so no !system id collisions.
+B.BLOCK_PROMPT = B.BLOCK_PROMPT or aux.Stringid(879999999, 0)
+B.COUNTER_PROMPT = B.COUNTER_PROMPT or aux.Stringid(879999999, 1)
+B.BLOCK_SELECT_HINT = B.BLOCK_SELECT_HINT or aux.Stringid(879999999, 2)
+B.COUNTER_SELECT_HINT = B.COUNTER_SELECT_HINT or aux.Stringid(879999999, 3)
+B.PROMPT = B.PROMPT or B.COUNTER_PROMPT
 
 local function copy(value)
 	local result = {}
@@ -100,6 +106,12 @@ local function default_bridge()
 		set_rested=function(card) return opcg.SetRested(card) end,
 		power=function(card) return opcg.GetPower(card) end,
 		counter=function(card) return opcg.GetCounter(card) end,
+		-- resolve_counters only offers [Counter] events when the bridge says so;
+		-- affordability of the card's DON cost is part of that answer.
+		is_event=function(card)
+			return opcg.IsEvent(card)
+				and opcg.CanRestDon(card:GetControler(), opcg.GetCost(card))
+		end,
 		field_cards=default_field_cards,
 		hand_cards=function(player)
 			return array(Duel.GetFieldGroup(player, LOCATION_HAND, 0))
@@ -110,11 +122,13 @@ local function default_bridge()
 		end,
 		dispatch=default_dispatch,
 		select_blocker=function(player, candidates)
-			if #candidates == 0 or not Duel.SelectYesNo(player, B.PROMPT) then return nil end
+			if #candidates == 0 or not Duel.SelectYesNo(player, B.BLOCK_PROMPT) then return nil end
+			Duel.Hint(HINT_SELECTMSG, player, B.BLOCK_SELECT_HINT)
 			return to_group(candidates):Select(player, 1, 1, nil):GetFirst()
 		end,
 		select_counter=function(player, candidates)
-			if #candidates == 0 or not Duel.SelectYesNo(player, B.PROMPT) then return nil end
+			if #candidates == 0 or not Duel.SelectYesNo(player, B.COUNTER_PROMPT) then return nil end
+			Duel.Hint(HINT_SELECTMSG, player, B.COUNTER_SELECT_HINT)
 			return to_group(candidates):Select(player, 1, 1, nil):GetFirst()
 		end,
 		trash_counter=function(card)
@@ -129,17 +143,44 @@ local function default_bridge()
 			counter_context.card = card
 			counter_context.player = state.defending_player
 			counter_context.battle = state
+			counter_context.event_target = card
+			counter_context.event_targets = {card}
+			counter_context.event_cards = {card}
+			counter_context.event_count = 1
+			counter_context.event_player = state.defending_player
+			counter_context.effect_play = true
+			if opcg.contract_ops then
+				opcg.contract_ops.emit("ON_YOUR_EVENT_ACTIVATED", counter_context, state.defending_player)
+				opcg.contract_ops.emit("ON_OPPONENT_EVENT_ACTIVATED", counter_context, state.attacking_player)
+				opcg.contract_ops.emit("ON_OPPONENT_EVENT_OR_TRIGGER_ACTIVATED", counter_context, state.attacking_player)
+				opcg.contract_ops.emit("ON_OPPONENT_BLOCKER_OR_EVENT_ACTIVATED", counter_context, state.attacking_player)
+			end
 			return opcg.effect_queue.resolve_timing({card}, "COUNTER", counter_context, {
 				prevalidated=true,
 				choose_item=context.choose_effect_order,
 				choose_optional=context.choose_optional_effect,
 				before_resolve=function()
+					-- the event's DON cost is paid the moment it is used
+					opcg.RestDon(state.defending_player, opcg.GetCost(card))
 					Duel.SendtoGrave(card, REASON_RULE)
 					return true
 				end,
 			})
 		end,
-		ko=function(card) return Duel.Destroy(card, REASON_BATTLE) end,
+		ko=function(card, state, context)
+			local cards = {card}
+			if opcg.contract_ops and opcg.contract_ops.before_remove then
+				cards = opcg.contract_ops.before_remove(cards,
+					REASON_BATTLE + REASON_DESTROY, "TRASH", context)
+			end
+			if #cards == 0 then return 0 end
+			opcg.ReturnAttachedDon(card)
+			local moved = Duel.Destroy(card, REASON_BATTLE)
+			if moved > 0 and opcg.contract_ops and opcg.contract_ops.after_remove then
+				opcg.contract_ops.after_remove(cards, REASON_BATTLE + REASON_DESTROY, "TRASH", context)
+			end
+			return moved
+		end,
 		damage_leader=function(player, amount, context)
 			return opcg.life.damage_leader(player, amount, context)
 		end,
@@ -155,14 +196,71 @@ local function bridge_for(context)
 	return context.bridge or default_bridge()
 end
 
+local function has_matching_effect(card, code, target, context)
+	return opcg.HasMatchingEffect and opcg.HasMatchingEffect(card, code, target, context)
+end
+local function required_attack_discard(attacker, player, context)
+	if not Duel or not Duel.IsPlayerAffectedByEffect or not opcg.EFFECT_REQUIRE_ATTACK_DISCARD then return 0 end
+	local required = 0
+	for _, effect in ipairs({Duel.IsPlayerAffectedByEffect(player, opcg.EFFECT_REQUIRE_ATTACK_DISCARD)}) do
+		local value = opcg.GetEffectValue(effect)
+		if type(value) == "table" then
+			local predicate = opcg.CompileFilter(value.attacker_filter or {}, context)
+			if predicate and predicate(attacker) then required = math.max(required, value.count or 1) end
+		elseif type(value) == "function" then
+			local applies, count = value(effect, attacker, context)
+			if applies then required = math.max(required, count or 1) end
+		elseif value then
+			required = math.max(required, 1)
+		end
+	end
+	return required
+end
+local function pay_attack_discard(attacker, player, context)
+	local count = required_attack_discard(attacker, player, context)
+	if count <= 0 then return true end
+	if not Duel.GetFieldGroup then return false end
+	local hand = Duel.GetFieldGroup(player, LOCATION_HAND, 0)
+	if hand:GetCount() < count then return false end
+	local selected = hand:Select(player, count, count, nil)
+	return Duel.SendtoGrave(selected, REASON_COST + REASON_DISCARD) == count
+end
+local function record_character_battle(attacker, target, bridge)
+	if not attacker or not target or not bridge.is_character(target) then return end
+	opcg._battle_usage = opcg._battle_usage or setmetatable({}, {__mode="k"})
+	opcg._battle_usage[attacker] = {
+		turn=bridge.global_turn_count(),
+		opponent_character=true,
+	}
+end
+local function played_this_turn(card, bridge)
+	return bridge.field_id and card and card.GetTurnID
+		and card:GetTurnID() == bridge.global_turn_count()
+end
+local function has_rush(card, bridge)
+	return bridge.has_keyword(card, "RUSH")
+end
+
 function B.is_legal_target(target, attacking_player, attacker, context)
 	if not target then return false end
 	local bridge = bridge_for(context or {})
 	if bridge.controller(target) == attacking_player or not bridge.is_on_field(target) then
 		return false
 	end
-	if bridge.is_leader(target) then return true end
-	if bridge.is_character(target) then return not bridge.is_active(target) end
+	if has_matching_effect(attacker, opcg.EFFECT_CANNOT_ATTACK_TARGETS, target, context) then
+		return false
+	end
+	if bridge.is_leader(target) then
+		if has_matching_effect(attacker, opcg.EFFECT_CANNOT_ATTACK_LEADER, target, context) then return false end
+		if played_this_turn(attacker, bridge) and not bridge.is_leader(attacker)
+			and not has_rush(attacker, bridge)
+			and has_matching_effect(attacker, opcg.EFFECT_ALLOW_ATTACK_CHARACTER, target, context) then return false end
+		return true
+	end
+	if bridge.is_character(target) then
+		return not bridge.is_active(target)
+			or has_matching_effect(attacker, opcg.EFFECT_ALLOW_ATTACK_ACTIVE_CHARACTER, target, context) == true
+	end
 	return false
 end
 
@@ -177,12 +275,14 @@ function B.can_declare(attacker, context)
 		return false, "INVALID_ATTACKER"
 	end
 	if not bridge.is_active(attacker) then return false, "ATTACKER_RESTED" end
+	if has_matching_effect(attacker, EFFECT_CANNOT_ATTACK, nil, context) then return false, "CANNOT_ATTACK" end
 	if bridge.personal_turn_count(player) <= 1 then return false, "FIRST_PERSONAL_TURN" end
+	local discard = required_attack_discard(attacker, player, context)
+	if discard > 0 and #bridge.hand_cards(player) < discard then return false, "ATTACK_COST_UNPAYABLE" end
 
-	local played_this_turn = bridge.field_id and attacker.GetTurnID
-		and attacker:GetTurnID() == bridge.global_turn_count()
-	if played_this_turn and not bridge.is_leader(attacker)
-		and not bridge.has_keyword(attacker, "RUSH") then
+	if played_this_turn(attacker, bridge) and not bridge.is_leader(attacker)
+		and not has_rush(attacker, bridge)
+		and not has_matching_effect(attacker, opcg.EFFECT_ALLOW_ATTACK_CHARACTER, nil, context) then
 		return false, "SUMMONING_SICKNESS"
 	end
 	return true
@@ -191,7 +291,6 @@ end
 local function same_field_object(card, field_id, bridge)
 	return card and bridge.is_on_field(card) and bridge.field_id(card) == field_id
 end
-
 local function blocker_candidates(state, bridge)
 	if bridge.has_keyword(state.attacker, "UNBLOCKABLE") then return {} end
 	local result = {}
@@ -199,7 +298,11 @@ local function blocker_candidates(state, bridge)
 		if card ~= state.original_target
 			and bridge.is_character(card)
 			and bridge.is_active(card)
-			and bridge.has_keyword(card, "BLOCKER") then
+			and bridge.has_keyword(card, "BLOCKER")
+			and not has_matching_effect(state.attacker,
+				opcg.EFFECT_PREVENT_BLOCKER_ACTIVATION, card, state)
+			and not has_matching_effect(card,
+				opcg.EFFECT_PREVENT_BLOCKER_ACTIVATION, state.attacker, state) then
 			result[#result + 1] = card
 		end
 	end
@@ -272,11 +375,18 @@ function B.resolve_attack(attacker, target, context)
 	context.battle_attacker = attacker
 	context.battle_target = target
 
+	if not pay_attack_discard(attacker, attacking_player, context) then
+		return false, {reason="ATTACK_COST_UNPAYABLE"}
+	end
+
 	bridge.set_rested(attacker)
 	bridge.emit_attack(attacker, target, state, context)
 
 	state.stage = B.STAGE.ATTACK_EFFECTS
 	bridge.dispatch({attacker}, "WHEN_ATTACKING", context)
+	if bridge.is_leader(target) then
+		bridge.dispatch({attacker}, "WHEN_ATTACKING_OPPONENT_LEADER", context)
+	end
 	bridge.dispatch(bridge.field_cards(state.defending_player), "ON_OPPONENT_ATTACK", context)
 	if not same_field_object(attacker, state.attacker_field_id, bridge)
 		or not same_field_object(target, state.target_field_id, bridge) then
@@ -299,6 +409,8 @@ function B.resolve_attack(attacker, target, context)
 		bridge.dispatch({blocker}, "ON_BLOCK", context)
 		bridge.dispatch(bridge.field_cards(attacking_player),
 			"ON_OPPONENT_BLOCKER_ACTIVATED", context)
+		bridge.dispatch(bridge.field_cards(attacking_player),
+			"ON_OPPONENT_BLOCKER_OR_EVENT_ACTIVATED", context)
 	end
 	bridge.dispatch({attacker, state.target}, "WHEN_ATTACKING_OR_ATTACKED", context)
 	bridge.dispatch({attacker, state.target}, "WHEN_BATTLING", context)
@@ -338,12 +450,13 @@ function B.resolve_attack(attacker, target, context)
 			})
 			state.outcome = state.damage.defeated and "DEFEAT" or "LEADER_DAMAGE"
 			if state.damage.processed and state.damage.processed > 0 then
+				context.damage = state.damage.processed
+				bridge.dispatch(bridge.field_cards(attacking_player),
+					"ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO", context)
 				bridge.dispatch(bridge.field_cards(attacking_player),
 					"ON_DAMAGE_TO_OPPONENT_LIFE", context)
-				bridge.dispatch(bridge.field_cards(state.defending_player),
-					"ON_YOUR_LIFE_DECREASED", context)
-				bridge.dispatch(bridge.field_cards(attacking_player),
-					"ON_OPPONENT_LIFE_DECREASED", context)
+				-- ON_YOUR/OPPONENT_LIFE_DECREASED now dispatch centrally inside
+				-- opcg.life.damage_leader (so effect damage fires them too)
 			end
 		else
 			bridge.ko(state.target, state, context)
@@ -361,6 +474,7 @@ function B.resolve_attack(attacker, target, context)
 
 	state.stage = B.STAGE.END_BATTLE
 	if bridge.is_character(state.target) then
+		record_character_battle(attacker, state.target, bridge)
 		bridge.dispatch({attacker, state.target}, "AFTER_BATTLE_WITH_OPPONENT_CHARACTER", context)
 	end
 	bridge.dispatch(bridge.field_cards(attacking_player), "END_OF_BATTLE", context)
@@ -404,6 +518,7 @@ function B.register_attack_action(card)
 		local target = Duel.GetFirstTarget()
 		if target then B.resolve_attack(effect:GetHandler(), target) end
 	end)
+	attack:SetDescription(1157) -- [OPCG] tells the client this ignition is THE attack (dedicated button)
 	card:RegisterEffect(attack)
 	return true
 end
