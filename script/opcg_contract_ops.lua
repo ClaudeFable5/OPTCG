@@ -347,6 +347,7 @@ local function action_power_by_count(action, context, source_cards, destination)
 	local cards = source_cards(player, chooser)
 	if destination == "TRASH" then trash(cards, REASON_EFFECT + REASON_DISCARD)
 	elseif destination == "KO" then trash(cards, REASON_EFFECT + REASON_DESTROY)
+	elseif destination == "HAND" and #cards > 0 then Duel.SendtoHand(to_group(cards), player, REASON_EFFECT)
 	elseif destination == "DECK_BOTTOM" and #cards > 0 then
 		Duel.SendtoDeck(to_group(cards), player, SEQ_DECKBOTTOM, REASON_EFFECT)
 		if action.order == "CHOOSE" and #cards > 1 then Duel.SortDeckbottom(chooser, player, #cards) end
@@ -524,6 +525,14 @@ function X.execute(op, action, context)
 			local group = Duel.GetMatchingGroup(filter_for(action.filter, context), p, LOCATION_GRAVE, 0, nil)
 			return from_group(group:Select(c, 0, group:GetCount(), nil))
 		end, "DECK_BOTTOM")
+	elseif op == "RETURN_OWN_ANY_FOR_POWER" then
+		return action_power_by_count(action, context, function(p, c)
+			local predicate = filter_for(action.filter, context)
+			local group = Duel.GetMatchingGroup(function(card)
+				return opcg.IsCharacter(card) and predicate(card)
+			end, p, LOCATION_MZONE, 0, nil)
+			return from_group(group:Select(c, 0, group:GetCount(), nil))
+		end, "HAND")
 	elseif op == "REST_DON_FOR_POWER" then
 		local count = opcg.ActiveDon(player)
 		local wanted = count

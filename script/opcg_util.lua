@@ -460,6 +460,7 @@ function opcg.GetCandidateGroup(selector, context)
 	local chooser = context.player
 	if chooser == nil and source then chooser = source:GetControler() end
 	if chooser == nil then chooser = Duel.GetTurnPlayer() end
+	if selector.chooser == "OPPONENT" then chooser = 1 - chooser end
 	local owner = selector.owner or "YOU"
 	local target_player = opcg.ResolvePlayer(owner, context)
 	local loc = selector.kind == "STAGE" and LOCATION_FZONE or LOCATION_MZONE
@@ -485,6 +486,7 @@ function opcg.SelectCards(selector, context)
 	local chooser = context.player
 	if chooser == nil and source then chooser = source:GetControler() end
 	if chooser == nil then chooser = Duel.GetTurnPlayer() end
+	if selector.chooser == "OPPONENT" then chooser = 1 - chooser end
 	local available = candidates:GetCount()
 	local wanted = selector.count or 1
 	if selector.mode == "ALL" or wanted == 0 then wanted = available end

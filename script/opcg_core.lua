@@ -17,7 +17,7 @@ local CONDITION = {
 	LEADER_NAME_IS=true, LEADER_NAME_IS_ANY=true, LEADER_IS_MULTICOLOR=true,
 	LEADER_HAS_ATTRIBUTE=true, LEADER_HAS_COLOR=true, LEADER_STATE_IS=true,
 	LEADER_POWER_LTE=true, LEADER_POWER_GTE=true,
-	FIELD_DON_GTE=true, FIELD_DON_LTE=true, FIELD_DON_EQ=true,
+	FIELD_DON_GTE=true, FIELD_DON_LTE=true, FIELD_DON_EQ=true, ANY_FIELD_DON_EQ=true,
 	FIELD_DON_LTE_OPPONENT=true, FIELD_DON_LT_OPPONENT=true,
 	FIELD_DON_BEHIND_BY_GTE=true, ACTIVE_DON_GTE=true, ACTIVE_DON_LTE=true,
 	RESTED_DON_GTE=true, ALL_DON_RESTED=true, ATTACHED_DON_GTE=true,
@@ -90,7 +90,7 @@ local ACTION = {
 	REPLACE_LEAVE_FIELD=true, REPLACE_LIFE_TO_HAND=true, REPLACE_REST=true,
 	REQUIRE_HAND_DISCARD_TO_ATTACK=true, REST_CARD_OR_DON=true,
 	REST_DON_FOR_POWER=true, RETURN_DON_TO_MATCH_OPPONENT=true,
-	RETURN_TRASH_ANY_FOR_POWER=true, REVEAL_PLAY_SPLIT_FROM_HAND=true,
+	RETURN_TRASH_ANY_FOR_POWER=true, RETURN_OWN_ANY_FOR_POWER=true, REVEAL_PLAY_SPLIT_FROM_HAND=true,
 	SET_ACTIVE_CARD_OR_DON=true, SET_ALL_LIFE_FACE_DOWN=true,
 	SET_BASE_POWER=true, SET_BASE_POWER_FROM_TARGET=true, SET_COST=true,
 	SET_POWER=true, TRASH_FACEUP_LIFE_ALL=true, TRASH_HAND_TO_COUNT=true,
@@ -427,6 +427,7 @@ function C.CheckCondition(op, condition, context)
 	if op == "FIELD_DON_GTE" then return opcg.FieldDon(player) >= n end
 	if op == "FIELD_DON_LTE" then return opcg.FieldDon(player) <= n end
 	if op == "FIELD_DON_EQ" then return opcg.FieldDon(player) == n end
+	if op == "ANY_FIELD_DON_EQ" then return opcg.FieldDon(0) == n or opcg.FieldDon(1) == n end
 	if op == "FIELD_DON_LTE_OPPONENT" then return opcg.FieldDon(player) <= opcg.FieldDon(other(player)) end
 	if op == "FIELD_DON_LT_OPPONENT" then return opcg.FieldDon(player) < opcg.FieldDon(other(player)) end
 	if op == "FIELD_DON_BEHIND_BY_GTE" then return opcg.FieldDon(other(player)) - opcg.FieldDon(player) >= n end
@@ -1538,7 +1539,7 @@ local function effect_is_continuous(effect)
 	end
 	return true
 end
-local PER_COUNT_SOURCE = { RESTED_DON=true, TRASH=true, HAND=true }
+local PER_COUNT_SOURCE = { RESTED_DON=true, TRASH=true, HAND=true, CHARACTER=true }
 local PER_COUNT_LOCATION = { TRASH=LOCATION_GRAVE, HAND=LOCATION_HAND }
 local CONTINUOUS_ONLY = { MODIFY_POWER_PER_COUNT=true, MODIFY_COST_PER_COUNT=true }
 local KO_REASON = { BATTLE=true, OPPONENT_BATTLE=true, EFFECT=true, OPPONENT_EFFECT=true, ANY=true }
@@ -1548,6 +1549,14 @@ local function count_source(action, player, card)
 		-- DON group itself is exposed instead of silently ignoring the filter.
 		if action.filter and next(action.filter) ~= nil then return nil end
 		return opcg.RestedDon(player)
+	end
+	if action.source == "CHARACTER" then
+		local context = { card=card, player=player }
+		local predicate = filter_for(action.filter, context)
+		if not predicate then return nil end
+		return Duel.GetMatchingGroupCount(function(c)
+			return opcg.IsCharacter(c) and predicate(c)
+		end, player, LOCATION_MZONE, 0, nil)
 	end
 	local location = PER_COUNT_LOCATION[action.source]
 	if not location then return nil end
