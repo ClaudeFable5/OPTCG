@@ -12,7 +12,6 @@ function s.initial_effect(c)
             duration=[[WHILE_CONDITION]],
             op=[[NEGATE_TIMING_EFFECTS]],
             player=[[YOU]],
-            scope=[[SELF]],
             timing=[[ON_PLAY]],
           },
         },

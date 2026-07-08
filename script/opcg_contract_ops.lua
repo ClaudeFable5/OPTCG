@@ -226,7 +226,7 @@ local function player_effect(source, player, code, value, duration)
 		player == source:GetControler() and 0 or 1)
 	opcg.SetEffectValue(effect, value)
 	attach_reset(effect, duration, source)
-	source:RegisterEffect(effect)
+	Duel.RegisterEffect(effect, source:GetControler())
 	return effect
 end
 
