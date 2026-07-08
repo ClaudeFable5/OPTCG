@@ -166,6 +166,13 @@ local function sort_life(cards, top_first)
 	end)
 	return cards
 end
+local function apply_life_order(bottom_to_top)
+	-- ocgcore's MoveSequence for LOCATION_EXTRA always moves the card to the
+	-- end of the list; this build treats that end as the life top.
+	for _, card in ipairs(bottom_to_top or {}) do
+		if card and card:IsLocation(LOCATION_EXTRA) then Duel.MoveSequence(card, 0) end
+	end
+end
 local function life_top(player)
 	return sort_life(life_cards(player), true)[1]
 end
@@ -321,30 +328,53 @@ local function action_life_reorder(action, context)
 	elseif action.choose_player then
 		chooser = player
 	end
-	local cards = sort_life(life_cards(player), true)
-	local count = choose_number_up_to(chooser, math.min(action.count or #cards, #cards), action.mode)
+	local top_first = sort_life(life_cards(player), true)
+	local bottom_first = sort_life(life_cards(player), false)
+	local count = choose_number_up_to(chooser, math.min(action.count or #top_first, #top_first), action.mode)
 	if count == 0 then context.last_action_succeeded = action.mode == "UP_TO" return {} end
 	local selected = {}
-	for index = 1, count do selected[index] = cards[index] end
+	local selected_set = {}
+	for index = 1, count do
+		selected[index] = top_first[index]
+		selected_set[selected[index]] = true
+	end
 	-- the LOOK part: the chooser privately sees the cards before reordering
 	Duel.ConfirmCards(chooser, to_group(selected))
 	if action.destinations then
+		local bottom_dest, top_dest = {}, {}
 		for _, card in ipairs(selected) do
 			-- cost-host card texts str5/str6 = "라이프 맨 위로/맨 아래로"
 			local destination = Duel.SelectOption(chooser,
 				aux.Stringid(opcg.DON_COST_HOST_ID or 879999999, 4),
 				aux.Stringid(opcg.DON_COST_HOST_ID or 879999999, 5))
-			if destination == 1 then Duel.MoveSequence(card, 0) end
+			if destination == 1 then bottom_dest[#bottom_dest + 1] = card
+			else top_dest[#top_dest + 1] = card end
 		end
+		local desired = {}
+		for index = #bottom_dest, 1, -1 do desired[#desired + 1] = bottom_dest[index] end
+		for _, card in ipairs(bottom_first) do
+			if not selected_set[card] then desired[#desired + 1] = card end
+		end
+		for index = #top_dest, 1, -1 do desired[#desired + 1] = top_dest[index] end
+		apply_life_order(desired)
 	else
-		for sequence = 0, #cards - 1 do
-			local group = to_group(cards)
+		local candidates = {}
+		for _, card in ipairs(selected) do candidates[#candidates + 1] = card end
+		local ordered = {}
+		for _ = 1, #selected do
+			local group = to_group(candidates)
 			local card = group:Select(chooser, 1, 1, nil):GetFirst()
 			if card then
-				Duel.MoveSequence(card, sequence)
-				for i, value in ipairs(cards) do if value == card then table.remove(cards, i) break end end
+				ordered[#ordered + 1] = card
+				for i, value in ipairs(candidates) do if value == card then table.remove(candidates, i) break end end
 			end
 		end
+		local desired = {}
+		for _, card in ipairs(bottom_first) do
+			if not selected_set[card] then desired[#desired + 1] = card end
+		end
+		for _, card in ipairs(ordered) do desired[#desired + 1] = card end
+		apply_life_order(desired)
 	end
 	context.last_action_succeeded = true
 	return remember(context, selected)

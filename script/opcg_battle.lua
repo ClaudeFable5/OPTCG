@@ -296,7 +296,7 @@ local function blocker_candidates(state, bridge)
 	local result = {}
 	for _, card in ipairs(bridge.field_cards(state.defending_player)) do
 		if card ~= state.original_target
-			and bridge.is_character(card)
+			and (bridge.is_character(card) or bridge.is_leader(card))
 			and bridge.is_active(card)
 			and bridge.has_keyword(card, "BLOCKER")
 			and not has_matching_effect(state.attacker,

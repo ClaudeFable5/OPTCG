@@ -1160,9 +1160,20 @@ local function play_from_life_top(action, context)
 	local chooser = controller(context)
 	local card = choose_life(player, action.position or "TOP", chooser)
 	if not card then context.last_action_succeeded = action.mode == "UP_TO" return {} end
+	if action.reveal ~= false then
+		local revealed = array_group({ card })
+		Duel.ConfirmCards(chooser, revealed)
+		Duel.ConfirmCards(other(chooser), revealed)
+	end
 	local predicate = assert(filter_for(action.filter, context), "unsupported PLAY_FROM_LIFE_TOP filter")
 	if not predicate(card) then context.last_action_succeeded = action.mode == "UP_TO" return {} end
+	if card:IsLocation(LOCATION_EXTRA) then
+		Duel.Sendto(card, LOCATION_REMOVED, REASON_EFFECT, POS_FACEUP, player, 0)
+	end
 	local played = play_card(card, player, chooser, action.rested == true, context) and { card } or {}
+	if #played == 0 and card:IsLocation(LOCATION_REMOVED) then
+		Duel.Sendto(card, LOCATION_EXTRA, REASON_EFFECT, POS_FACEDOWN_DEFENSE, player, 0)
+	end
 	context.last_action_succeeded = #played > 0 or action.mode == "UP_TO"
 	return remember_targets(context, played)
 end
