@@ -167,10 +167,13 @@ local function sort_life(cards, top_first)
 	return cards
 end
 local function apply_life_order(bottom_to_top)
-	-- ocgcore's MoveSequence for LOCATION_EXTRA always moves the card to the
-	-- end of the list; this build treats that end as the life top.
-	for _, card in ipairs(bottom_to_top or {}) do
-		if card and card:IsLocation(LOCATION_EXTRA) then Duel.MoveSequence(card, 0) end
+	-- The OPCG core honors the requested sequence inside the life stack
+	-- (0 = bottom). Cards already in place move nothing, so a "look and put
+	-- it back" reorder is wire-silent instead of rewriting the whole fan.
+	for index, card in ipairs(bottom_to_top or {}) do
+		if card and card:IsLocation(LOCATION_EXTRA) and card:GetSequence() ~= index - 1 then
+			Duel.MoveSequence(card, index - 1)
+		end
 	end
 end
 local function life_top(player)
