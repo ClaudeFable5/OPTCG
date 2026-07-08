@@ -82,7 +82,10 @@ local function default_bridge()
 		is_in_limbo=function(card) return card:IsLocation(LOCATION_REMOVED) end,
 		dispatch_trigger=function(card, context)
 			if opcg.effect_queue and opcg.effect_queue.resolve_timing then
-				return opcg.effect_queue.resolve_timing({ card }, "LIFE_TRIGGER", context)
+				-- 총합룰 8-6-2-1: the [Trigger] interrupts the damage processing
+				-- and resolves immediately, even inside an effect-damage drain.
+				return opcg.effect_queue.resolve_timing({ card }, "LIFE_TRIGGER", context,
+					{ immediate=true })
 			end
 			if OPCGCore and OPCGCore.DispatchTiming then
 				return OPCGCore.DispatchTiming(card, "LIFE_TRIGGER", context)
@@ -209,6 +212,14 @@ function L.damage_leader(player, amount, context)
 				end
 			end
 		end
+	end
+
+	-- 총합룰 8-6-2: effects whose timing was met during the damage processing
+	-- (spawned by resolved [Trigger]s) activate once ALL of it is done. When
+	-- this damage itself came from an effect mid-drain, the guard makes this a
+	-- no-op and the outer drain picks them up instead.
+	if result.processed > 0 and opcg.effect_queue and opcg.effect_queue.drain_direct then
+		opcg.effect_queue.drain_direct({}, "LIFE_TRIGGER", context)
 	end
 
 	-- Life went down: dispatch the decrease timings HERE so effect damage

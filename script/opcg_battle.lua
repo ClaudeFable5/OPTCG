@@ -522,3 +522,4 @@ function B.register_attack_action(card)
 end
 
 return B
+

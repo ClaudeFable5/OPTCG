@@ -1834,14 +1834,31 @@ function C.BindCard(card, definition)
 				end
 				if timing == "ACTIVATE_MAIN" or timing == "MAIN" then register_main(card, effect) end
 				if timing == "YOUR_TURN_END" then
-					local native = register_trigger(card, effect, EVENT_PHASE + PHASE_END,
-						opcg.IsStage(card) and LOCATION_FZONE or LOCATION_MZONE, effect_index, timing)
+					-- EVENT_PHASE is raised field-wide: the core's PhaseEvent scans
+					-- only the trigger and FIELD-continuous indexes, so a SINGLE
+					-- continuous collector would never fire. The label carries the
+					-- once-per-turn consumption (the phase re-collects until no
+					-- continuous effect is activateable).
+					local native
+					if opcg.effect_queue then
+						native = opcg.effect_queue.register_trigger(card, effect, EVENT_PHASE + PHASE_END, {
+							field=true,
+							once_per_turn=true,
+							range=opcg.IsStage(card) and LOCATION_FZONE or LOCATION_MZONE,
+							description_index=effect_index,
+							timing=timing,
+						})
+					else
+						native = register_trigger(card, effect, EVENT_PHASE + PHASE_END,
+							opcg.IsStage(card) and LOCATION_FZONE or LOCATION_MZONE, effect_index, timing)
+					end
 					native:SetCondition(function(e)
 						local player = e:GetHandler():GetControler()
+						if Duel.GetTurnPlayer() ~= player then return false end
+						if e:GetLabel() == Duel.GetTurnCount() then return false end
 						local context = runtime_context(e:GetHandler(), player)
 						context.timing = timing
-						return Duel.GetTurnPlayer() == player and opcg.runtime.can_resolve(e:GetHandler(),
-							effect.effect_id, context)
+						return opcg.runtime.can_resolve(e:GetHandler(), effect.effect_id, context)
 					end)
 				end
 			end
@@ -1873,3 +1890,4 @@ function C.GetSupportedOperations()
 end
 
 return C
+

@@ -82,6 +82,12 @@ local function eligible_bucket()
 	return generation, 1 - tp
 end
 
+-- 총합룰 8-6-1: within a bucket the owner may pick any order; the engine's
+-- deterministic stand-in is leader effects first, then insertion order.
+local function is_leader_item(item)
+	return item and item.card and opcg.IsLeader and opcg.IsLeader(item.card) or false
+end
+
 local function description_for(card, effect, index)
 	if type(effect.description) == "number" then return effect.description end
 	-- EDOPro system string 222: "Activate a Trigger Effect?"
@@ -186,8 +192,12 @@ function Q.flush()
 	local selected
 	for _, item in ipairs(Q._items) do
 		if item.generation == generation and item.player == player and not item.raised then
-			selected = item
-			break
+			if selected == nil then
+				selected = item
+			elseif is_leader_item(item) and not is_leader_item(selected) then
+				selected = item
+			end
+			if is_leader_item(selected) then break end
 		end
 	end
 	if selected then
@@ -331,6 +341,13 @@ function Q.register_trigger(card, effect, code, options)
 	if options.target then collector:SetTarget(options.target) end
 	collector:SetOperation(function(e, tp, eg, ep, ev, re, r, rp)
 		local handler = e:GetHandler()
+		-- Phase events re-collect continuous effects until none is activateable:
+		-- a collector on such an event must consume its one shot per turn or the
+		-- phase never ends. The registrant's condition checks the same label.
+		if options.once_per_turn then
+			if e:GetLabel() == Duel.GetTurnCount() then return end
+			e:SetLabel(Duel.GetTurnCount())
+		end
 		local context = make_context(handler, tp, eg, ep, ev, re, r, rp)
 		if options.context then
 			context = options.context(e, tp, eg, ep, ev, re, r, rp, context) or context
@@ -403,6 +420,11 @@ local function direct_bucket()
 			result[#result + 1] = item
 		end
 	end
+	table.sort(result, function(left, right)
+		local leader_left, leader_right = is_leader_item(left), is_leader_item(right)
+		if leader_left ~= leader_right then return leader_left end
+		return left.serial < right.serial
+	end)
 	return generation, player, result
 end
 
@@ -492,6 +514,53 @@ function Q.enqueue_timing(cards, timing, context, options)
 	return enqueued
 end
 
+local function resolve_direct_item(selected, options, context, resolved)
+	local player = selected.player
+	selected.context.timing = selected.context.timing or selected.timing
+
+	local accepted = opcg.runtime.can_resolve(selected.card,
+		selected.effect.effect_id, selected.context)
+	if accepted and selected.optional then
+		if options.choose_optional then
+			accepted = options.choose_optional(player, selected) == true
+		elseif Duel and Duel.SelectYesNo then
+			accepted = Duel.SelectYesNo(player, selected.description)
+		end
+	end
+
+	local record = {
+		serial=selected.serial,
+		card=selected.card,
+		effect_id=selected.effect.effect_id,
+		player=selected.player,
+		generation=selected.generation,
+		accepted=accepted == true,
+		timing=selected.timing,
+	}
+	resolved[#resolved + 1] = record
+	if accepted then
+		if options.before_resolve
+			and options.before_resolve(player, selected, selected.context or context) == false then
+			accepted = false
+			record.accepted = false
+			record.reason = "ACTIVATION_ABORTED"
+		end
+	end
+	if accepted then
+		local previous = Q._direct_active
+		Q._direct_active = selected
+		if options.prevalidated and opcg.runtime.resolve_prevalidated then
+			record.ok, record.result = opcg.runtime.resolve_prevalidated(
+				selected.card, selected.effect.effect_id, selected.context)
+		else
+			record.ok, record.result = opcg.runtime.resolve(selected.card,
+				selected.effect.effect_id, selected.context)
+		end
+		Q._direct_active = previous
+	end
+	return record
+end
+
 function Q.drain_direct(options, timing, context)
 	options = options or {}
 	context = context or {}
@@ -509,48 +578,7 @@ function Q.drain_direct(options, timing, context)
 			elseif choice then selected = choice end
 		end
 		remove_direct(selected)
-		selected.context.timing = selected.context.timing or selected.timing
-
-		local accepted = opcg.runtime.can_resolve(selected.card,
-			selected.effect.effect_id, selected.context)
-		if accepted and selected.optional then
-			if options.choose_optional then
-				accepted = options.choose_optional(player, selected) == true
-			elseif Duel and Duel.SelectYesNo then
-				accepted = Duel.SelectYesNo(player, selected.description)
-			end
-		end
-
-		local record = {
-			serial=selected.serial,
-			card=selected.card,
-			effect_id=selected.effect.effect_id,
-			player=selected.player,
-			generation=selected.generation,
-			accepted=accepted == true,
-			timing=selected.timing,
-		}
-		resolved[#resolved + 1] = record
-		if accepted then
-			if options.before_resolve
-				and options.before_resolve(player, selected, selected.context or context) == false then
-				accepted = false
-				record.accepted = false
-				record.reason = "ACTIVATION_ABORTED"
-			end
-		end
-		if accepted then
-			local previous = Q._direct_active
-			Q._direct_active = selected
-			if options.prevalidated and opcg.runtime.resolve_prevalidated then
-				record.ok, record.result = opcg.runtime.resolve_prevalidated(
-					selected.card, selected.effect.effect_id, selected.context)
-			else
-				record.ok, record.result = opcg.runtime.resolve(selected.card,
-					selected.effect.effect_id, selected.context)
-			end
-			Q._direct_active = previous
-		end
+		resolve_direct_item(selected, options, context, resolved)
 	end
 
 	Q._direct_draining = false
@@ -564,6 +592,22 @@ function Q.resolve_timing(cards, timing, context, options)
 	if options.engine then
 		if not options.defer then Q.flush() end
 		return enqueued, {}
+	end
+	if options.immediate then
+		-- 총합룰 8-6-2-1: a [Trigger] interrupts the damage processing and
+		-- resolves on the spot, even when that damage came from an effect
+		-- that is itself resolving inside drain_direct. Only the items
+		-- enqueued HERE resolve now; anything they spawn stays queued
+		-- (8-6-2: met-during-damage timings wait for the processing to end).
+		local resolved = {}
+		local draining_before = Q._direct_draining
+		Q._direct_draining = true
+		for _, item in ipairs(enqueued) do
+			remove_direct(item)
+			resolve_direct_item(item, options, context, resolved)
+		end
+		Q._direct_draining = draining_before
+		return enqueued, resolved
 	end
 	if options.defer or Q._direct_draining then return enqueued, {} end
 	local resolved = Q.drain_direct(options, timing, context)
