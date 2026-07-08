@@ -54,6 +54,7 @@ function s.initial_effect(c)
             filter={
               trait=[[천룡인]],
             },
+            hand_filter={},
             op=[[TRASH_CHARACTER_OR_HAND]],
           },
         },

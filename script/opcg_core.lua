@@ -631,13 +631,16 @@ end
 
 local function mixed_cost_group(cost, context, characters_only)
 	local player = cost_player(context)
-	local predicate = filter_for(cost.filter, context)
-	if not predicate then return nil end
+	local field_filter = cost.character_filter or cost.field_filter or cost.filter
+	local hand_filter = cost.hand_filter or cost.filter
+	local field_predicate = filter_for(field_filter, context)
+	local hand_predicate = filter_for(hand_filter, context)
+	if not field_predicate or not hand_predicate then return nil end
 	return Duel.GetMatchingGroup(function(card)
-		if not predicate(card) then return false end
-		if card:IsLocation(LOCATION_HAND) then return true end
+		if card:IsLocation(LOCATION_HAND) then return hand_predicate(card) end
 		if not opcg.IsOnField(card) then return false end
-		return not characters_only or opcg.IsCharacter(card)
+		if characters_only and not opcg.IsCharacter(card) then return false end
+		return field_predicate(card)
 	end, player, LOCATION_HAND + LOCATION_MZONE + LOCATION_FZONE, 0, nil)
 end
 local function alternative_payable(option, context)
