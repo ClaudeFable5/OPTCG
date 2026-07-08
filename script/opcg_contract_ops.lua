@@ -1171,27 +1171,34 @@ function X.emit_played(card, player, context)
 	local event = played_context(card, player, context)
 	local queue = opcg.effect_queue
 	if queue and queue.enqueue_timing then
+		-- 총합룰 8-6-3: a play that happens while another effect is resolving
+		-- (battle dispatches, triggers) fires its timings right after that
+		-- effect, BEFORE the next battle step. Nested direct items do exactly
+		-- that; the engine path could only run at chain end, which inside the
+		-- attack chain would wrongly be after the whole damage calculation.
+		local nested = queue.is_draining and queue.is_draining() or false
+		local emit_options = nested and {} or {engine=true}
 		local enqueued = {}
 		append_all(enqueued, enqueue_emit("ON_PLAY", event, player, {card},
-			{engine=true}))
+			emit_options))
 		if opcg.IsCharacter(card) then
 			append_all(enqueued, enqueue_emit("ON_OPPONENT_CHARACTER_PLAYED",
-				event, other(player), nil, {engine=true}))
+				event, other(player), nil, emit_options))
 			if opcg.HasLifeTrigger(card) then
 				append_all(enqueued, enqueue_emit("ON_OWN_TRIGGER_CHARACTER_PLAYED",
-					event, player, nil, {engine=true}))
+					event, player, nil, emit_options))
 			end
 			if opcg.IsVanilla(card) and card:IsPreviousLocation(LOCATION_HAND) then
 				append_all(enqueued, enqueue_emit(
 					"ON_OWN_VANILLA_CHARACTER_PLAYED_FROM_HAND",
-					event, player, nil, {engine=true}))
+					event, player, nil, emit_options))
 			end
 			if opcg.GetBaseCost(card) >= 8 then
 				append_all(enqueued, enqueue_emit("ON_OPPONENT_HIGH_COST_OR_EFFECT_PLAY",
-					event, other(player), nil, {engine=true}))
+					event, other(player), nil, emit_options))
 			end
 		end
-		if queue.flush then queue.flush() end
+		if not nested and queue.flush then queue.flush() end
 		return enqueued, {}
 	end
 

@@ -311,7 +311,12 @@ local function create_resolver(card, effect, description_index)
 			item.effect.effect_id, context)
 		local accepted = can_resolve
 		if accepted and item.optional then
-			accepted = Duel.SelectYesNo(player, item.description)
+			if Duel.SelectEffectYesNo and item.card
+				and (item.description == 0 or item.description == 222) then
+				accepted = Duel.SelectEffectYesNo(player, item.card)
+			else
+				accepted = Duel.SelectYesNo(player, item.description)
+			end
 		end
 		if accepted then
 			opcg.runtime.resolve(item.card, item.effect.effect_id, context)
@@ -461,6 +466,13 @@ function Q.direct_pending_count()
 	return #Q._direct_items
 end
 
+-- true while an effect is being resolved through the direct queue (battle
+-- dispatches, triggers): events emitted now belong to the NEXT direct
+-- generation, not to the engine path (which could only run at chain end).
+function Q.is_draining()
+	return Q._direct_draining == true
+end
+
 function Q.enqueue_timing(cards, timing, context, options)
 	context = context or {}
 	options = options or {}
@@ -523,6 +535,11 @@ local function resolve_direct_item(selected, options, context, resolved)
 	if accepted and selected.optional then
 		if options.choose_optional then
 			accepted = options.choose_optional(player, selected) == true
+		elseif Duel and Duel.SelectEffectYesNo and selected.card
+			and (selected.description == 0 or selected.description == 222) then
+			-- generic prompt: anchor it to the source card so the player can
+			-- see WHOSE effect is asking (a bare string 222 reads as noise)
+			accepted = Duel.SelectEffectYesNo(player, selected.card)
 		elseif Duel and Duel.SelectYesNo then
 			accepted = Duel.SelectYesNo(player, selected.description)
 		end
