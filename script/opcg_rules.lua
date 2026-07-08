@@ -157,7 +157,9 @@ function R.register_game_start()
 					startup_done[player] = true
 					-- Hosts and all 10 physical DON exist before any opening setup continues.
 					opcg.SetupDonHosts(player)
-					R.register_attach_don_grant(opcg.GetDonCostHost(player))
+					-- The v1 monster-click attach (SPSUMMON_PROC_G grant) is
+					-- superseded by the per-DON ignition; granting it would put
+					-- a phantom summon command on every leader/character.
 					if not opcg.GetLeader(player) then
 						local leader = Duel.GetMatchingGroup(opcg.IsLeader, player, LOCATION_DECK, 0, nil):GetFirst()
 						if leader then
