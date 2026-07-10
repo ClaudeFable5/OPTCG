@@ -196,19 +196,22 @@ local function register_don_self_give(don)
 			local extra = pool:Select(tp, 0, pool:GetCount(), nil)
 			if extra then chosen:Merge(extra) end
 		end
-		e:SetLabelObject(chosen)
-		Duel.Hint(HINT_SELECTMSG, tp, opcg.ATTACH_DON_DESC)
-		local selected = Duel.SelectMatchingCard(tp, attach_target_filter, tp, LOCATION_MZONE, 0, 1, 1, nil, tp)
-		Duel.SetTargetCard(selected)
 		chosen:KeepAlive()
+		e:SetLabelObject(chosen)
+		-- cancellable: picking NO target calls the whole attach off — the
+		-- DON never leave the cost area
+		Duel.Hint(HINT_SELECTMSG, tp, opcg.ATTACH_DON_DESC)
+		local selected = Duel.SelectMatchingCard(tp, attach_target_filter, tp, LOCATION_MZONE, 0, 0, 1, nil, tp)
+		if selected and selected:GetCount() > 0 then Duel.SetTargetCard(selected) end
 	end)
 	give:SetOperation(function(e, tp)
-		local target = Duel.GetFirstTarget()
-		if not (target and attach_target_filter(target, tp)) then return end
 		local chosen = e:GetLabelObject()
-		if not chosen or not chosen.GetCount then chosen = Group.FromCards(e:GetHandler()) end
-		opcg.GiveSpecificDonGroup(tp, target, chosen)
-		chosen:DeleteGroup()
+		local target = Duel.GetFirstTarget()
+		if target and attach_target_filter(target, tp) and chosen and chosen.GetCount then
+			opcg.GiveSpecificDonGroup(tp, target, chosen)
+		end
+		-- consume the kept label group on every path, cancelled included
+		if chosen and chosen.DeleteGroup then chosen:DeleteGroup() end
 	end)
 	don:RegisterEffect(give)
 end

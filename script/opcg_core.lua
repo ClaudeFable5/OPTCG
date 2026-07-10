@@ -987,6 +987,11 @@ local function search_deck_top(action, context)
 	local cards = {}
 	for card in aux.Next(selected) do cards[#cards + 1] = card end
 	top:Sub(selected)
+	-- 공개: the PICKED cards are revealed to the opponent (the look itself
+	-- stays private). Life additions skip this -- it would leak life info.
+	if action.reveal ~= false and #cards > 0 and action.destination ~= "LIFE_TOP" then
+		Duel.ConfirmCards(other(chooser), selected)
+	end
 	if action.destination == "HAND" then
 		Duel.SendtoHand(selected, player, REASON_EFFECT)
 	elseif action.destination == "TRASH" then

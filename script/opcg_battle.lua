@@ -121,15 +121,36 @@ local function default_bridge()
 			return true
 		end,
 		dispatch=default_dispatch,
+		-- YES is not a commitment: the pick is min-0, and picking nothing
+		-- returns to the prompt, so a stray YES can always be walked back.
 		select_blocker=function(player, candidates)
-			if #candidates == 0 or not Duel.SelectYesNo(player, B.BLOCK_PROMPT) then return nil end
-			Duel.Hint(HINT_SELECTMSG, player, B.BLOCK_SELECT_HINT)
-			return to_group(candidates):Select(player, 1, 1, nil):GetFirst()
+			if #candidates == 0 then return nil end
+			while true do
+				if not Duel.SelectYesNo(player, B.BLOCK_PROMPT) then return nil end
+				Duel.Hint(HINT_SELECTMSG, player, B.BLOCK_SELECT_HINT)
+				local picked = to_group(candidates):Select(player, 0, 1, nil):GetFirst()
+				if picked then return picked end
+			end
 		end,
-		select_counter=function(player, candidates)
-			if #candidates == 0 or not Duel.SelectYesNo(player, B.COUNTER_PROMPT) then return nil end
-			Duel.Hint(HINT_SELECTMSG, player, B.COUNTER_SELECT_HINT)
-			return to_group(candidates):Select(player, 1, 1, nil):GetFirst()
+		select_counter=function(player, candidates, state)
+			if #candidates == 0 then
+				-- mind game: the FIRST counter window of an attack shows the
+				-- prompt even with nothing usable, so the attacker cannot read
+				-- the hand off an instant skip (blockers are public, hands are
+				-- not; later windows in the same attack stay silent)
+				if not (state and state.counter_prompted) then
+					if state then state.counter_prompted = true end
+					Duel.SelectYesNo(player, B.COUNTER_PROMPT)
+				end
+				return nil
+			end
+			while true do
+				if state then state.counter_prompted = true end
+				if not Duel.SelectYesNo(player, B.COUNTER_PROMPT) then return nil end
+				Duel.Hint(HINT_SELECTMSG, player, B.COUNTER_SELECT_HINT)
+				local picked = to_group(candidates):Select(player, 0, 1, nil):GetFirst()
+				if picked then return picked end
+			end
 		end,
 		trash_counter=function(card)
 			return Duel.SendtoGrave(card, REASON_COST)
