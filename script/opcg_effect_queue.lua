@@ -360,6 +360,18 @@ function Q.register_trigger(card, effect, code, options)
 		if options.timing ~= nil then context.timing = options.timing end
 		local ok = opcg.runtime.can_resolve(handler, effect.effect_id, context)
 		if not ok then return end
+		-- [8-6] a trigger born inside an ongoing direct resolution (battle
+		-- KO, nested effect) joins the DIRECT queue: the active drain resolves
+		-- it at its boundary. The engine path would degrade it into a delayed
+		-- chain offer that effectively never resolves for the player.
+		if Q.is_draining() then
+			Q.enqueue_direct(handler, effect, context, {
+				optional=options.optional,
+				description=description,
+				timing=options.timing,
+			})
+			return
+		end
 		Q.enqueue(handler, effect, resolver, context, {
 			optional=options.optional,
 			description=description,
@@ -471,6 +483,28 @@ end
 -- generation, not to the engine path (which could only run at chain end).
 function Q.is_draining()
 	return Q._direct_draining == true
+end
+
+-- Enqueue ONE effect straight into the direct bucket. Used by trigger
+-- collectors that fire while a direct drain is already running: the ambient
+-- drain picks the item up at its 8-6 boundary.
+function Q.enqueue_direct(card, effect, context, options)
+	options = options or {}
+	Q._direct_serial = Q._direct_serial + 1
+	local generation = Q._direct_active and (Q._direct_active.generation + 1) or 0
+	local item = {
+		serial=Q._direct_serial,
+		card=card,
+		effect=effect,
+		player=context.player or card:GetControler(),
+		generation=generation,
+		context=context,
+		optional=options.optional == nil and Q.is_optional(effect) or options.optional,
+		description=options.description or 0,
+		timing=options.timing or context.timing,
+	}
+	Q._direct_items[#Q._direct_items + 1] = item
+	return item
 end
 
 function Q.enqueue_timing(cards, timing, context, options)
