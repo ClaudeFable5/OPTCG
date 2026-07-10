@@ -150,8 +150,15 @@ function R.register_game_start()
 		startup:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
 		startup:SetCode(EVENT_STARTUP)
 		startup:SetOperation(function()
-			-- Network/local duel setup already resolves first player before the
-			-- core starts. Running another RPS here would desync both clients.
+			-- [원설계] Under DUEL_OPCG_SCRIPTED_RPS the network SELECT_HAND/TP
+			-- handshake is a fast-forwarded formality: the REAL rock-paper-
+			-- scissors runs HERE, official-sequence style — leaders enter
+			-- face-DOWN, the RPS winner picks first/second (Duel.SetTurnPlayer,
+			-- honored by the core Startup processor), and only then the
+			-- leaders flip face-up. Without the flag (headless harnesses,
+			-- solo) leaders enter face-up and turn order stays as given.
+			local scripted_rps = Duel.IsDuelType
+				and Duel.IsDuelType(0x4000000000) or false
 			for _, player in ipairs({ 0, 1 }) do
 				if not startup_done[player] then
 					startup_done[player] = true
@@ -164,8 +171,38 @@ function R.register_game_start()
 						local leader = Duel.GetMatchingGroup(opcg.IsLeader, player, LOCATION_DECK, 0, nil):GetFirst()
 						if leader then
 							Duel.MoveToField(leader, player, player, LOCATION_MZONE,
-								POS_FACEUP_ATTACK, true, 1 << opcg.zone.LEADER.seq)
+								scripted_rps and POS_FACEDOWN_ATTACK or POS_FACEUP_ATTACK,
+								true, 1 << opcg.zone.LEADER.seq)
 						end
+					end
+				end
+			end
+			if scripted_rps and not R._rps_done then
+				R._rps_done = true
+				local RPS_HOST = 879999998 -- str3/4/5 가위/바위/보, str6/7 선공/후공
+				local winner
+				repeat
+					local a = Duel.SelectOption(0, aux.Stringid(RPS_HOST, 2),
+						aux.Stringid(RPS_HOST, 3), aux.Stringid(RPS_HOST, 4))
+					local b = Duel.SelectOption(1, aux.Stringid(RPS_HOST, 2),
+						aux.Stringid(RPS_HOST, 3), aux.Stringid(RPS_HOST, 4))
+					if a ~= b then
+						-- 0 가위, 1 바위, 2 보
+						if (a == 0 and b == 2) or (a == 1 and b == 0) or (a == 2 and b == 1) then
+							winner = 0
+						else
+							winner = 1
+						end
+					end
+				until winner ~= nil
+				local go_first = Duel.SelectOption(winner,
+					aux.Stringid(RPS_HOST, 5), aux.Stringid(RPS_HOST, 6)) == 0
+				Duel.SetTurnPlayer(go_first and winner or 1 - winner)
+				-- 공개: only now do the leaders flip face-up
+				for _, player in ipairs({ 0, 1 }) do
+					local leader = opcg.GetLeader(player)
+					if leader and leader:IsFacedown() then
+						Duel.ChangePosition(leader, POS_FACEUP_ATTACK)
 					end
 				end
 			end
