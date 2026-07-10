@@ -1030,6 +1030,22 @@ local function card_effect_values(card, code)
 	end
 	return values
 end
+-- Like card_effect_values but keeps each effect's SOURCE card. A guard
+-- replacement (Koshiro: rest ITSELF to save another SLASH character) is a
+-- FIELD effect that lives on the source but is queried from the victim, so
+-- its SELF-referencing cost/actions must resolve against the source, not the
+-- victim. For self-replacements the source IS the victim, so nothing changes.
+local function card_effect_entries(card, code)
+	local entries = {}
+	if not card or not card.GetCardEffect then return entries end
+	for _, effect in ipairs({card:GetCardEffect(code)}) do
+		entries[#entries + 1] = {
+			value = opcg.GetEffectValue(effect),
+			source = (effect.GetHandler and effect:GetHandler()) or card,
+		}
+	end
+	return entries
+end
 function X.before_remove(cards, reason, destination, context)
 	local kept = {}
 	for _, card in ipairs(cards or {}) do
@@ -1045,8 +1061,14 @@ function X.before_remove(cards, reason, destination, context)
 			local codes = ko and {opcg.EFFECT_REPLACE_KO, opcg.EFFECT_REPLACE_LEAVE}
 				or {opcg.EFFECT_REPLACE_LEAVE}
 			for _, code in ipairs(codes) do
-				for _, action in ipairs(card_effect_values(card, code)) do
-					local local_context = copy_context(context, card)
+				for _, entry in ipairs(card_effect_entries(card, code)) do
+					local action = entry.value
+					-- resolve the replacement (its SELF cost/actions) against the
+					-- effect SOURCE; the KO'd card stays as the event target
+					local local_context = copy_context(context, entry.source)
+					local_context.event_target = card
+					local_context.event_targets = {card}
+					local_context.ko_target = card
 					if type(action) == "table" and reason_matches(action, card, reason, context, ko)
 						and replacement_available(action, local_context)
 						and apply_replacement(action, local_context) then
@@ -1062,8 +1084,11 @@ function X.before_remove(cards, reason, destination, context)
 	return kept
 end
 function X.before_rest(card, context)
-	for _, action in ipairs(card_effect_values(card, opcg.EFFECT_REPLACE_REST)) do
-		local local_context = copy_context(context, card)
+	for _, entry in ipairs(card_effect_entries(card, opcg.EFFECT_REPLACE_REST)) do
+		local action = entry.value
+		local local_context = copy_context(context, entry.source)
+		local_context.event_target = card
+		local_context.event_targets = {card}
 		if type(action) == "table" and reason_matches(action, card,
 			(context and context.reason) or REASON_EFFECT, context, false)
 			and replacement_available(action, local_context)
