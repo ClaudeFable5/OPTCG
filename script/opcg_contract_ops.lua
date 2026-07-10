@@ -530,9 +530,13 @@ function X.execute(op, action, context)
 	elseif op == "DECLARE_COST_REVEAL" then
 		local declared = Duel.AnnounceNumber and Duel.AnnounceNumber(player,
 			0,1,2,3,4,5,6,7,8,9,10) or Duel.SelectOption(player, 0,1,2,3,4,5,6,7,8,9,10)
-		local top = Duel.GetDecktopGroup(action.reveal_player == "OPPONENT" and other(player) or player, 1)
+		local owner = action.reveal_player == "OPPONENT" and other(player) or player
+		local top = Duel.GetDecktopGroup(owner, 1)
 		if top:GetCount() == 0 then context.last_action_succeeded = false return {} end
-		Duel.ConfirmCards(player, top)
+		-- an actual 공개: BOTH players see the flipped card (deck-location
+		-- ConfirmCards routes to a single player, use the public broadcast)
+		if Duel.ConfirmDecktop then Duel.ConfirmDecktop(owner, 1)
+		else Duel.ConfirmCards(player, top) Duel.ConfirmCards(other(player), top) end
 		local card = top:GetFirst()
 		local matched = opcg.GetCost(card) == declared
 		if matched then execute_nested(action.on_match, context) end

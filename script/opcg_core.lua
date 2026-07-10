@@ -975,7 +975,10 @@ local function search_deck_top(action, context)
 	local chooser = controller(context)
 	local look_count = math.min(action.look_count or 1, Duel.GetFieldGroupCount(player, LOCATION_DECK, 0))
 	local top = Duel.GetDecktopGroup(player, look_count)
-	if action.reveal ~= false then Duel.ConfirmCards(other(player), top) end
+	-- the LOOK is PRIVATE: the searcher browses every looked-at card, the
+	-- opponent learns nothing (deck-location ConfirmCards routes to just the
+	-- named player on both the client host and Multirole)
+	if look_count > 0 then Duel.ConfirmCards(chooser, top) end
 	local predicate = assert(filter_for(action.filter, context), "unsupported SEARCH_DECK_TOP filter")
 	local candidates = top:Filter(predicate, nil)
 	local maximum = math.min(action.select_count or 1, candidates:GetCount())
@@ -1059,7 +1062,9 @@ local function play_from_deck_top(action, context)
 	local look_count = math.min(action.look_count or action.count or 1, Duel.GetFieldGroupCount(player, LOCATION_DECK, 0))
 	local top = Duel.GetDecktopGroup(player, look_count)
 	if look_count > 0 then
-		if Duel.ConfirmDecktop then Duel.ConfirmDecktop(chooser, look_count) else Duel.ConfirmCards(chooser, top) end
+		-- private LOOK — ConfirmDecktop is the public excavate broadcast and
+		-- would show the opponent every looked-at card
+		Duel.ConfirmCards(chooser, top)
 	end
 	local predicate = assert(filter_for(action.filter, context), "unsupported PLAY_FROM_DECK_TOP filter")
 	local candidates = top:Filter(predicate, nil)
@@ -1103,6 +1108,12 @@ local function look_reorder_deck_top(action, context)
 	for _, destination in ipairs(action.destinations or {}) do
 		if destination == "DECK_BOTTOM" then to_bottom = true end
 		if destination == "DECK_TOP" then to_top = true end
+	end
+	-- a single-card look never opens a sort dialog, so nothing would show the
+	-- looker the card: confirm it privately (the both-destination path already
+	-- confirms inside choose_deck_destination)
+	if count == 1 and not (to_bottom and to_top) then
+		Duel.ConfirmCards(chooser, top)
 	end
 	if to_bottom and to_top then
 		-- The destination applies to the whole looked-at group; only its order is per card.
@@ -1367,7 +1378,12 @@ function C.ExecuteAction(op, action, context)
 	elseif op == "REVEAL_DECK_TOP" then
 		local count = math.min(action.count or action.look_count or 1, Duel.GetFieldGroupCount(player, LOCATION_DECK, 0))
 		local top = Duel.GetDecktopGroup(player, count)
-		if count > 0 then Duel.ConfirmCards(chooser, top) end
+		-- an actual 공개: BOTH players see it. Deck-location ConfirmCards
+		-- routes to a single player, so use the public decktop broadcast.
+		if count > 0 then
+			if Duel.ConfirmDecktop then Duel.ConfirmDecktop(player, count)
+			else Duel.ConfirmCards(chooser, top) Duel.ConfirmCards(other(chooser), top) end
+		end
 		context.last_action_succeeded = count > 0
 		return {}
 	elseif op == "ADD_LIFE_FROM_DECK_TOP" then

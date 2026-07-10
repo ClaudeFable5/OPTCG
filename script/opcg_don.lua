@@ -180,15 +180,33 @@ local function register_don_self_give(don)
 			return Duel.IsExistingMatchingCard(attach_target_filter, tp, LOCATION_MZONE, 0, 1, nil, tp)
 		end
 		Duel.SetChainLimit(aux.FALSE)
+		local handler = e:GetHandler()
+		-- the clicked DON always goes; any other active cost-area DON can be
+		-- clicked into the same batch (1..N total, all onto one card)
+		local pool = Group.CreateGroup()
+		local cost_group = overlay_group(opcg.GetDonCostHost(tp))
+		if cost_group then
+			for card in aux.Next(cost_group) do
+				if card ~= handler and is_don(card) and filter_active(card) then pool:AddCard(card) end
+			end
+		end
+		local chosen = Group.FromCards(handler)
+		if pool:GetCount() > 0 then
+			Duel.Hint(HINT_SELECTMSG, tp, opcg.ATTACH_DON_DESC)
+			local extra = pool:Select(tp, 0, pool:GetCount(), nil)
+			if extra then chosen:Merge(extra) end
+		end
+		e:SetLabelObject(chosen)
 		Duel.Hint(HINT_SELECTMSG, tp, opcg.ATTACH_DON_DESC)
 		local selected = Duel.SelectMatchingCard(tp, attach_target_filter, tp, LOCATION_MZONE, 0, 1, 1, nil, tp)
 		Duel.SetTargetCard(selected)
 	end)
 	give:SetOperation(function(e, tp)
 		local target = Duel.GetFirstTarget()
-		if target and attach_target_filter(target, tp) then
-			opcg.GiveSpecificDon(tp, target, e:GetHandler())
-		end
+		if not (target and attach_target_filter(target, tp)) then return end
+		local chosen = e:GetLabelObject()
+		if not chosen or not chosen.GetCount then chosen = Group.FromCards(e:GetHandler()) end
+		opcg.GiveSpecificDonGroup(tp, target, chosen)
 	end)
 	don:RegisterEffect(give)
 end
@@ -283,6 +301,30 @@ function opcg.GiveSpecificDon(player, target, don)
 	if not target or not (opcg.IsLeader(target) or opcg.IsCharacter(target)) then return 0 end
 	if not don.GetOverlayTarget or don:GetOverlayTarget() ~= opcg.GetDonCostHost(player) then return 0 end
 	local selected = Group.FromCards(don)
+	local moved = move_overlay(target, selected)
+	if moved > 0 and opcg.contract_ops and opcg.contract_ops.emit then
+		opcg.contract_ops.emit("ON_DON_ATTACHED_TO_OWN_FIELD", {
+			player=player, event_player=player, event_target=target,
+			event_cards=selected, event_count=moved,
+		}, player)
+	end
+	return moved
+end
+
+-- Cost area -> leader/character, moving exactly the given DON!! group (the
+-- multi-select click-to-give path). The whole batch moves as ONE attachment:
+-- a single move + a single ON_DON_ATTACHED event with the full count.
+function opcg.GiveSpecificDonGroup(player, target, group)
+	if not target or not (opcg.IsLeader(target) or opcg.IsCharacter(target)) then return 0 end
+	local host = opcg.GetDonCostHost(player)
+	if not host then return 0 end
+	local selected = Group.CreateGroup()
+	for don in aux.Next(group or Group.CreateGroup()) do
+		if is_don(don) and don.GetOverlayTarget and don:GetOverlayTarget() == host then
+			selected:AddCard(don)
+		end
+	end
+	if selected:GetCount() == 0 then return 0 end
 	local moved = move_overlay(target, selected)
 	if moved > 0 and opcg.contract_ops and opcg.contract_ops.emit then
 		opcg.contract_ops.emit("ON_DON_ATTACHED_TO_OWN_FIELD", {

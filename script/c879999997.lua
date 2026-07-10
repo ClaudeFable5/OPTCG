@@ -7,7 +7,11 @@ local s, id = GetID()
 function s.initial_effect(c)
 	local e = Effect.CreateEffect(c)
 	e:SetType(EFFECT_TYPE_XMATERIAL)
-	e:SetProperty(EFFECT_FLAG_SINGLE_RANGE)
+	-- CANNOT_DISABLE: for XMATERIAL effects get_owner() returns the HOST, so a
+	-- negated host (효과 무효 = EFFECT_DISABLE) would otherwise swallow this as
+	-- its "own" effect (effect.cpp is_available owner==handler gate). Official
+	-- rule: the +1000 belongs to the DON!! card and survives host negation.
+	e:SetProperty(EFFECT_FLAG_SINGLE_RANGE + EFFECT_FLAG_CANNOT_DISABLE)
 	e:SetCode(EFFECT_UPDATE_ATTACK)
 	e:SetRange(LOCATION_MZONE)
 	-- official rule: an attached DON!! gives +1000 only during YOUR turn.
