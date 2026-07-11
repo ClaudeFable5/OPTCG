@@ -181,23 +181,31 @@ local function register_don_self_give(don)
 		end
 		Duel.SetChainLimit(aux.FALSE)
 		local handler = e:GetHandler()
-		-- the clicked DON always goes; any other active cost-area DON can be
-		-- clicked into the same batch (1..N total, all onto one card)
+		-- toggle-select: every active cost-area DON is clickable, and the DON
+		-- that opened the menu starts already PICKED — so it floats like any
+		-- picked DON and can even be walked back before committing
 		local pool = Group.CreateGroup()
 		local cost_group = overlay_group(opcg.GetDonCostHost(tp))
 		if cost_group then
 			for card in aux.Next(cost_group) do
-				if card ~= handler and is_don(card) and filter_active(card) then pool:AddCard(card) end
+				if is_don(card) and filter_active(card) then pool:AddCard(card) end
 			end
 		end
 		local chosen = Group.FromCards(handler)
-		if pool:GetCount() > 0 then
+		if pool:GetCount() > 1 then
 			Duel.Hint(HINT_SELECTMSG, tp, opcg.ATTACH_DON_DESC)
-			local extra = pool:Select(tp, 0, pool:GetCount(), nil)
-			if extra then chosen:Merge(extra) end
+			while true do
+				local addable = pool:Clone()
+				addable:Sub(chosen)
+				local pick = addable:SelectUnselect(chosen, tp, true, true)
+				if not pick then break end
+				if chosen:IsContains(pick) then chosen:RemoveCard(pick)
+				else chosen:AddCard(pick) end
+			end
 		end
 		chosen:KeepAlive()
 		e:SetLabelObject(chosen)
+		if chosen:GetCount() == 0 then return end -- walked everything back = cancel
 		-- cancellable: picking NO target calls the whole attach off — the
 		-- DON never leave the cost area
 		Duel.Hint(HINT_SELECTMSG, tp, opcg.ATTACH_DON_DESC)
