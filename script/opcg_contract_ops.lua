@@ -833,6 +833,7 @@ local function continuous_card_effect(card, action, code, value, condition)
 	card:RegisterEffect(native)
 	return true
 end
+local register_native_replace -- defined after the replacement helpers below
 local continuous_card_code = {
 	CANNOT_ATTACK=EFFECT_CANNOT_ATTACK,
 	ALLOW_ATTACK_ACTIVE_CHARACTER=opcg.EFFECT_ALLOW_ATTACK_ACTIVE_CHARACTER,
@@ -844,8 +845,6 @@ local continuous_card_code = {
 	PREVENT_BLOCKER_ACTIVATION=opcg.EFFECT_PREVENT_BLOCKER_ACTIVATION,
 	ADD_NAME_ALIAS=opcg.EFFECT_NAME_ALIAS,
 	CANNOT_LEAVE_FIELD=opcg.EFFECT_CANNOT_LEAVE_FIELD,
-	REPLACE_KO=opcg.EFFECT_REPLACE_KO,
-	REPLACE_LEAVE_FIELD=opcg.EFFECT_REPLACE_LEAVE,
 	REPLACE_REST=opcg.EFFECT_REPLACE_REST,
 }
 
@@ -858,11 +857,18 @@ function X.register_continuous(card, effect, action, condition)
 		local code, value = ko_protection(action, {card=card, player=card:GetControler()})
 		return continuous_card_effect(card, action, code, value, condition)
 	end
+	if op == "REPLACE_KO" or op == "REPLACE_LEAVE_FIELD" then
+		-- these ride the core's REAL replacement machinery (see
+		-- register_native_replace): every destroy/send path is intercepted
+		-- at the core instead of only the removals routed through opcg lua
+		return register_native_replace(card, action, condition,
+			op == "REPLACE_KO" and { EFFECT_DESTROY_REPLACE }
+			or { EFFECT_DESTROY_REPLACE, EFFECT_SEND_REPLACE })
+	end
 	local code = continuous_card_code[op]
 	if code then
 		local value = op == "ADD_NAME_ALIAS" and action.name
-			or (op == "CANNOT_LEAVE_FIELD" or op == "REPLACE_KO"
-				or op == "REPLACE_LEAVE_FIELD" or op == "REPLACE_REST") and action
+			or (op == "CANNOT_LEAVE_FIELD" or op == "REPLACE_REST") and action
 			or restriction_value(action, {card=card, player=card:GetControler()})
 		return continuous_card_effect(card, action, code, value, condition)
 	end
@@ -1022,6 +1028,99 @@ local function apply_replacement(action, context)
 	mark_replacement_used(action, context)
 	return true
 end
+-- REPLACE_KO / REPLACE_LEAVE_FIELD on the core's REAL replacement machinery
+-- (EFFECT_DESTROY_REPLACE / EFFECT_SEND_REPLACE + OperationReplace): every
+-- destroy/send path is intercepted at the core — including ones that never
+-- pass through opcg's lua helpers — and a saved card is a properly canceled
+-- destroy. Protocol: CONDITION = eligibility (called with the event),
+-- TARGET = the player's decision (one call, prompt included),
+-- VALUE = per-card "is this one protected", OPERATION = pay + instead.
+register_native_replace = function(card, action, condition, codes)
+	local self_only = action.selector == nil or action.selector.kind == "SELF"
+	local predicate = nil
+	local selector_filter = nil
+	if not self_only then
+		predicate = opcg.KindPredicate(action.selector.kind)
+		if not predicate then return false end
+		if action.selector.filter then
+			selector_filter = filter_for(action.selector.filter,
+				{card=card, player=card:GetControler()})
+			if not selector_filter then return false end
+		end
+	end
+	local function protects(target)
+		if not target or not opcg.IsOnField(target) then return false end
+		if target:GetControler() ~= card:GetControler() then return false end
+		if self_only then return target == card end
+		if not predicate(target) then return false end
+		if selector_filter and not selector_filter(target) then return false end
+		return true
+	end
+	local function replace_context(target, r, rp)
+		local context = copy_context({
+			reason = r, reason_player = rp, effect_player = rp,
+		}, card)
+		context.event_target = target
+		context.event_targets = { target }
+		context.ko_target = target
+		return context
+	end
+	local function eligible(eg, r, rp, ko_event)
+		if not eg then return false end
+		local found = nil
+		for target in aux.Next(eg) do
+			if protects(target) and reason_matches(action, target, r,
+				{ reason_player = rp, effect_player = rp }, ko_event) then
+				found = target
+				break
+			end
+		end
+		if not found then return false end
+		return replacement_available(action, replace_context(found, r, rp)), found
+	end
+	for _, code in ipairs(codes) do
+		local is_destroy_code = code == EFFECT_DESTROY_REPLACE
+		local native = Effect.CreateEffect(card)
+		native:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
+		native:SetCode(code)
+		native:SetRange(source_range(card))
+		native:SetCondition(function(e, tp, eg, ep, ev, re, r, rp)
+			-- a destroy funnels its cards through send_to as well: the
+			-- DESTROY_REPLACE twin owns those, or we would intercept twice
+			if not is_destroy_code and (r & REASON_DESTROY) ~= 0 then return false end
+			if condition and not condition(e, tp, eg, ep, ev, re, r, rp) then return false end
+			return (eligible(eg, r, rp, is_destroy_code))
+		end)
+		native:SetTarget(function(e, tp, eg, ep, ev, re, r, rp, chk)
+			-- chk==0 is the ACTION-FORBIDDEN eligibility probe the core runs
+			-- from is_activateable; the real decision call arrives without it
+			if chk == 0 then
+				return (eligible(eg, r, rp, is_destroy_code))
+			end
+			-- 「~할 수 있다」: the decision happens HERE (the operation only
+			-- runs after the core has already canceled the removal)
+			if Duel.SelectEffectYesNo then
+				return Duel.SelectEffectYesNo(tp, card)
+			end
+			return Duel.SelectYesNo(tp, aux.Stringid(card:GetOriginalCode(), 0))
+		end)
+		native:SetValue(function(e, target) return protects(target) end)
+		native:SetOperation(function(e, tp, eg, ep, ev, re, r, rp)
+			local saved = nil
+			for target in aux.Next(eg) do
+				if protects(target) then saved = target break end
+			end
+			local context = replace_context(saved or card, r, rp)
+			for _, cost in ipairs(action.replacement_costs or {}) do
+				OPCGCore.PayCost(cost.op, cost, context)
+			end
+			execute_nested(action.replacement_actions, context)
+			mark_replacement_used(action, context)
+		end)
+		card:RegisterEffect(native)
+	end
+	return true
+end
 local function card_effect_values(card, code)
 	local values = {}
 	if not card or not card.GetCardEffect then return values end
@@ -1056,29 +1155,9 @@ function X.before_remove(cards, reason, destination, context)
 				break
 			end
 		end
-		if not blocked then
-			local ko = destination == "TRASH" and (reason & REASON_DESTROY) ~= 0
-			local codes = ko and {opcg.EFFECT_REPLACE_KO, opcg.EFFECT_REPLACE_LEAVE}
-				or {opcg.EFFECT_REPLACE_LEAVE}
-			for _, code in ipairs(codes) do
-				for _, entry in ipairs(card_effect_entries(card, code)) do
-					local action = entry.value
-					-- resolve the replacement (its SELF cost/actions) against the
-					-- effect SOURCE; the KO'd card stays as the event target
-					local local_context = copy_context(context, entry.source)
-					local_context.event_target = card
-					local_context.event_targets = {card}
-					local_context.ko_target = card
-					if type(action) == "table" and reason_matches(action, card, reason, context, ko)
-						and replacement_available(action, local_context)
-						and apply_replacement(action, local_context) then
-						blocked = true
-						break
-					end
-				end
-				if blocked then break end
-			end
-		end
+		-- REPLACE_KO / REPLACE_LEAVE_FIELD interception moved to the core's
+		-- native replacement machinery (register_native_replace): this hook
+		-- keeps only the hard CANNOT_LEAVE_FIELD block above.
 		if not blocked then kept[#kept + 1] = card end
 	end
 	return kept

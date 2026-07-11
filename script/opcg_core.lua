@@ -222,6 +222,11 @@ local function remove_cards(cards, reason, destination)
 	if destination == "HAND" then moved = Duel.SendtoHand(group, nil, reason)
 	elseif destination == "DECK_TOP" then moved = Duel.SendtoDeck(group, nil, SEQ_DECKTOP, reason)
 	elseif destination == "DECK_BOTTOM" then moved = Duel.SendtoDeck(group, nil, SEQ_DECKBOTTOM, reason)
+	elseif (reason & REASON_DESTROY) ~= 0 then
+		-- a K.O. is a real destroy: immunity (INDESTRUCTABLE), EVENT_DESTROYED
+		-- and the native replacement machinery all hang off Duel.Destroy —
+		-- SendtoGrave used to bypass every one of them
+		moved = Duel.Destroy(group, reason & ~REASON_DESTROY)
 	else moved = Duel.SendtoGrave(group, reason) end
 	if opcg.contract_ops and opcg.contract_ops.after_remove then
 		opcg.contract_ops.after_remove(cards, reason, destination,
@@ -1837,7 +1842,12 @@ function C.BindCard(card, definition)
 					register_trigger(card, effect, EVENT_ATTACK_ANNOUNCE, LOCATION_MZONE, effect_index, timing)
 				end
 				if timing == "ON_KO" then
-					local native = register_trigger(card, effect, EVENT_DESTROYED, nil, effect_index, timing)
+					-- range must be GRAVE: the KO'd card is already in the trash
+					-- when EVENT_DESTROYED processes, and the core's single-event
+					-- gate (is_activateable -> in_range) kills range-less effects.
+					-- NOTE: battle KOs raise the event from opcg_battle's ko=
+					-- (stock send_to only raises it for non-battle destroys).
+					local native = register_trigger(card, effect, EVENT_DESTROYED, LOCATION_GRAVE, effect_index, timing)
 					native:SetCondition(function(e)
 						local handler = e:GetHandler()
 						return handler:IsReason(REASON_DESTROY)

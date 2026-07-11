@@ -215,6 +215,12 @@ end
 function Q.after_chain()
 	for _, item in ipairs(Q._items) do item.raised = false end
 	Q.flush()
+	-- triggers born during the finished chain (battle KO, effect KO) wait in
+	-- the direct queue: resolve them now, right after the resolution that
+	-- spawned them (rule 8-6-3)
+	if not Q._direct_draining and #Q._direct_items > 0 then
+		Q.drain_direct({}, nil, {})
+	end
 end
 
 function Q.install()
@@ -364,11 +370,13 @@ function Q.register_trigger(card, effect, code, options)
 		if options.timing ~= nil then context.timing = options.timing end
 		local ok = opcg.runtime.can_resolve(handler, effect.effect_id, context)
 		if not ok then return end
-		-- [8-6] a trigger born inside an ongoing direct resolution (battle
-		-- KO, nested effect) joins the DIRECT queue: the active drain resolves
-		-- it at its boundary. The engine path would degrade it into a delayed
-		-- chain offer that effectively never resolves for the player.
-		if Q.is_draining() then
+		-- [8-6] a trigger born inside an ongoing resolution — a direct drain
+		-- OR a resolving chain (battle KO happens inside the silent attack
+		-- chain!) — joins the DIRECT queue; it resolves right after that
+		-- resolution (after_chain pump / battle boundary drain). The engine
+		-- path would degrade it into a delayed chain offer that effectively
+		-- never resolves for the player.
+		if Q.is_draining() or current_chain() > 0 then
 			Q.enqueue_direct(handler, effect, context, {
 				optional=options.optional,
 				description=description,

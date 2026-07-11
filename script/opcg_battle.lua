@@ -197,6 +197,15 @@ local function default_bridge()
 			if #cards == 0 then return 0 end
 			opcg.ReturnAttachedDon(card)
 			local moved = Duel.Destroy(card, REASON_BATTLE)
+			if moved > 0 then
+				-- stock send_to raises EVENT_DESTROYED only for NON-battle
+				-- destroys (the native battle raises it from the damage step,
+				-- which the scripted OPCG battle never runs) — raise it here
+				-- so 【KO시】 triggers see battle KOs too
+				Duel.RaiseSingleEvent(card, EVENT_DESTROYED, nil,
+					REASON_BATTLE + REASON_DESTROY, state.attacking_player,
+					state.attacking_player, 0)
+			end
 			if moved > 0 and opcg.contract_ops and opcg.contract_ops.after_remove then
 				opcg.contract_ops.after_remove(cards, REASON_BATTLE + REASON_DESTROY, "TRASH", context)
 			end
