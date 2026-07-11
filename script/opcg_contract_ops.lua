@@ -882,20 +882,27 @@ function X.register_continuous(card, effect, action, condition)
 		return continuous_card_effect(card, action, stat_code, action.value or 0, condition)
 	end
 	if op == "MODIFY_HAND_COST" or op == "MODIFY_NEXT_PLAY_COST" then
-		local predicate = filter_for(action.filter, {card=card, player=card:GetControler()})
+		local selector = action.selector or {}
 		local combined = function()
 			return condition() and conditions_match(action.conditions, {
 				card=card, player=card:GetControler(),
 			})
 		end
 		local native = Effect.CreateEffect(card)
-		native:SetType(EFFECT_TYPE_FIELD)
 		native:SetCode(EFFECT_UPDATE_LEVEL)
-		native:SetRange(source_range(card))
-		native:SetTargetRange(LOCATION_HAND, 0)
 		native:SetCondition(combined)
-		native:SetTarget(function(_, target) return predicate(target) end)
 		native:SetValue(action.amount or 0)
+		if selector.kind == "SELF" then
+			native:SetType(EFFECT_TYPE_SINGLE)
+			native:SetProperty(EFFECT_FLAG_SINGLE_RANGE)
+			native:SetRange(LOCATION_HAND)
+		else
+			local predicate = filter_for(action.filter, {card=card, player=card:GetControler()})
+			native:SetType(EFFECT_TYPE_FIELD)
+			native:SetRange(source_range(card))
+			native:SetTargetRange(LOCATION_HAND, 0)
+			native:SetTarget(function(_, target) return predicate(target) end)
+		end
 		card:RegisterEffect(native)
 		return true
 	end
@@ -1372,4 +1379,3 @@ function X.mark_source_draw(context)
 end
 
 return X
-

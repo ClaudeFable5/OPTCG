@@ -429,9 +429,11 @@ function C.CheckCondition(op, condition, context)
 		for card in aux.Next(opcg.GetCharacters(player)) do total = total + opcg.GetCost(card) end
 		return total >= n
 	end
-	if op == "FIELD_DON_GTE" then return opcg.FieldDon(player) >= n end
-	if op == "FIELD_DON_LTE" then return opcg.FieldDon(player) <= n end
-	if op == "FIELD_DON_EQ" then return opcg.FieldDon(player) == n end
+	local field_don = context.field_don_snapshot ~= nil and player == context.player
+		and context.field_don_snapshot or opcg.FieldDon(player)
+	if op == "FIELD_DON_GTE" then return field_don >= n end
+	if op == "FIELD_DON_LTE" then return field_don <= n end
+	if op == "FIELD_DON_EQ" then return field_don == n end
 	if op == "ANY_FIELD_DON_EQ" then return opcg.FieldDon(0) == n or opcg.FieldDon(1) == n end
 	if op == "FIELD_DON_LTE_OPPONENT" then return opcg.FieldDon(player) <= opcg.FieldDon(other(player)) end
 	if op == "FIELD_DON_LT_OPPONENT" then return opcg.FieldDon(player) < opcg.FieldDon(other(player)) end
@@ -440,7 +442,19 @@ function C.CheckCondition(op, condition, context)
 	if op == "ACTIVE_DON_LTE" then return opcg.ActiveDon(player) <= n end
 	if op == "RESTED_DON_GTE" then return opcg.RestedDon(player) >= n end
 	if op == "ALL_DON_RESTED" then return opcg.ActiveDon(player) == 0 and opcg.CostAreaDon(player) > 0 end
-	if op == "ATTACHED_DON_GTE" then return opcg.GetAttachedDon(context.card) >= n end
+	if op == "ATTACHED_DON_GTE" then
+		local source = context.card
+		if source and source:IsLocation(LOCATION_MZONE)
+			and (opcg.IsLeader(source) or opcg.IsCharacter(source)) then
+			return opcg.GetAttachedDon(source) >= n
+		end
+		local total = 0
+		local cards = Duel.GetMatchingGroup(function(card)
+			return opcg.IsLeader(card) or opcg.IsCharacter(card)
+		end, player, LOCATION_MZONE, 0, nil)
+		for card in aux.Next(cards) do total = total + opcg.GetAttachedDon(card) end
+		return total >= n
+	end
 
 	if op == "SELF_POWER_GTE" then return context.card ~= nil and opcg.GetPower(context.card) >= (condition.amount or 0) end
 	if op == "SELF_STATE_IS" then
@@ -1924,4 +1938,3 @@ function C.GetSupportedOperations()
 end
 
 return C
-

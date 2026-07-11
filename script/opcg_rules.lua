@@ -74,13 +74,18 @@ function R.refresh_phase(player)
 	return opcg.RefreshDon(player)
 end
 function R.don_phase(player)
+	local starting_don = opcg._turn_state and opcg._turn_state.field_don_at_start
+		or opcg.FieldDon(player)
 	local added = opcg.DonPhase(player)
 	if Duel.IsPlayerAffectedByEffect and opcg.EFFECT_DON_PHASE_ATTACH then
 		for _, effect in ipairs({Duel.IsPlayerAffectedByEffect(player, opcg.EFFECT_DON_PHASE_ATTACH)}) do
 			local action = opcg.GetEffectValue(effect)
 			local leader = opcg.GetLeader(player)
 			if leader and type(action) == "table" then
-				local context = {card=effect:GetHandler(), player=player}
+				local context = {
+					card=effect:GetHandler(), player=player,
+					field_don_snapshot=starting_don,
+				}
 				local allowed = true
 				for _, condition in ipairs(action.conditions or {}) do
 					if not OPCGCore.CheckCondition(condition.op, condition, context) then allowed = false break end
@@ -168,7 +173,8 @@ function R.register_game_start()
 					-- superseded by the per-DON ignition; granting it would put
 					-- a phantom summon command on every leader/character.
 					if not opcg.GetLeader(player) then
-						local leader = Duel.GetMatchingGroup(opcg.IsLeader, player, LOCATION_DECK, 0, nil):GetFirst()
+						local leader = Duel.GetMatchingGroup(opcg.IsLeader, player,
+							LOCATION_DECK + LOCATION_EXTRA, 0, nil):GetFirst()
 						if leader then
 							Duel.MoveToField(leader, player, player, LOCATION_MZONE,
 								scripted_rps and POS_FACEDOWN_ATTACK or POS_FACEUP_ATTACK,
@@ -249,7 +255,10 @@ function R.register_game_start()
 		refresh:SetCode(EVENT_PHASE_START + PHASE_DRAW)
 		refresh:SetOperation(function()
 			local player = Duel.GetTurnPlayer()
-			opcg._turn_state = {life_trigger_activated=false}
+			opcg._turn_state = {
+				life_trigger_activated=false,
+				field_don_at_start=opcg.FieldDon(player),
+			}
 			R.refresh_phase(player)
 			if opcg.contract_ops then opcg.contract_ops.emit("YOUR_TURN_START",
 				{player=player, event_player=player}, player) end
