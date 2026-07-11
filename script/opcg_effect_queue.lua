@@ -283,7 +283,11 @@ local function create_resolver(card, effect, description_index)
 	local resolver = Effect.CreateEffect(card)
 	resolver:SetType(EFFECT_TYPE_SINGLE + EFFECT_TYPE_TRIGGER_F)
 	resolver:SetCode(Q.EVENT_RESOLVE)
-	resolver:SetProperty(EFFECT_FLAG_DELAY)
+	-- DELAY: a resolve raised while another chain runs must not lose its
+	-- timing. DAMAGE_STEP/DAMAGE_CAL: defensive — OPCG battle is a scripted
+	-- main-phase chain so the native damage step never gates us today, but
+	-- if it ever does, the resolver stays activateable inside it.
+	resolver:SetProperty(EFFECT_FLAG_DELAY + EFFECT_FLAG_DAMAGE_STEP + EFFECT_FLAG_DAMAGE_CAL)
 	local description = description_for(card, effect, description_index)
 	if description ~= 0 then resolver:SetDescription(description) end
 	resolver:SetCondition(function(e, _, _, _, ev, re)
