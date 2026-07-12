@@ -277,6 +277,9 @@ function R.register_game_start()
 		-- tribute-selection callback, invoked as (e,tp,eg,ep,ev,re,r,rp,c,...)
 		-- (operations.cpp SummonRule case 4) -- a 2-arg aura filter there gets
 		-- tp as its card and crashes. Kind filtering lives in the condition.
+		local function own_field_character(fc, tp)
+			return opcg.IsCharacter(fc) and fc:GetControler() == tp
+		end
 		play_proc:SetCondition(function(e, c)
 			-- c == nil is the effect-availability probe, not a summon check.
 			if c == nil then return true end
@@ -285,13 +288,29 @@ function R.register_game_start()
 			if opcg.contract_ops and opcg.contract_ops.player_has
 				and opcg.contract_ops.player_has(tp, opcg.EFFECT_CANNOT_PLAY, c) then return false end
 			local cost = opcg.EffectivePlayCost and opcg.EffectivePlayCost(c, tp) or opcg.GetCost(c)
-			return Duel.GetLocationCount(tp, LOCATION_MZONE) > 0
-				and opcg.CanRestDon(tp, cost)
+			if not opcg.CanRestDon(tp, cost) then return false end
+			if Duel.GetLocationCount(tp, LOCATION_MZONE) > 0 then return true end
+			-- full character area: the official rule still allows the play by
+			-- trashing one of your characters to open the slot
+			return Duel.IsExistingMatchingCard(own_field_character, tp,
+				LOCATION_MZONE, 0, 1, nil, tp)
 		end)
 		play_proc:SetOperation(function(e, tp, eg, ep, ev, re, r, rp, c)
 			local cost = opcg.EffectivePlayCost and opcg.EffectivePlayCost(c, tp) or opcg.GetCost(c)
 			opcg.RestDon(tp, cost)
 			if opcg.ConsumePlayDiscounts then opcg.ConsumePlayDiscounts(c, tp) end
+			if Duel.GetLocationCount(tp, LOCATION_MZONE) <= 0 then
+				-- 풀필드 등장: trash 1 own character to make room. This is a
+				-- RULE placement, deliberately NOT a K.O. (REASON_RULE, no
+				-- destroy): [KO시] must stay silent and KO replacements must
+				-- not trigger on the pushed-out character.
+				Duel.Hint(HINT_SELECTMSG, tp, HINTMSG_TOGRAVE)
+				local victim = Duel.SelectMatchingCard(tp, own_field_character,
+					tp, LOCATION_MZONE, 0, 1, 1, nil, tp)
+				if victim and victim:GetCount() > 0 then
+					Duel.SendtoGrave(victim, REASON_RULE)
+				end
+			end
 		end)
 		play_proc:SetValue(SUMMON_TYPE_NORMAL)
 		Duel.RegisterEffect(play_proc, 0)

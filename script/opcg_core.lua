@@ -574,7 +574,7 @@ local function choose_life(player, position, chooser)
 		local top, bottom = life_extreme(player, true), life_extreme(player, false)
 		if not top then return nil end
 		if top == bottom then return top end
-		return Duel.SelectOption(chooser, 0, 1) == 0 and top or bottom
+		return Duel.SelectOption(chooser, aux.Stringid(879999998, 7), aux.Stringid(879999998, 8)) == 0 and top or bottom
 	end
 	return nil
 end
@@ -669,7 +669,7 @@ local function cost_life_position(cost, chooser)
 	end
 	top = top or cost.position == "TOP" or cost.position == "LIFE_TOP"
 	bottom = bottom or cost.position == "BOTTOM" or cost.position == "LIFE_BOTTOM"
-	if top and bottom then return Duel.SelectOption(chooser, 0, 1) == 0 and "TOP" or "BOTTOM" end
+	if top and bottom then return Duel.SelectOption(chooser, aux.Stringid(879999998, 7), aux.Stringid(879999998, 8)) == 0 and "TOP" or "BOTTOM" end
 	return bottom and "BOTTOM" or "TOP"
 end
 local function pay_card_to_life(card, player, position, faceup)
@@ -1060,7 +1060,7 @@ local function choose_life_position(action, chooser)
 		if normalized == "TOP" then top = true else bottom = true end
 	end
 	if top and bottom and Duel.SelectOption then
-		return Duel.SelectOption(chooser, 0, 1) == 0 and "TOP" or "BOTTOM"
+		return Duel.SelectOption(chooser, aux.Stringid(879999998, 7), aux.Stringid(879999998, 8)) == 0 and "TOP" or "BOTTOM"
 	end
 	return bottom and "BOTTOM" or "TOP"
 end
