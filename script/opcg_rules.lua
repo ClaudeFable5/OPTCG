@@ -185,22 +185,10 @@ function R.register_game_start()
 			end
 			if scripted_rps and not R._rps_done then
 				R._rps_done = true
-				local RPS_HOST = 879999998 -- str3/4/5 가위/바위/보, str6/7 선공/후공
-				local winner
-				repeat
-					local a = Duel.SelectOption(0, aux.Stringid(RPS_HOST, 2),
-						aux.Stringid(RPS_HOST, 3), aux.Stringid(RPS_HOST, 4))
-					local b = Duel.SelectOption(1, aux.Stringid(RPS_HOST, 2),
-						aux.Stringid(RPS_HOST, 3), aux.Stringid(RPS_HOST, 4))
-					if a ~= b then
-						-- 0 가위, 1 바위, 2 보
-						if (a == 0 and b == 2) or (a == 1 and b == 0) or (a == 2 and b == 1) then
-							winner = 0
-						else
-							winner = 1
-						end
-					end
-				until winner ~= nil
+				local RPS_HOST = 879999998 -- str6/7 선공/후공
+				-- the REAL simultaneous RPS (MSG_ROCK_PAPER_SCISSORS 132 +
+				-- MSG_HAND_RES 133, native client hand dialog); repeats on ties
+				local winner = Duel.RockPaperScissors(true)
 				local go_first = Duel.SelectOption(winner,
 					aux.Stringid(RPS_HOST, 5), aux.Stringid(RPS_HOST, 6)) == 0
 				Duel.SetTurnPlayer(go_first and winner or 1 - winner)

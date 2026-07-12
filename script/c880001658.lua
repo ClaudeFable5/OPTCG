@@ -11,7 +11,7 @@ function s.initial_effect(c)
           {
             destination=[[HAND]],
             filter={
-              name_neq=[[샤를로스 궁]],
+              name_neq=[[샤를리아 궁]],
               trait=[[천룡인]],
             },
             look_count=3,
@@ -34,7 +34,7 @@ function s.initial_effect(c)
         costs={},
         effect_id=[[E1]],
         once_per_turn=false,
-        source_text=[[【등장 시】자신의 덱 위에서 3장을 보고, 「샤를로스 궁」 이외의 《천룡인》 특징을 가진 카드를 1장까지 공개하고 패에 더한다. 그 후, 남은 카드를 트래시에 놓고, 자신의 패 1장을 버린다.]],
+        source_text=[[【등장 시】자신의 덱 위에서 3장을 보고, 「샤를리아 궁」 이외의 《천룡인》 특징을 가진 카드를 1장까지 공개하고 패에 더한다. 그 후, 남은 카드를 트래시에 놓고, 자신의 패 1장을 버린다.]],
         timings={
           [[ON_PLAY]],
         },
