@@ -315,6 +315,105 @@ function R.register_game_start()
 		play_proc:SetValue(SUMMON_TYPE_NORMAL)
 		Duel.RegisterEffect(play_proc, 0)
 
+		-- ===== 네이티브 배틀 심판 심(임시방편, 2026-07-12) =====
+		-- 어택이 네이티브 배틀 머신(idle t=9 → BattleCommand)을 타는 새 구조에서
+		-- 스톡 YGO 심판을 OPCG 룰로 교정하는 효과 레이어. 판정의 코어 이관이
+		-- 완성되면 이 블록은 통째로 은퇴한다.
+		-- [유저 설계 3종]
+		-- (a) 어택 선언 시 공격자 즉시 레스트 (공식 룰)
+		local rest_on_declare = Effect.GlobalEffect()
+		rest_on_declare:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
+		rest_on_declare:SetCode(EVENT_ATTACK_ANNOUNCE)
+		rest_on_declare:SetOperation(function()
+			local attacker = Duel.GetAttacker()
+			if attacker and not opcg.IsRested(attacker) then opcg.SetRested(attacker) end
+		end)
+		Duel.RegisterEffect(rest_on_declare, 0)
+		-- (b) 레스트(수비표시)여도 어택이 취소되지 않게 — processor:5104의
+		-- POS_DEFENSE 취소 검사 면제. value=0(거짓) = 판정 스탯은 수비력으로
+		-- 치환하지 않고 공격력 유지(3021행 게이트).
+		local defense_attack = Effect.GlobalEffect()
+		defense_attack:SetType(EFFECT_TYPE_FIELD)
+		defense_attack:SetProperty(EFFECT_FLAG_CANNOT_DISABLE + EFFECT_FLAG_UNCOPYABLE)
+		defense_attack:SetCode(EFFECT_DEFENSE_ATTACK)
+		defense_attack:SetTargetRange(LOCATION_MZONE, LOCATION_MZONE)
+		defense_attack:SetValue(0)
+		Duel.RegisterEffect(defense_attack, 0)
+		-- (c) 단, 레스트 카드는 어택 선언 자체가 불가 — (b)의 전역 부여가
+		-- 수비표시 선언을 허용해버리는 부작용 봉쇄.
+		local rested_cannot_attack = Effect.GlobalEffect()
+		rested_cannot_attack:SetType(EFFECT_TYPE_FIELD)
+		rested_cannot_attack:SetProperty(EFFECT_FLAG_CANNOT_DISABLE + EFFECT_FLAG_UNCOPYABLE)
+		rested_cannot_attack:SetCode(EFFECT_CANNOT_ATTACK)
+		rested_cannot_attack:SetTargetRange(LOCATION_MZONE, LOCATION_MZONE)
+		-- 현행 공격자는 면제: 선언 시 레스트되므로(심 a) 이 오라가 자기
+		-- 어택을 사살하지 않게 (5087 is_capable_attack 재검사 대응)
+		rested_cannot_attack:SetTarget(function(_, c)
+			return opcg.IsRested(c) and c ~= Duel.GetAttacker()
+		end)
+		Duel.RegisterEffect(rested_cannot_attack, 0)
+		-- (d) 공격자와 리더는 전투로 파괴되지 않음 (동률 상호자폭 차단 + 리더 특례)
+		local battle_immune = Effect.GlobalEffect()
+		battle_immune:SetType(EFFECT_TYPE_FIELD)
+		battle_immune:SetProperty(EFFECT_FLAG_CANNOT_DISABLE + EFFECT_FLAG_UNCOPYABLE)
+		battle_immune:SetCode(EFFECT_INDESTRUCTABLE_BATTLE)
+		battle_immune:SetTargetRange(LOCATION_MZONE, LOCATION_MZONE)
+		battle_immune:SetTarget(function(_, c)
+			return c == Duel.GetAttacker() or opcg.IsLeader(c)
+		end)
+		battle_immune:SetValue(1)
+		Duel.RegisterEffect(battle_immune, 0)
+		-- [검산 보완 3종]
+		-- (1)+(2) 판정 스탯 통일: 양측 모두 '파워(공격력)'로 비교하고, 공격자에
+		-- +1을 줘서 '이상이면 KO'(동률 KO)를 스톡의 '초과 파괴' 분기로 관철.
+		-- (수비표시 타겟 분기는 동률 무파괴라 +1이 유일한 무개조 우회.
+		--  표시 파워에는 영향 없음 — 전투 판정 전용 스탯.)
+		local battle_stat = Effect.GlobalEffect()
+		battle_stat:SetType(EFFECT_TYPE_FIELD)
+		battle_stat:SetProperty(EFFECT_FLAG_CANNOT_DISABLE + EFFECT_FLAG_UNCOPYABLE)
+		battle_stat:SetCode(EFFECT_CHANGE_BATTLE_STAT)
+		battle_stat:SetTargetRange(LOCATION_MZONE, LOCATION_MZONE)
+		battle_stat:SetValue(function(_, c)
+			if c == Duel.GetAttacker() then return c:GetAttack() + 1 end
+			return c:GetAttack()
+		end)
+		Duel.RegisterEffect(battle_stat, 0)
+		-- (3a) 전투 데미지는 LP에 반영 금지 — 코어 LP로 승패가 나면 안 됨
+		local no_lp_damage = Effect.GlobalEffect()
+		no_lp_damage:SetType(EFFECT_TYPE_FIELD)
+		no_lp_damage:SetProperty(EFFECT_FLAG_PLAYER_TARGET + EFFECT_FLAG_CANNOT_DISABLE + EFFECT_FLAG_UNCOPYABLE)
+		no_lp_damage:SetCode(EFFECT_AVOID_BATTLE_DAMAGE)
+		no_lp_damage:SetTargetRange(1, 1)
+		no_lp_damage:SetValue(1)
+		Duel.RegisterEffect(no_lp_damage, 0)
+		-- (3b) 타겟 적법성: 액티브 캐릭터는 피어택 불가 (레스트 캐릭터·리더만 유효)
+		local active_untargetable = Effect.GlobalEffect()
+		active_untargetable:SetType(EFFECT_TYPE_FIELD)
+		active_untargetable:SetProperty(EFFECT_FLAG_CANNOT_DISABLE + EFFECT_FLAG_UNCOPYABLE)
+		active_untargetable:SetCode(EFFECT_CANNOT_BE_BATTLE_TARGET)
+		active_untargetable:SetTargetRange(0, LOCATION_MZONE)
+		active_untargetable:SetTarget(function(_, c)
+			return opcg.IsCharacter(c) and not opcg.IsRested(c)
+		end)
+		active_untargetable:SetValue(1)
+		Duel.RegisterEffect(active_untargetable, 0)
+		-- (3c) 리더 피격 판정: 공격자 파워 ≥ 리더 파워면 라이프 1 데미지(+트리거)
+		local leader_hit = Effect.GlobalEffect()
+		leader_hit:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
+		leader_hit:SetCode(EVENT_BATTLED)
+		leader_hit:SetOperation(function()
+			local attacker, target = Duel.GetAttacker(), Duel.GetAttackTarget()
+			if not attacker or not target or not opcg.IsLeader(target) then return end
+			if opcg.IsLeader(attacker) or opcg.IsCharacter(attacker) then
+				if attacker:GetAttack() >= target:GetAttack() then
+					opcg.life.damage_leader(target:GetControler(), 1,
+						{source="BATTLE", attacker=attacker, target=target})
+				end
+			end
+		end)
+		Duel.RegisterEffect(leader_hit, 0)
+		-- ===== 심 끝 =====
+
 		local rested_play = Effect.GlobalEffect()
 		rested_play:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
 		rested_play:SetCode(EVENT_SUMMON_SUCCESS)
