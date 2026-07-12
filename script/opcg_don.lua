@@ -359,6 +359,25 @@ function opcg.ReturnAttachedDon(card)
 	return move_overlay(destination, selected)
 end
 
+-- 전장 밖(트래시 등)에 떨어진 둥의 구조: 코스트 에리어로 레스트 귀환.
+-- 네이티브 배틀 파괴는 lua 제거 경로(이탈 전 ReturnAttachedDon)를 안 타서
+-- 숙주의 오버레이 둥이 묘지 이송에 같이 쓸려간다 — opcg_battle의
+-- EVENT_TO_GRAVE 워처가 착지 즉시 이 함수로 되돌린다(공식 10-2-3의 사후 집행).
+function opcg.RescueLooseDon(cards)
+	local moved = 0
+	for _, card in ipairs(cards or {}) do
+		if is_don(card) then
+			local host = opcg.GetDonCostHost(card:GetControler())
+			if host then
+				local group = Group.FromCards(card)
+				set_group_rested(group, true)
+				moved = moved + move_overlay(host, group)
+			end
+		end
+	end
+	return moved
+end
+
 function opcg.ReturnAttachedDonToCost(card, minimum, maximum, chooser, state)
 	if not card then return 0 end
 	local destination = opcg.GetDonCostHost(card:GetControler())

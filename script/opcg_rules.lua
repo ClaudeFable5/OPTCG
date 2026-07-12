@@ -315,20 +315,13 @@ function R.register_game_start()
 		play_proc:SetValue(SUMMON_TYPE_NORMAL)
 		Duel.RegisterEffect(play_proc, 0)
 
-		-- ===== 네이티브 배틀 심판 심(임시방편, 2026-07-12) =====
-		-- 어택이 네이티브 배틀 머신(idle t=9 → BattleCommand)을 타는 새 구조에서
-		-- 스톡 YGO 심판을 OPCG 룰로 교정하는 효과 레이어. 판정의 코어 이관이
-		-- 완성되면 이 블록은 통째로 은퇴한다.
-		-- [유저 설계 3종]
-		-- (a) 어택 선언 시 공격자 즉시 레스트 (공식 룰)
-		local rest_on_declare = Effect.GlobalEffect()
-		rest_on_declare:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
-		rest_on_declare:SetCode(EVENT_ATTACK_ANNOUNCE)
-		rest_on_declare:SetOperation(function()
-			local attacker = Duel.GetAttacker()
-			if attacker and not opcg.IsRested(attacker) then opcg.SetRested(attacker) end
-		end)
-		Duel.RegisterEffect(rest_on_declare, 0)
+		-- ===== 네이티브 배틀 심판 심(정적 판정 레이어, 2026-07-12) =====
+		-- 어택이 네이티브 배틀 머신(idle t=9 → BattleCommand)을 타는 구조에서
+		-- 스톡 YGO 심판을 OPCG 룰로 교정하는 '오라' 레이어. 이벤트 진행형
+		-- 스텝(선언 레스트·어택 코스트/블록/카운터/리더 라이프/KO 디스패치/
+		-- 배틀 종료 경계)은 opcg_battle.lua의 네이티브 훅이 담당한다
+		-- (구 심 a·3c·3d 이관). 판정의 코어 이관이 완성되면 통째로 은퇴한다.
+		if opcg.battle and opcg.battle.install then opcg.battle.install() end
 		-- (b) 레스트(수비표시)여도 어택이 취소되지 않게 — processor:5104의
 		-- POS_DEFENSE 취소 검사 면제. value=0(거짓) = 판정 스탯은 수비력으로
 		-- 치환하지 않고 공격력 유지(3021행 게이트).
@@ -360,6 +353,15 @@ function R.register_game_start()
 				and not opcg.HasKeyword(c, "RUSH")
 				and not c:IsHasEffect(opcg.EFFECT_ALLOW_ATTACK_CHARACTER) then
 				return true
+			end
+			-- 어택 코스트(손패 버리기 강제)를 낼 수 없으면 선언 불가
+			-- (지불 자체는 opcg_battle의 announce 훅이 집행)
+			local battle = opcg.battle
+			if battle and battle.required_attack_discard then
+				local required = battle.required_attack_discard(c, c:GetControler())
+				if required > 0 and Duel.GetFieldGroupCount(c:GetControler(), LOCATION_HAND, 0) < required then
+					return true
+				end
 			end
 			return false
 		end)
@@ -403,42 +405,17 @@ function R.register_game_start()
 		active_untargetable:SetType(EFFECT_TYPE_FIELD)
 		active_untargetable:SetProperty(EFFECT_FLAG_CANNOT_DISABLE + EFFECT_FLAG_UNCOPYABLE)
 		active_untargetable:SetCode(EFFECT_CANNOT_BE_BATTLE_TARGET)
-		active_untargetable:SetTargetRange(0, LOCATION_MZONE)
+		-- 양측 모두: 방향 비대칭((0, MZONE) = 상대 존만)이면 반대편 공격에서
+		-- 자기 액티브 캐릭터가 타겟으로 노출된다 (07-13 yrp 합성이 검출한 실버그)
+		active_untargetable:SetTargetRange(LOCATION_MZONE, LOCATION_MZONE)
 		active_untargetable:SetTarget(function(_, c)
 			return opcg.IsCharacter(c) and not opcg.IsRested(c)
 		end)
 		active_untargetable:SetValue(1)
 		Duel.RegisterEffect(active_untargetable, 0)
-		-- (3c) 리더 피격 판정: 공격자 파워 ≥ 리더 파워면 라이프 1 데미지(+트리거)
-		local leader_hit = Effect.GlobalEffect()
-		leader_hit:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
-		leader_hit:SetCode(EVENT_BATTLED)
-		leader_hit:SetOperation(function()
-			local attacker, target = Duel.GetAttacker(), Duel.GetAttackTarget()
-			if not attacker or not target or not opcg.IsLeader(target) then return end
-			if opcg.IsLeader(attacker) or opcg.IsCharacter(attacker) then
-				if attacker:GetAttack() >= target:GetAttack() then
-					opcg.life.damage_leader(target:GetControler(), 1,
-						{source="BATTLE", attacker=attacker, target=target})
-				end
-			end
-		end)
-		Duel.RegisterEffect(leader_hit, 0)
-		-- (3d) 배틀 경계 배수 펌프: [KO시] 등 배틀 중 수집된 트리거는 구
-		-- 배틀/체인 경계가 배수했는데, 체인 없는 네이티브 어택(t=9 직행)엔
-		-- 그 경계가 없다 — 데미지 스텝 종료가 새 배수점.
-		local battle_pump = Effect.GlobalEffect()
-		battle_pump:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
-		battle_pump:SetCode(EVENT_DAMAGE_STEP_END)
-		battle_pump:SetOperation(function()
-			if opcg.effect_queue and opcg.effect_queue.drain_direct then
-				opcg.effect_queue.drain_direct({}, nil, {})
-			end
-			if opcg.effect_queue and opcg.effect_queue.flush then
-				opcg.effect_queue.flush()
-			end
-		end)
-		Duel.RegisterEffect(battle_pump, 0)
+		-- (3c) 리더 피격 판정과 (3d) 배틀 경계 배수는 opcg_battle.lua의
+		-- EVENT_BATTLED / EVENT_DAMAGE_STEP_END 훅으로 이관(확장 포함:
+		-- 더블어택·바니시·ON_DAMAGE_TO_OPPONENT_LIFE·KO 디스패치·경계 배수).
 		-- ===== 심 끝 =====
 
 		local rested_play = Effect.GlobalEffect()
