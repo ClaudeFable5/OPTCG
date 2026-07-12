@@ -157,11 +157,11 @@ function R.register_game_start()
 		startup:SetOperation(function()
 			-- [원설계] Under DUEL_OPCG_SCRIPTED_RPS the network SELECT_HAND/TP
 			-- handshake is a fast-forwarded formality: the REAL rock-paper-
-			-- scissors runs HERE, official-sequence style — leaders enter
-			-- face-DOWN, the RPS winner picks first/second (Duel.SetTurnPlayer,
-			-- honored by the core Startup processor), and only then the
-			-- leaders flip face-up. Without the flag (headless harnesses,
-			-- solo) leaders enter face-up and turn order stays as given.
+			-- scissors runs HERE, official-sequence style — leaders start
+			-- REVEALED (리더 보고 시작), then the RPS winner picks first/second
+			-- (Duel.SetTurnPlayer, honored by the core Startup processor).
+			-- Without the flag (headless harnesses, solo) turn order stays
+			-- as given.
 			local scripted_rps = Duel.IsDuelType
 				and Duel.IsDuelType(0x4000000000) or false
 			for _, player in ipairs({ 0, 1 }) do
@@ -176,8 +176,10 @@ function R.register_game_start()
 						local leader = Duel.GetMatchingGroup(opcg.IsLeader, player,
 							LOCATION_DECK + LOCATION_EXTRA, 0, nil):GetFirst()
 						if leader then
+							-- leaders are PUBLIC from the start (공식: 리더 보고
+							-- 시작) — the scripted RPS only decides turn order
 							Duel.MoveToField(leader, player, player, LOCATION_MZONE,
-								scripted_rps and POS_FACEDOWN_ATTACK or POS_FACEUP_ATTACK,
+								POS_FACEUP_ATTACK,
 								true, 1 << opcg.zone.LEADER.seq)
 						end
 					end
@@ -192,13 +194,6 @@ function R.register_game_start()
 				local go_first = Duel.SelectOption(winner,
 					aux.Stringid(RPS_HOST, 5), aux.Stringid(RPS_HOST, 6)) == 0
 				Duel.SetTurnPlayer(go_first and winner or 1 - winner)
-				-- 공개: only now do the leaders flip face-up
-				for _, player in ipairs({ 0, 1 }) do
-					local leader = opcg.GetLeader(player)
-					if leader and leader:IsFacedown() then
-						Duel.ChangePosition(leader, POS_FACEUP_ATTACK)
-					end
-				end
 			end
 			for _, player in ipairs({ 0, 1 }) do
 				if startup_done[player] and not game_start_done[player] then
