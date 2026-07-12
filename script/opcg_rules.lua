@@ -187,12 +187,12 @@ function R.register_game_start()
 			end
 			if scripted_rps and not R._rps_done then
 				R._rps_done = true
-				local RPS_HOST = 879999998 -- str6/7 선공/후공
 				-- the REAL simultaneous RPS (MSG_ROCK_PAPER_SCISSORS 132 +
 				-- MSG_HAND_RES 133, native client hand dialog); repeats on ties
 				local winner = Duel.RockPaperScissors(true)
-				local go_first = Duel.SelectOption(winner,
-					aux.Stringid(RPS_HOST, 5), aux.Stringid(RPS_HOST, 6)) == 0
+				-- stock system strings 100/101 ("Go first"/"Go second") —
+				-- built into every client's strings.conf, immune to cdb state
+				local go_first = Duel.SelectOption(winner, 100, 101) == 0
 				Duel.SetTurnPlayer(go_first and winner or 1 - winner)
 			end
 			for _, player in ipairs({ 0, 1 }) do
