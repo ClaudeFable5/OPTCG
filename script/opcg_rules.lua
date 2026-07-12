@@ -77,11 +77,15 @@ function R.don_phase(player)
 	local starting_don = opcg._turn_state and opcg._turn_state.field_don_at_start
 		or opcg.FieldDon(player)
 	local added = opcg.DonPhase(player)
-	if Duel.IsPlayerAffectedByEffect and opcg.EFFECT_DON_PHASE_ATTACH then
+	-- redirect effects act on DON *being placed this phase* (놓이는 둥):
+	-- with the DON deck dry (added == 0) there is nothing to redirect, and
+	-- redirects can never exceed what was actually placed.
+	local redirectable = added
+	if redirectable > 0 and Duel.IsPlayerAffectedByEffect and opcg.EFFECT_DON_PHASE_ATTACH then
 		for _, effect in ipairs({Duel.IsPlayerAffectedByEffect(player, opcg.EFFECT_DON_PHASE_ATTACH)}) do
 			local action = opcg.GetEffectValue(effect)
 			local leader = opcg.GetLeader(player)
-			if leader and type(action) == "table" then
+			if leader and type(action) == "table" and redirectable > 0 then
 				local context = {
 					card=effect:GetHandler(), player=player,
 					field_don_snapshot=starting_don,
@@ -90,7 +94,11 @@ function R.don_phase(player)
 				for _, condition in ipairs(action.conditions or {}) do
 					if not OPCGCore.CheckCondition(condition.op, condition, context) then allowed = false break end
 				end
-				if allowed then opcg.GiveDon(player, leader, action.count or 1, "ACTIVE") end
+				if allowed then
+					local given = opcg.GiveDon(player, leader,
+						math.min(action.count or 1, redirectable), "ACTIVE")
+					redirectable = redirectable - given
+				end
 			end
 		end
 	end
