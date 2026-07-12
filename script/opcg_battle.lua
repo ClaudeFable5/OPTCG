@@ -510,7 +510,7 @@ function B.resolve_attack(attacker, target, context)
 	bridge.advance_boundary(context)
 	return true, state
 end
-
+--[[
 function B.register_attack_action(card)
 	if B._registered[card] then return true end
 	B._registered[card] = true
@@ -550,6 +550,6 @@ function B.register_attack_action(card)
 	card:RegisterEffect(attack)
 	return true
 end
-
+]]--
 return B
 
