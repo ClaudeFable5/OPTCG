@@ -442,19 +442,12 @@ function C.CheckCondition(op, condition, context)
 	if op == "ACTIVE_DON_LTE" then return opcg.ActiveDon(player) <= n end
 	if op == "RESTED_DON_GTE" then return opcg.RestedDon(player) >= n end
 	if op == "ALL_DON_RESTED" then return opcg.ActiveDon(player) == 0 and opcg.CostAreaDon(player) > 0 end
-	if op == "ATTACHED_DON_GTE" then
-		local source = context.card
-		if source and source:IsLocation(LOCATION_MZONE)
-			and (opcg.IsLeader(source) or opcg.IsCharacter(source)) then
-			return opcg.GetAttachedDon(source) >= n
-		end
-		local total = 0
-		local cards = Duel.GetMatchingGroup(function(card)
-			return opcg.IsLeader(card) or opcg.IsCharacter(card)
-		end, player, LOCATION_MZONE, 0, nil)
-		for card in aux.Next(cards) do total = total + opcg.GetAttachedDon(card) end
-		return total >= n
-	end
+	-- "자신의 부여되어 있는 두웅!!(합계)": every DON given to the player's
+	-- leader/characters counts. The old on-field branch counted only the
+	-- card's OWN attachments — always zero at 등장 시, so the whole
+	-- "if you have given DON!!" family never fired from the field. Per-card
+	-- requirements (DON!!×N) ride effect.don_attached, not this op.
+	if op == "ATTACHED_DON_GTE" then return opcg.AttachedDonCount(player) >= n end
 
 	if op == "SELF_POWER_GTE" then return context.card ~= nil and opcg.GetPower(context.card) >= (condition.amount or 0) end
 	if op == "SELF_STATE_IS" then
