@@ -174,7 +174,7 @@ local function select_blocker(player, candidates)
 	end
 end
 
-local function select_counter(player, candidates, live)
+local function select_counters(player, candidates, live)
 	if #candidates == 0 then
 		-- 심리전: 한 어택의 첫 카운터 창은 쓸 게 없어도 프롬프트를 띄운다.
 		-- 즉시 스킵되면 어태커가 손패(비공개)를 읽는다 — 블로커는 공개
@@ -183,15 +183,15 @@ local function select_counter(player, candidates, live)
 			live.counter_prompted = true
 			Duel.SelectYesNo(player, B.COUNTER_PROMPT)
 		end
-		return nil
+		return {}
 	end
-	while true do
-		live.counter_prompted = true
-		if not Duel.SelectYesNo(player, B.COUNTER_PROMPT) then return nil end
-		Duel.Hint(HINT_SELECTMSG, player, B.COUNTER_SELECT_HINT)
-		local picked = to_group(candidates):Select(player, 0, 1, nil):GetFirst()
-		if picked then return picked end
-	end
+	live.counter_prompted = true
+	-- 일괄 선택(min 0 = 사양 가능): 한 창에서 여러 장을 집고 뺄 수 있고,
+	-- 0장 확정이 곧 거절이다 — 장당 예/아니오 왕복 없음. 마젠타 합산
+	-- 프리뷰(⑤)가 이 선택 중 실시간으로 붙는다.
+	Duel.Hint(HINT_SELECTMSG, player, B.COUNTER_SELECT_HINT)
+	local picked = to_group(candidates):Select(player, 0, #candidates, nil)
+	return array(picked)
 end
 
 -- 카운터 수치는 현재 어택 타겟에 '이 배틀 동안'의 파워로 얹는다. 표시
@@ -253,17 +253,36 @@ local function run_counter_step(live)
 				candidates[#candidates + 1] = card
 			end
 		end
-		local selected = select_counter(live.defending_player, candidates, live)
-		if not selected then return end
-		local value = math.max(0, opcg.GetCounter(selected) or 0)
-		if value > 0 then
-			-- 캐릭터 카운터: 손패에서 트래시로, 수치만큼 타겟 파워 상승
-			Duel.SendtoGrave(selected, REASON_COST)
-			apply_counter_power(live, target, value)
-			live.counter_power = live.counter_power + value
-		else
-			resolve_event_counter(selected, live)
+		local picked = select_counters(live.defending_player, candidates, live)
+		if #picked == 0 then return end
+		-- 수치 카운터는 한 묶음으로 트래시 + 합산 한 방에 부여
+		local chars = Group.CreateGroup()
+		local total = 0
+		for _, card in ipairs(picked) do
+			local value = math.max(0, opcg.GetCounter(card) or 0)
+			if value > 0 then
+				chars:AddCard(card)
+				total = total + value
+			end
 		end
+		if total > 0 then
+			Duel.SendtoGrave(chars, REASON_COST)
+			apply_counter_power(live, target, total)
+			live.counter_power = live.counter_power + total
+		end
+		-- 이벤트 카운터는 한 장씩 해석(공식 순차 사용) — 앞선 해석이 둥을
+		-- 소모했을 수 있으니 장마다 지불 가능성을 재확인한다.
+		local resolved_event = false
+		for _, card in ipairs(picked) do
+			if (opcg.GetCounter(card) or 0) <= 0 and opcg.IsEvent(card)
+				and opcg.CanRestDon(live.defending_player, opcg.GetCost(card)) then
+				resolve_event_counter(card, live)
+				resolved_event = true
+			end
+		end
+		-- 이벤트가 상태를 바꿨으면 창을 다시 연다(추가 사용 기회);
+		-- 수치 카운터만 썼다면 전 후보가 이미 한 창에 나왔으니 종료.
+		if not resolved_event then return end
 	end
 end
 
