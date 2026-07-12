@@ -339,19 +339,31 @@ function R.register_game_start()
 		defense_attack:SetTargetRange(LOCATION_MZONE, LOCATION_MZONE)
 		defense_attack:SetValue(0)
 		Duel.RegisterEffect(defense_attack, 0)
-		-- (c) 단, 레스트 카드는 어택 선언 자체가 불가 — (b)의 전역 부여가
-		-- 수비표시 선언을 허용해버리는 부작용 봉쇄.
-		local rested_cannot_attack = Effect.GlobalEffect()
-		rested_cannot_attack:SetType(EFFECT_TYPE_FIELD)
-		rested_cannot_attack:SetProperty(EFFECT_FLAG_CANNOT_DISABLE + EFFECT_FLAG_UNCOPYABLE)
-		rested_cannot_attack:SetCode(EFFECT_CANNOT_ATTACK)
-		rested_cannot_attack:SetTargetRange(LOCATION_MZONE, LOCATION_MZONE)
-		-- 현행 공격자는 면제: 선언 시 레스트되므로(심 a) 이 오라가 자기
-		-- 어택을 사살하지 않게 (5087 is_capable_attack 재검사 대응)
-		rested_cannot_attack:SetTarget(function(_, c)
-			return opcg.IsRested(c) and c ~= Duel.GetAttacker()
+		-- (c) 어택 선언 제약 일체(구 can_declare 이식): ①레스트 선언 불가
+		-- ((b)의 전역 부여 부작용 봉쇄) ②개인 첫 턴(선공 턴1·후공 턴2) 전면
+		-- 금지 ③등장턴 캐릭터 병(속공·허용효과 예외).
+		local declare_rules = Effect.GlobalEffect()
+		declare_rules:SetType(EFFECT_TYPE_FIELD)
+		declare_rules:SetProperty(EFFECT_FLAG_CANNOT_DISABLE + EFFECT_FLAG_UNCOPYABLE)
+		declare_rules:SetCode(EFFECT_CANNOT_ATTACK)
+		declare_rules:SetTargetRange(LOCATION_MZONE, LOCATION_MZONE)
+		declare_rules:SetTarget(function(_, c)
+			-- 현행 공격자는 면제: 선언 시 레스트되므로(심 a) 이 오라가 자기
+			-- 어택을 사살하지 않게 (5087 is_capable_attack 재검사 대응)
+			if c == Duel.GetAttacker() then return false end
+			if opcg.IsRested(c) then return true end
+			-- 개인 첫 턴 어택 금지 (구 can_declare: personal_turn_count <= 1)
+			if Duel.GetTurnCount(c:GetControler()) <= 1 then return true end
+			-- 등장턴 캐릭터 병 (리더 제외, RUSH·허용효과 예외)
+			if opcg.IsCharacter(c) and c.GetTurnID
+				and c:GetTurnID() == Duel.GetTurnCount()
+				and not opcg.HasKeyword(c, "RUSH")
+				and not c:IsHasEffect(opcg.EFFECT_ALLOW_ATTACK_CHARACTER) then
+				return true
+			end
+			return false
 		end)
-		Duel.RegisterEffect(rested_cannot_attack, 0)
+		Duel.RegisterEffect(declare_rules, 0)
 		-- (d) 공격자와 리더는 전투로 파괴되지 않음 (동률 상호자폭 차단 + 리더 특례)
 		local battle_immune = Effect.GlobalEffect()
 		battle_immune:SetType(EFFECT_TYPE_FIELD)
@@ -412,6 +424,21 @@ function R.register_game_start()
 			end
 		end)
 		Duel.RegisterEffect(leader_hit, 0)
+		-- (3d) 배틀 경계 배수 펌프: [KO시] 등 배틀 중 수집된 트리거는 구
+		-- 배틀/체인 경계가 배수했는데, 체인 없는 네이티브 어택(t=9 직행)엔
+		-- 그 경계가 없다 — 데미지 스텝 종료가 새 배수점.
+		local battle_pump = Effect.GlobalEffect()
+		battle_pump:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
+		battle_pump:SetCode(EVENT_DAMAGE_STEP_END)
+		battle_pump:SetOperation(function()
+			if opcg.effect_queue and opcg.effect_queue.drain_direct then
+				opcg.effect_queue.drain_direct({}, nil, {})
+			end
+			if opcg.effect_queue and opcg.effect_queue.flush then
+				opcg.effect_queue.flush()
+			end
+		end)
+		Duel.RegisterEffect(battle_pump, 0)
 		-- ===== 심 끝 =====
 
 		local rested_play = Effect.GlobalEffect()
