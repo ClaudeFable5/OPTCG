@@ -396,6 +396,24 @@ function B.install()
 		local attacker = live.attacker
 		local target = live.final_target or Duel.GetAttackTarget()
 		local context = live.context
+		-- [구 ko= 1:1 이식] 네이티브 파괴 집행은 배틀 개시 때 박제한 '원래
+		-- 타겟'(pre_field)과 대조하므로, 블록으로 교체된 타겟은 파워에서
+		-- 져도 파괴 후보에서 영영 빠진다. 네이티브가 못 죽인 몫을 옛 배틀의
+		-- ko= 그대로 여기서 집행: 둥 반환 → REASON_BATTLE 파괴(치환기 경유)
+		-- → 수동 EVENT_DESTROYED (스톡 send_to는 전투 파괴엔 이벤트를 안
+		-- 올린다 — operations.cpp 비전투 한정 raise). 카운터 버프 청산 전이라
+		-- 판정 파워도 정확하다. 정상 KO된 타겟은 이미 묘지라 자연 통과.
+		if target and live.final_target_is_character
+			and target:IsLocation(LOCATION_MZONE)
+			and attacker and attacker:GetAttack() >= target:GetAttack() then
+			opcg.ReturnAttachedDon(target)
+			local moved = Duel.Destroy(target, REASON_BATTLE)
+			if moved > 0 then
+				Duel.RaiseSingleEvent(target, EVENT_DESTROYED, nil,
+					REASON_BATTLE + REASON_DESTROY, live.attacking_player,
+					live.attacking_player, 0)
+			end
+		end
 		-- ON_KO 본체는 네이티브 EVENT_DESTROYED 바인딩이 발화 — 여기서는
 		-- 관점형 KO 타이밍(자/타/전장)만 이름으로 디스패치한다.
 		if target and live.final_target_is_character
