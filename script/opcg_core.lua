@@ -241,7 +241,13 @@ local function emit_played(card, player, context)
 	end
 end
 local function place_character_card(card, player, rested, context)
-	local position = rested and POS_FACEUP_DEFENSE or POS_FACEUP_ATTACK
+	-- [OPCG] 지속 '레스트로 등장'(EFFECT_PLAY_RESTED — 예: OP09-022 리무
+	-- "자신의 캐릭터 카드는 레스트 상태로 등장한다")은 효과 등장에도 적용.
+	-- contract_ops.play(일반 등장)와 동일한 강제 검사 — 이게 빠져 있어서
+	-- 기동 메인 등 효과로 등장한 캐릭터만 액티브로 나오던 버그 (2026-07-14).
+	local forced_rested = opcg.contract_ops and opcg.contract_ops.player_has
+		and opcg.contract_ops.player_has(player, opcg.EFFECT_PLAY_RESTED, card, context)
+	local position = (rested or forced_rested) and POS_FACEUP_DEFENSE or POS_FACEUP_ATTACK
 	local ok = Duel.MoveToField(card, player, player, LOCATION_MZONE, position, true, 0x1f)
 	if ok then emit_played(card, player, context) end
 	return ok
