@@ -424,6 +424,20 @@ function B.install()
 				"ON_OPPONENT_CHARACTER_KO", context)
 			dispatch(field_cards(live.attacking_player), "ON_ANY_CHARACTER_KO", context)
 			dispatch(field_cards(live.defending_player), "ON_ANY_CHARACTER_KO", context)
+			-- 아군 캐릭터 KO 청취(OP13-002 E2 등): 효과 KO는 after_remove가
+			-- 쏘지만 배틀 KO는 그 경로를 안 타므로 여기서 쏜다. 판정 대상은
+			-- event_target에 박은 깨끗한 사본으로 — live.context를 그대로 주면
+			-- 리더 히트가 남긴 damage가 조건의 '데미지 받음' 분기를 오발시킨다.
+			local ko_event = {}
+			for key, value in pairs(context or {}) do ko_event[key] = value end
+			ko_event.damage = nil
+			ko_event.event_damage = nil
+			ko_event.event_target = target
+			ko_event.event_targets = {target}
+			ko_event.event_cards = {target}
+			ko_event.event_count = 1
+			dispatch(field_cards(live.defending_player),
+				"ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO", ko_event)
 		end
 		if target and live.final_target_is_character then
 			-- "이번 턴 상대 캐릭터와 배틀했다" 조건용 기록
