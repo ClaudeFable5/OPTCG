@@ -2102,6 +2102,7 @@ opcg.card_meta = {
 	[880002097]={name="샬롯 브륄레",base_card_no="ST20-003",card_type="CHARACTER",colors=32,traits={["빅 맘 해적단"]=true},attributes={["SPECIAL"]=true}},
 	[880002098]={name="샬롯 푸딩",base_card_no="ST20-004",card_type="CHARACTER",colors=32,traits={["빅 맘 해적단"]=true},attributes={["WISDOM"]=true}},
 	[880002099]={name="샬롯 링링",base_card_no="ST20-005",card_type="CHARACTER",colors=32,traits={["빅 맘 해적단"]=true,["사황"]=true},attributes={["SPECIAL"]=true}},
+	[880002100]={name="징베",base_card_no="PRB02-007",card_type="CHARACTER",colors=4,traits={["어인족"]=true,["왕의 부하 칠무해"]=true,["태양 해적단"]=true},attributes={["STRIKE"]=true}},
 }
 
 function opcg.GetCardMetaByCode(code)

@@ -1,0 +1,2 @@
+-- MANUAL PRINTING ALIAS: PRB02-007_P1 -> 880002100
+Duel.LoadScript("c880002100.lua", false)
