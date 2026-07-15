@@ -345,8 +345,11 @@ function R.register_game_start()
 			-- 어택을 사살하지 않게 (5087 is_capable_attack 재검사 대응)
 			if c == Duel.GetAttacker() then return false end
 			if opcg.IsRested(c) then return true end
-			-- 개인 첫 턴 어택 금지 (구 can_declare: personal_turn_count <= 1)
-			if Duel.GetTurnCount(c:GetControler()) <= 1 then return true end
+			-- 게임의 첫 턴만 공격 금지 = 선공 플레이어 한정(공식룰). 글로벌
+			-- 턴수 1 = 선공 첫 턴뿐이고, 후공의 첫 턴은 글로벌 2라 허용된다.
+			-- (2026-07-15 정정: 구 personal_turn_count<=1은 후공 첫 턴까지
+			--  잘못 봉인 — 후공 공격 불가 버그. yrpX 제보 + avail 하네스 재현.)
+			if Duel.GetTurnCount() <= 1 then return true end
 			-- 등장턴 캐릭터 병 (리더 제외, RUSH·허용효과 예외)
 			if opcg.IsCharacter(c) and c.GetTurnID
 				and c:GetTurnID() == Duel.GetTurnCount()
