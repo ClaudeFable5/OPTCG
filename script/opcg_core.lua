@@ -540,7 +540,10 @@ function C.CheckCondition(op, condition, context)
 			or (target ~= nil and opcg.GetBaseCost(target) >= n)
 	end
 	if op == "EVENT_DAMAGE_OR_TARGET_BASE_POWER_GTE" then
-		return (context.damage or context.event_damage or 0) >= (condition.amount or 0)
+		-- GTE(amount)는 'KO된 대상의 원래 파워' 분기에만 걸린다 (OP13-002 E2:
+		-- "대미지를 받았을 때 또는 원래 파워 6000 이상이 KO"). 데미지 분기는
+		-- 발생 여부만 본다 — 데미지 양(라이프 1~2)에 amount를 대면 영구 false.
+		return (context.damage or context.event_damage or 0) > 0
 			or (target ~= nil and opcg.GetBasePower(target) >= (condition.amount or 0))
 	end
 	if op == "EVENT_TARGET_HAS_ATTRIBUTE" then
