@@ -307,6 +307,13 @@ function B.install()
 			-- 리더 한정 변형만 여기서 이름으로 디스패치.
 			dispatch({attacker}, "WHEN_ATTACKING_OPPONENT_LEADER", live.context)
 		end
+		-- 어택 문맥에서 태어난 콜렉터 트리거(어택시 창)는 direct 큐에
+		-- 모인다(콜렉터의 배틀 분기) — 코어가 t=9 데미지 스텝 안에서는
+		-- EVENT_RESOLVE 리졸버에 체인 오퍼를 주지 않기 때문. 블록 스텝이
+		-- 열리기 전인 여기가 어택시 효과의 정위치 배수 지점이다.
+		if opcg.effect_queue and opcg.effect_queue.drain_direct then
+			opcg.effect_queue.drain_direct({}, nil, live.context)
+		end
 	end)
 	Duel.RegisterEffect(announce, 0)
 

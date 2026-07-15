@@ -213,6 +213,18 @@ function Q.flush()
 end
 
 function Q.after_chain()
+	-- inflight 좀비 회수: raise된 리졸버가 체인 오퍼를 못 받고 증발하면
+	-- (어택 문맥 등) 소비가 없어 _inflight가 영구 잔존, flush가 게임 끝까지
+	-- 마비된다. 아이템이 아직 _items에 남아있는 미소비 inflight만 해제 —
+	-- 정상 소비 직후라면 take가 이미 nil로 만들었으니 건드릴 일이 없다.
+	if Q._inflight ~= nil then
+		for _, item in ipairs(Q._items) do
+			if item.serial == Q._inflight then
+				Q._inflight = nil
+				break
+			end
+		end
+	end
 	for _, item in ipairs(Q._items) do item.raised = false end
 	Q.flush()
 	-- triggers born during the finished chain (battle KO, effect KO) wait in
@@ -376,7 +388,12 @@ function Q.register_trigger(card, effect, code, options)
 		-- resolution (after_chain pump / battle boundary drain). The engine
 		-- path would degrade it into a delayed chain offer that effectively
 		-- never resolves for the player.
-		if Q.is_draining() or current_chain() > 0 then
+		-- 배틀 진행 중(B._live)도 direct: t=9 네이티브 데미지 스텝 안에서
+		-- raise된 EVENT_RESOLVE 리졸버는 코어가 체인 오퍼를 영영 주지 않아
+		-- (어택시 창 무발동 + inflight 좀비로 큐 전체 마비) 엔진 경로가
+		-- 죽은 길이다. 배수는 announce 말미/배틀 경계의 drain_direct.
+		if Q.is_draining() or current_chain() > 0
+			or (Duel.GetAttacker and Duel.GetAttacker() ~= nil) then
 			Q.enqueue_direct(handler, effect, context, {
 				optional=options.optional,
 				description=description,
