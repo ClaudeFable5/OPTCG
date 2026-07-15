@@ -347,7 +347,7 @@ function R.register_game_start()
 			if opcg.IsRested(c) then return true end
 			-- 개인 첫 턴 어택 금지 (공식룰: 선공·후공 모두 자기 첫 턴 공격 불가).
 			-- personal_turn_count = Duel.GetTurnCount(player) 이 개인 턴수.
-			if Duel.GetTurnCount(c:GetControler()) <= 1 then return true end
+			if Duel.GetTurnCount() <= 2 then return true end
 			-- 등장턴 캐릭터 병 (리더 제외, RUSH·허용효과 예외)
 			if opcg.IsCharacter(c) and c.GetTurnID
 				and c:GetTurnID() == Duel.GetTurnCount()
