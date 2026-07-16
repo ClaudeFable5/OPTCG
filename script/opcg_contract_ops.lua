@@ -191,7 +191,11 @@ local function execute_nested(actions, context)
 		if action["then"] == true and previous_action_succeeded ~= true then
 			context.last_action_succeeded = false
 		else
-			context.last_action_succeeded = nil
+			-- IF/CHOOSE read the previous action's outcome in their own
+			-- conditions - do not wipe it before they run (see runtime loop).
+			if action.op ~= "IF" and action.op ~= "CHOOSE" then
+				context.last_action_succeeded = nil
+			end
 			OPCGCore.ExecuteAction(action.op, action, context)
 			if context.last_action_succeeded == nil then context.last_action_succeeded = true end
 		end
@@ -383,7 +387,7 @@ local function action_life_reorder(action, context)
 	return remember(context, selected)
 end
 
-local function action_power_by_count(action, context, source_cards, destination)
+local function action_power_by_count(action, context, source_cards, destination, on_removed)
 	local player = resolve_player(action.player, context)
 	local chooser = source_player(context)
 	local cards = source_cards(player, chooser)
@@ -396,11 +400,26 @@ local function action_power_by_count(action, context, source_cards, destination)
 	elseif destination == "REST_DON" then
 		opcg.RestDon(player, #cards)
 	end
+	if on_removed then on_removed(cards, player) end
 	local amount = math.floor(#cards / (action.divisor or 1)) * (action.amount_per or 0)
 	local targets = choose(action.selector, context)
 	for _, card in ipairs(targets) do modify(context.card, card, EFFECT_UPDATE_ATTACK, amount, action.duration) end
 	context.last_action_succeeded = #cards > 0
 	return targets
+end
+
+-- 자신의 카드 효과로 패가 버려진 사건(쿠잔류 트리거의 발신원).
+-- 코스트로 버린 패는 룰상 "효과로 버려짐"이 아니므로 PayCost는 발신하지
+-- 않는다. source_card = 버리게 만든 효과의 카드(리스너 덮어쓰기 회피 키).
+local function emit_hand_discard(cards, context, player)
+	if #(cards or {}) == 0 or not X.emit then return end
+	local event = {}
+	for key, value in pairs(context or {}) do event[key] = value end
+	event.event_cards = cards
+	event.event_count = #cards
+	event.event_player = player
+	event.source_card = context and context.card or nil
+	X.emit("ON_HAND_DISCARDED_BY_TRAIT_EFFECT", event, player)
 end
 
 function X.execute(op, action, context)
@@ -463,6 +482,7 @@ function X.execute(op, action, context)
 		local count = math.max(0, hand - (action.count or 0))
 		local cards = select_zone(player, LOCATION_HAND, action.filter, count, count, player, context)
 		if #cards > 0 then trash(cards, REASON_EFFECT + REASON_DISCARD) end
+		emit_hand_discard(cards, context, player)
 		context.last_action_succeeded = true
 		return remember(context, cards)
 	elseif op == "REDRAW_HAND" then
@@ -565,7 +585,9 @@ function X.execute(op, action, context)
 		return action_power_by_count(action, context, function(p, c)
 			local group = Duel.GetMatchingGroup(filter_for(action.filter, context), p, LOCATION_HAND, 0, nil)
 			return from_group(group:Select(c, 0, group:GetCount(), nil))
-		end, "TRASH")
+		end, "TRASH", function(cards, p)
+			emit_hand_discard(cards, context, p)
+		end)
 	elseif op == "RETURN_TRASH_ANY_FOR_POWER" then
 		return action_power_by_count(action, context, function(p, c)
 			local group = Duel.GetMatchingGroup(filter_for(action.filter, context), p, LOCATION_GRAVE, 0, nil)

@@ -13,7 +13,13 @@ function s.initial_effect(c)
             player=[[YOU]],
           },
         },
-        conditions={},
+        conditions={
+          {
+            op=[[EVENT_SOURCE_TRAIT_CONTAINS]],
+            owner=[[YOU]],
+            trait=[[해군]],
+          },
+        },
         costs={},
         effect_id=[[E1]],
         once_per_turn=false,
