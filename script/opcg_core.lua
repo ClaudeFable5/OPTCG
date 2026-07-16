@@ -845,6 +845,11 @@ function C.PayCost(op, cost, context)
 				Duel.SendtoGrave(card, REASON_COST)
 			end
 		end
+		-- 코스트로 줄어든 라이프도 "라이프가 줄어들었을 때"에 성립한다
+		-- (수단 한정 문구가 없는 트리거 계열 - 880001552/880000711 등).
+		if #cards > 0 and opcg.life and opcg.life.notify_decreased then
+			opcg.life.notify_decreased(player, context, #cards)
+		end
 	elseif op == "FLIP_LIFE_TOP" then
 		-- the core flips life in place and broadcasts MSG_POS_CHANGE, so a
 		-- face-up flip is already the public reveal (no ConfirmCards hack)
@@ -1204,6 +1209,9 @@ local function return_life_to_deck(action, context)
 		Duel.SendtoDeck(card, player, action.destination == "DECK_TOP" and SEQ_DECKTOP or SEQ_DECKBOTTOM, REASON_EFFECT)
 	end
 	context.last_action_succeeded = #cards > 0 or action.mode == "UP_TO"
+	if #cards > 0 and opcg.life and opcg.life.notify_decreased then
+		opcg.life.notify_decreased(player, context, #cards)
+	end
 	return remember_targets(context, cards)
 end
 local function play_from_life_top(action, context)
@@ -1226,6 +1234,9 @@ local function play_from_life_top(action, context)
 		Duel.Sendto(card, LOCATION_EXTRA, REASON_EFFECT, POS_FACEDOWN_DEFENSE, player, 0)
 	end
 	context.last_action_succeeded = #played > 0 or action.mode == "UP_TO"
+	if #played > 0 and opcg.life and opcg.life.notify_decreased then
+		opcg.life.notify_decreased(player, context, #played)
+	end
 	return remember_targets(context, played)
 end
 local function nested_conditions_match(conditions, context)
@@ -1462,6 +1473,9 @@ function C.ExecuteAction(op, action, context)
 			else Duel.SendtoGrave(card, REASON_EFFECT) end
 		end
 		context.last_action_succeeded = #cards > 0 or action.mode == "UP_TO"
+		if #cards > 0 and opcg.life and opcg.life.notify_decreased then
+			opcg.life.notify_decreased(player, context, #cards)
+		end
 	elseif op == "RETURN_HAND_TO_DECK" then
 		local minimum = action.mode == "UP_TO" and 0 or (action.count or 1)
 		cards = assert(select_zone(player, LOCATION_HAND, action.filter, minimum,

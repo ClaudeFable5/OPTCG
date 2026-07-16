@@ -244,4 +244,27 @@ function L.damage_leader(player, amount, context)
 	return result
 end
 
+-- "라이프가 줄어들었을 때"는 수단 무한정: 데미지뿐 아니라 효과·코스트에 의한
+-- 회수/트래시/덱 되돌림/라이프 등장도 매수가 줄면 성립한다. 데미지 경로는
+-- damage_leader 꼬리가 직접 쏘고, 비데미지 경로(코어/컨트랙트 실행부)는 전부
+-- 여기로 모은다. 리스너 조건(자신 턴/라이프 0장 등)은 IR conditions가 거른다.
+function L.notify_decreased(player, context, count)
+	if not count or count <= 0 then return end
+	if not (opcg.effect_queue and opcg.effect_queue.resolve_timing) then return end
+	local function field_cards(who)
+		local group = Duel.GetMatchingGroup(function(c)
+			return opcg.IsLeader(c) or opcg.IsCharacter(c) or opcg.IsStage(c)
+		end, who, LOCATION_MZONE + LOCATION_FZONE, 0, nil)
+		local cards = {}
+		for c in aux.Next(group) do cards[#cards + 1] = c end
+		return cards
+	end
+	local event = copy(context)
+	event.event_player = player
+	event.decrease_count = count
+	event.source_card = event.source_card or (context and context.card) or nil
+	opcg.effect_queue.resolve_timing(field_cards(player), "ON_YOUR_LIFE_DECREASED", event)
+	opcg.effect_queue.resolve_timing(field_cards(1 - player), "ON_OPPONENT_LIFE_DECREASED", event)
+end
+
 return L
