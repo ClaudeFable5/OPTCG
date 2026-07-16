@@ -236,9 +236,18 @@ function L.damage_leader(player, amount, context)
 		end
 		local event = copy(context)
 		event.damage = result.processed
-		opcg.effect_queue.resolve_timing(field_cards(player), "ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO", event)
-		opcg.effect_queue.resolve_timing(field_cards(player), "ON_YOUR_LIFE_DECREASED", event)
-		opcg.effect_queue.resolve_timing(field_cards(1 - player), "ON_OPPONENT_LIFE_DECREASED", event)
+		-- X.emit과 동일 극성(문법 게이트): 효과 데미지 등 체인 진행 중
+		-- (비배틀·비드레인) 파생은 엔진 = 네이티브 발동. 배틀 데미지·중첩
+		-- 드레인은 direct 경계 배수 유지(V6 무-DELAY 재검 전).
+		local q = opcg.effect_queue
+		local in_chain = (Duel.GetCurrentChain and Duel.GetCurrentChain() or 0) > 0
+		local nested = (q.is_draining and q.is_draining())
+			or (Duel.GetAttacker and Duel.GetAttacker() ~= nil)
+		local opts = (in_chain and not nested)
+			and {engine=true, fallback_direct=true} or nil
+		q.resolve_timing(field_cards(player), "ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO", event, opts)
+		q.resolve_timing(field_cards(player), "ON_YOUR_LIFE_DECREASED", event, opts)
+		q.resolve_timing(field_cards(1 - player), "ON_OPPONENT_LIFE_DECREASED", event, opts)
 	end
 
 	return result
