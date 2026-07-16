@@ -777,6 +777,20 @@ function C.CanPayCost(op, cost, context)
 	return false
 end
 
+-- 코스트로 버린 패도 "카드의 효과로 버려졌을 때"(쿠잔 OP12-040류)를 울린다.
+-- 지인 실전 재정 + 아키타입 설계 근거(청 쿠잔 = 해군 패 코스트를 드로로
+-- 되돌려받는 리더)로 2026-07-16 확정. 발신 형태는 액션판 TRASH_HAND와 동일.
+local function emit_cost_hand_discard(cards, context, player)
+	if #(cards or {}) == 0 or not opcg.contract_ops then return end
+	local event = {}
+	for key, value in pairs(context or {}) do event[key] = value end
+	event.event_cards = cards
+	event.event_count = #cards
+	event.event_player = player
+	event.source_card = context and context.card or nil
+	opcg.contract_ops.emit("ON_HAND_DISCARDED_BY_TRAIT_EFFECT", event, player)
+end
+
 function C.PayCost(op, cost, context)
 	context = context or {}
 	if opcg.contract_ops then opcg.contract_ops.current_context = context end
@@ -786,6 +800,7 @@ function C.PayCost(op, cost, context)
 	if op == "TRASH_HAND" then
 		cards = assert(select_zone(player, LOCATION_HAND, cost.filter, n, n, player, context))
 		remove_cards(cards, REASON_COST + REASON_DISCARD, "TRASH")
+		emit_cost_hand_discard(cards, context, player)
 	elseif op == "REST_DON" then
 		assert(opcg.RestDon(player, n) == n, "REST_DON failed")
 	elseif op == "RETURN_DON" then
@@ -915,8 +930,13 @@ function C.PayCost(op, cost, context)
 	elseif op == "TRASH_CHARACTER_OR_HAND" or op == "TRASH_FIELD_OR_HAND" then
 		local group = assert(mixed_cost_group(cost, context, op == "TRASH_CHARACTER_OR_HAND"))
 		local selected = group:Select(player, n, n, nil)
-		for card in aux.Next(selected) do cards[#cards + 1] = card end
+		local hand_cards = {}
+		for card in aux.Next(selected) do
+			cards[#cards + 1] = card
+			if card:IsLocation(LOCATION_HAND) then hand_cards[#hand_cards + 1] = card end
+		end
 		remove_cards(cards, REASON_COST, "TRASH")
+		emit_cost_hand_discard(hand_cards, context, player)
 	else
 		error("unsupported OPCG cost: " .. tostring(op))
 	end

@@ -408,9 +408,10 @@ local function action_power_by_count(action, context, source_cards, destination,
 	return targets
 end
 
--- 자신의 카드 효과로 패가 버려진 사건(쿠잔류 트리거의 발신원).
--- 코스트로 버린 패는 룰상 "효과로 버려짐"이 아니므로 PayCost는 발신하지
--- 않는다. source_card = 버리게 만든 효과의 카드(리스너 덮어쓰기 회피 키).
+-- 자신의 카드에 의해 패가 버려진 사건(쿠잔류 트리거의 발신원). 효과 버림은
+-- 여기(액션 실행부), 코스트 버림은 core PayCost의 emit_cost_hand_discard가
+-- 발신한다 - 코스트 포함이 실전 재정(청 쿠잔 아키타입 설계 근거, 2026-07-16).
+-- source_card = 버리게 만든 카드(리스너 덮어쓰기 회피 키).
 local function emit_hand_discard(cards, context, player)
 	if #(cards or {}) == 0 or not X.emit then return end
 	local event = {}
