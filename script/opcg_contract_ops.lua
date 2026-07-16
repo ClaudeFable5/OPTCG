@@ -190,14 +190,19 @@ local function execute_nested(actions, context)
 	for _, action in ipairs(actions or {}) do
 		if action["then"] == true and previous_action_succeeded ~= true then
 			context.last_action_succeeded = false
+			context.last_action_effected = false
 		else
 			-- IF/CHOOSE read the previous action's outcome in their own
 			-- conditions - do not wipe it before they run (see runtime loop).
 			if action.op ~= "IF" and action.op ~= "CHOOSE" then
 				context.last_action_succeeded = nil
+				context.last_action_effected = nil
 			end
 			OPCGCore.ExecuteAction(action.op, action, context)
 			if context.last_action_succeeded == nil then context.last_action_succeeded = true end
+			if context.last_action_effected == nil then
+				context.last_action_effected = context.last_action_succeeded
+			end
 		end
 		previous_action_succeeded = context.last_action_succeeded == true
 	end
@@ -1257,17 +1262,13 @@ function X.emit(timing, context, player, cards)
 	if #candidates == 0 then return {} end
 	local queue = opcg.effect_queue
 	if queue and queue.resolve_timing then
-		-- 발동 집행은 코어가 한다(시간의 신의 문법): 체인 진행 중 파생 =
-		-- engine으로 쌓고, flush의 체인 가드가 CHAIN_END에 재발신(양보)하면
-		-- 자연 수집이 리졸버(네이티브 TRIGGER)를 발동시킨다 - 판정/연출/
-		-- 1링크 강제 전부 코어(8-6-3). 생존 조건 = 리졸버 무-DELAY + 강제
-		-- 수집 금지(실측). 무체인 lua 훅은 코어가 수집 지점을 제공하지 않아
-		-- 재발신이 표류사하므로 direct 경계 배수(실전 해당은 페이즈 둥 정산
-		-- 1장 - 반성문 V1 잔여로 기록), 직접 큐 해결 중/어택 문맥도 direct.
-		local nested = (queue.is_draining and queue.is_draining())
-			or (Duel.GetAttacker and Duel.GetAttacker() ~= nil)
+		-- 집행은 코어 발동. 체인 중 파생 = CHAIN_END 수집, 배틀 파생 =
+		-- 네이티브 배틀 창 수집(어택은 네이티브 - 특별취급 없음).
+		-- direct는 드레인 내부와 무체인 평시 훅뿐.
+		local draining = queue.is_draining and queue.is_draining()
 		local in_chain = Duel.GetCurrentChain and Duel.GetCurrentChain() > 0
-		if in_chain and not nested then
+		local in_battle = Duel.GetAttacker and Duel.GetAttacker() ~= nil
+		if (in_chain or in_battle) and not draining then
 			return queue.resolve_timing(candidates, timing, context,
 				{engine=true, fallback_direct=true})
 		end
