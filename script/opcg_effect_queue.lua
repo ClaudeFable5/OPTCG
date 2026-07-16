@@ -82,11 +82,9 @@ local function eligible_bucket()
 	return generation, 1 - tp
 end
 
--- 총합룰 8-6-1: within a bucket the owner may pick any order; the engine's
--- deterministic stand-in is leader effects first, then insertion order.
-local function is_leader_item(item)
-	return item and item.card and opcg.IsLeader and opcg.IsLeader(item.card) or false
-end
+-- 총합룰 8-6-1: within a bucket the owner picks the order. Multi-card
+-- buckets go through the choose_next_direct prompt below; effects of one
+-- same card fall back to insertion order (= printed order on the card).
 
 local function description_for(card, effect, index)
 	if type(effect.description) == "number" then return effect.description end
@@ -189,15 +187,14 @@ function Q.flush()
 	local generation, player = eligible_bucket()
 	if generation == nil then return false end
 	Q._flushing = true
+	-- Chain-path buckets are one card's own effects in practice (multi-card
+	-- simultaneity rides the direct queue), so first-eligible = insertion
+	-- order = the card's printed order. No leader bias.
 	local selected
 	for _, item in ipairs(Q._items) do
 		if item.generation == generation and item.player == player and not item.raised then
-			if selected == nil then
-				selected = item
-			elseif is_leader_item(item) and not is_leader_item(selected) then
-				selected = item
-			end
-			if is_leader_item(selected) then break end
+			selected = item
+			break
 		end
 	end
 	if selected then
@@ -467,8 +464,6 @@ local function direct_bucket()
 		end
 	end
 	table.sort(result, function(left, right)
-		local leader_left, leader_right = is_leader_item(left), is_leader_item(right)
-		if leader_left ~= leader_right then return leader_left end
 		return left.serial < right.serial
 	end)
 	return generation, player, result
@@ -589,6 +584,35 @@ function Q.enqueue_timing(cards, timing, context, options)
 	return enqueued
 end
 
+-- 총합룰 8-6-1: 같은 플레이어의 동시 트리거는 그 플레이어가 처리 순서를
+-- 정한다. 서로 다른 카드가 2장 이상 대기 중이면 매 처리마다 "다음 카드"를
+-- 표준 카드 선택창으로 묻는다(메인/배틀 공통 — 공식룰에 리더 우선 규정은
+-- 없다). 같은 카드의 복수 효과는 카드 클릭으로 구분할 수 없으므로 삽입순
+-- (= 카드 기재순) 폴백. 순서 선택은 발동 여부와 무관: 강제 아이템은 어떤
+-- 순서로 골라도 resolve_direct_item에서 예/아니오 없이 그대로 소화된다.
+local function choose_next_direct(player, candidates)
+	if not (Group and Group.CreateGroup) then return nil end
+	local group = Group.CreateGroup()
+	local first_by_card = {}
+	for _, item in ipairs(candidates) do
+		local card = item.card
+		if card then
+			group:AddCard(card)
+			if not first_by_card[card] or item.serial < first_by_card[card].serial then
+				first_by_card[card] = item
+			end
+		end
+	end
+	if group:GetCount() < 2 then return nil end
+	if Duel.Hint and HINT_SELECTMSG then
+		local hint = aux and aux.Stringid and aux.Stringid(879999999, 8) or 560
+		Duel.Hint(HINT_SELECTMSG, player, hint)
+	end
+	local picked = group:Select(player, 1, 1, nil)
+	local card = picked and picked:GetFirst() or nil
+	return card and first_by_card[card] or nil
+end
+
 local function resolve_direct_item(selected, options, context, resolved)
 	local player = selected.player
 	selected.context.timing = selected.context.timing or selected.timing
@@ -656,6 +680,8 @@ function Q.drain_direct(options, timing, context)
 			local choice = options.choose_item(player, candidates, timing, context)
 			if type(choice) == "number" then selected = candidates[choice] or selected
 			elseif choice then selected = choice end
+		elseif #candidates >= 2 then
+			selected = choose_next_direct(player, candidates) or selected
 		end
 		remove_direct(selected)
 		resolve_direct_item(selected, options, context, resolved)
