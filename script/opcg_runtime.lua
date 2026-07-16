@@ -148,7 +148,14 @@ local function resolve_effect(card, effect, context)
                 context.last_action_result = action_results[index]
                 context.last_action_succeeded = false
             else
-                context.last_action_succeeded = nil
+                -- IF/CHOOSE evaluate their conditions against the PREVIOUS
+                -- action's outcome (e.g. LAST_ACTION_SUCCEEDED for the
+                -- "~했을 경우" follow-up shape) - resetting the flag before
+                -- they run would make that condition read nil = false and
+                -- silently kill every such follow-up.
+                if action.op ~= "IF" and action.op ~= "CHOOSE" then
+                    context.last_action_succeeded = nil
+                end
                 action_results[index] = adapter:execute_action(action, context)
                 context.last_action_result = action_results[index]
                 if type(action_results[index]) == "table" and #action_results[index] > 0 then

@@ -32,6 +32,7 @@ local CONDITION = {
 	FIELD_DON_EQ_OR_GTE=true, SELF_PLAYED_THIS_TURN=true,
 	TRASH_CONTAINS_NAMES=true,
 	BATTLE_ATTACKER_HAS_ATTRIBUTE=true, EVENT_CAUSED_BY_OWN_EFFECT=true,
+	EVENT_SOURCE_TRAIT_CONTAINS=true,
 	EVENT_COUNT_GTE=true, EVENT_DAMAGE_OR_TARGET_BASE_POWER_GTE=true,
 	EVENT_TARGET_BASE_COST_GTE_OR_EFFECT_PLAY=true, EVENT_TARGET_BASE_COST_LTE=true,
 	EVENT_TARGET_HAS_ATTRIBUTE=true, EVENT_TARGET_TRAIT_CONTAINS=true,
@@ -551,6 +552,16 @@ function C.CheckCondition(op, condition, context)
 	end
 	if op == "EVENT_TARGET_TRAIT_CONTAINS" then
 		return target ~= nil and opcg.TraitContains(target, condition.trait)
+	end
+	if op == "EVENT_SOURCE_TRAIT_CONTAINS" then
+		-- "자신의 《특징》 카드의 효과로 ~했을 때" 필터: 사건을 일으킨 효과의
+		-- 소스 카드(event.source_card)가 지정 특징을 갖고, owner 지정 시
+		-- 리스너와의 소유 관계까지 일치해야 한다.
+		local source = context.source_card
+		if source == nil then return false end
+		if condition.owner == "YOU" and source:GetControler() ~= player then return false end
+		if condition.owner == "OPPONENT" and source:GetControler() == player then return false end
+		return opcg.HasTrait(source, condition.trait or condition.value)
 	end
 	if op == "LIFE_TRIGGER_ACTIVATED" then
 		return context.life_trigger_activated == true
@@ -1231,7 +1242,11 @@ local function execute_nested(actions, context)
 			context.last_action_succeeded = false
 			out[#out + 1] = {}
 		else
-			context.last_action_succeeded = nil
+			-- IF/CHOOSE read the previous action's outcome in their own
+			-- conditions - do not wipe it before they run (see runtime loop).
+			if action.op ~= "IF" and action.op ~= "CHOOSE" then
+				context.last_action_succeeded = nil
+			end
 			out[#out + 1] = C.ExecuteAction(action.op, action, context)
 			if context.last_action_succeeded == nil then context.last_action_succeeded = true end
 		end
@@ -1273,6 +1288,10 @@ function C.ExecuteAction(op, action, context)
 			event.event_cards = cards
 			event.event_count = #cards
 			event.event_player = player
+			-- enqueue_timing overwrites event.card with the LISTENER card, so
+			-- the discarding effect's source must ride a dedicated key for the
+			-- trait/owner filter (EVENT_SOURCE_TRAIT_CONTAINS) to see it.
+			event.source_card = context.card
 			opcg.contract_ops.emit("ON_HAND_DISCARDED_BY_TRAIT_EFFECT", event, player)
 		end
 	elseif op == "REST_SELF" or op == "TRASH_SELF" or op == "RETURN_SELF_TO_HAND" then
