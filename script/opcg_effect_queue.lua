@@ -233,19 +233,16 @@ function Q.flush()
 		selected.raised = true
 		Q._inflight = selected.serial
 		if Duel and Duel.RaiseSingleEvent then
+			-- 시간의 신의 문법: 재발신 후 프로세서에 양보한다(RaiseSingleEvent
+			-- 자체가 process_single_event+yield). 체인 종료 문맥(after_chain)
+			-- 은 자연 수집이 따르므로 순수 양보만으로 후보가 산다(무-DELAY
+			-- 리졸버 전제 - 실측). 예외: 무체인 lua 훅(페이즈 처리·프로브)은
+			-- 코어가 수집 지점을 제공하지 않아 표류사하므로, 그 문맥에 한해
+			-- 최소 개방(ProcessPointEvent)한다. 훅 문맥은 다른 대기 후보가
+			-- 있을 확률이 낮은 지점이라 재판-소거 위험이 최소다(V2의 한정
+			-- 존치 - 반성문 참고).
 			Duel.RaiseSingleEvent(selected.card, Q.EVENT_RESOLVE, selected.resolver,
 				0, player, player, selected.serial)
-			-- 무체인 lua 문맥에서는 PointEvent 유닛이 자연히 오지 않아 등재된
-			-- 후보가 방치되다 다음 자연 지점에서 소거된다(코어 실측). 발동
-			-- 창을 즉시 연다(Duel.ProcessPointEvent = 구세대 raise+PROCESSOR_
-			-- WAIT+yield 수법의 정식판). 단 체인 종료 처리 문맥(after_chain)은
-			-- 코어가 후속 PointEvent를 자연 스케줄하므로 즉석 개방을 생략한다
-			-- - 이중 수집이 먼저 돌면 재검 탈락 후보가 영구 소거된다(실측).
-			-- 어택 처리 중도 금지 - 그 문맥 아이템은 경계 배수가 소화한다.
-			if Duel.ProcessPointEvent
-				and not (Duel.GetAttacker and Duel.GetAttacker() ~= nil) then
-				Duel.ProcessPointEvent()
-			end
 		end
 	end
 	Q._flushing = false
@@ -346,11 +343,12 @@ local function create_resolver(card, effect, description_index)
 	-- 리더존/스테이지 등 어느 위치에서든 발동 가능해야 한다(레인지 미설정
 	-- 리졸버는 위치 게이트에서 후보 소거될 수 있다 - 쿠잔 리더 실측).
 	resolver:SetRange(0xff)
-	-- DELAY: a resolve raised while another chain runs must not lose its
-	-- timing. DAMAGE_STEP/DAMAGE_CAL: defensive — OPCG battle is a scripted
-	-- main-phase chain so the native damage step never gates us today, but
-	-- if it ever does, the resolver stays activateable inside it.
-	resolver:SetProperty(EFFECT_FLAG_DELAY + EFFECT_FLAG_DAMAGE_STEP + EFFECT_FLAG_DAMAGE_CAL)
+	-- 시간의 신의 문법(legacy 원형): 플래그 없는 평범한 유발효과. DELAY를 달면
+	-- 후보가 지연발동 레지스트리(별도 소비 규칙)로 흘러 자연 수집에서 죽는다
+	-- (무체인 raise 증발·체인 후 연쇄 사망의 유력 원인으로 실측 특정 - 아래
+	-- 회귀가 판정). 우리 raise는 flush의 체인 가드 덕에 항상 소비 가능한
+	-- 순간(체인 밖)에만 나가므로 타이밍 소실 보호가 필요 없다.
+	resolver:SetProperty(EFFECT_FLAG_DAMAGE_STEP + EFFECT_FLAG_DAMAGE_CAL)
 	local description = description_for(card, effect, description_index)
 	if description ~= 0 then resolver:SetDescription(description) end
 	resolver:SetCondition(function(e, _, _, _, ev, re)
