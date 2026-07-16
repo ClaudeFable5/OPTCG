@@ -147,6 +147,7 @@ local function resolve_effect(card, effect, context)
                 action_results[index] = {}
                 context.last_action_result = action_results[index]
                 context.last_action_succeeded = false
+                context.last_action_effected = false
             else
                 -- IF/CHOOSE evaluate their conditions against the PREVIOUS
                 -- action's outcome (e.g. LAST_ACTION_SUCCEEDED for the
@@ -155,6 +156,7 @@ local function resolve_effect(card, effect, context)
                 -- silently kill every such follow-up.
                 if action.op ~= "IF" and action.op ~= "CHOOSE" then
                     context.last_action_succeeded = nil
+                    context.last_action_effected = nil
                 end
                 action_results[index] = adapter:execute_action(action, context)
                 context.last_action_result = action_results[index]
@@ -163,6 +165,9 @@ local function resolve_effect(card, effect, context)
                     context.last_target = action_results[index][1]
                 end
                 if context.last_action_succeeded == nil then context.last_action_succeeded = true end
+                if context.last_action_effected == nil then
+                    context.last_action_effected = context.last_action_succeeded
+                end
             end
             previous_action_succeeded = context.last_action_succeeded == true
         end

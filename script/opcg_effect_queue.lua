@@ -431,12 +431,9 @@ function Q.register_trigger(card, effect, code, options)
 		-- 준다(zephyr 실측, f9c89d1). 종전 "엔진 = 지연 체인 강등으로 영영
 		-- 미해결" 서사는 코덱스 원본 EFFECT_FLAG_DELAY 시절의 실측 화석
 		-- (반성문 판결 참조) — 극성이 X.emit 게이트와 정반대로 남아 있었다.
-		-- direct 잔류는 미증명 문맥 둘뿐:
-		--   ① 진행 중 드레인 내부(수집 지점 없음 — 드레인 직후 배수)
-		--   ② 배틀 스텝(t=9): 어택시 창은 블록 전(announce 말미)이라야
-		--      하고 배틀 내 수집 창은 무-DELAY 재검 전(V6) — 경계 배수.
-		if Q.is_draining()
-			or (Duel.GetAttacker and Duel.GetAttacker() ~= nil) then
+		-- 배틀 특별취급 없음: 어택은 네이티브 — raise하면 코어 배틀 창이
+		-- 수집한다. direct는 진행 중 드레인 내부뿐.
+		if Q.is_draining() then
 			Q.enqueue_direct(handler, effect, context, {
 				optional=options.optional,
 				description=description,

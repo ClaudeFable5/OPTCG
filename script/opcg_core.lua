@@ -538,7 +538,8 @@ function C.CheckCondition(op, condition, context)
 		for _, name in ipairs(condition.names or {}) do if not found[name] then return false end end
 		return true
 	end
-	if op == "LAST_ACTION_SUCCEEDED" then return context.last_action_succeeded == true end
+	-- "~했을 경우" = 실제 발생 여부. UP_TO 0장/거절 = 불성립(등장 안 하면 라이프 없음).
+	if op == "LAST_ACTION_SUCCEEDED" then return context.last_action_effected == true end
 	if op == "LAST_TARGET_MATCHES" then
 		local predicate = filter_for(condition.filter, context)
 		return predicate ~= nil and context.last_target ~= nil and predicate(context.last_target)
@@ -1046,6 +1047,8 @@ local function play_from_zone(action, location, context)
 	for _, card in ipairs(cards) do
 		if play_card(card, player, chooser, action.rested == true, context) then played[#played + 1] = card end
 	end
+	context.last_action_succeeded = #played > 0 or action.mode ~= "EXACT"
+	context.last_action_effected = #played > 0
 	return remember_targets(context, played)
 end
 local function search_deck_top(action, context)
@@ -1176,6 +1179,7 @@ local function play_from_deck_top(action, context)
 		end
 	end
 	context.last_action_succeeded = #played > 0 or action.select_mode ~= "EXACT"
+	context.last_action_effected = #played > 0
 	return remember_targets(context, played)
 end
 local function look_reorder_deck_top(action, context)
@@ -1224,6 +1228,7 @@ local function add_life_from_hand(action, context)
 		end
 	end
 	context.last_action_succeeded = #added > 0 or action.mode == "UP_TO"
+	context.last_action_effected = #added > 0
 	return remember_targets(context, added)
 end
 local function add_selected_to_life(action, context)
@@ -1237,6 +1242,7 @@ local function add_selected_to_life(action, context)
 		end
 	end
 	context.last_action_succeeded = #added > 0 or (action.selector and action.selector.mode == "UP_TO")
+	context.last_action_effected = #added > 0
 	return remember_targets(context, added)
 end
 local function return_life_to_deck(action, context)
@@ -1250,6 +1256,7 @@ local function return_life_to_deck(action, context)
 		Duel.SendtoDeck(card, player, action.destination == "DECK_TOP" and SEQ_DECKTOP or SEQ_DECKBOTTOM, REASON_EFFECT)
 	end
 	context.last_action_succeeded = #cards > 0 or action.mode == "UP_TO"
+	context.last_action_effected = #cards > 0
 	if #cards > 0 and opcg.life and opcg.life.notify_decreased then
 		opcg.life.notify_decreased(player, context, #cards)
 	end
@@ -1259,14 +1266,22 @@ local function play_from_life_top(action, context)
 	local player = context_player(action.player, context)
 	local chooser = controller(context)
 	local card = choose_life(player, action.position or "TOP", chooser)
-	if not card then context.last_action_succeeded = action.mode == "UP_TO" return {} end
+	if not card then
+		context.last_action_succeeded = action.mode == "UP_TO"
+		context.last_action_effected = false
+		return {}
+	end
 	if action.reveal ~= false then
 		local revealed = array_group({ card })
 		Duel.ConfirmCards(chooser, revealed)
 		Duel.ConfirmCards(other(chooser), revealed)
 	end
 	local predicate = assert(filter_for(action.filter, context), "unsupported PLAY_FROM_LIFE_TOP filter")
-	if not predicate(card) then context.last_action_succeeded = action.mode == "UP_TO" return {} end
+	if not predicate(card) then
+		context.last_action_succeeded = action.mode == "UP_TO"
+		context.last_action_effected = false
+		return {}
+	end
 	if card:IsLocation(LOCATION_EXTRA) then
 		Duel.Sendto(card, LOCATION_REMOVED, REASON_EFFECT, POS_FACEUP, player, 0)
 	end
@@ -1275,6 +1290,7 @@ local function play_from_life_top(action, context)
 		Duel.Sendto(card, LOCATION_EXTRA, REASON_EFFECT, POS_FACEDOWN_DEFENSE, player, 0)
 	end
 	context.last_action_succeeded = #played > 0 or action.mode == "UP_TO"
+	context.last_action_effected = #played > 0
 	if #played > 0 and opcg.life and opcg.life.notify_decreased then
 		opcg.life.notify_decreased(player, context, #played)
 	end
@@ -1292,15 +1308,20 @@ local function execute_nested(actions, context)
 	for _, action in ipairs(actions or {}) do
 		if action["then"] == true and previous_action_succeeded ~= true then
 			context.last_action_succeeded = false
+			context.last_action_effected = false
 			out[#out + 1] = {}
 		else
 			-- IF/CHOOSE read the previous action's outcome in their own
 			-- conditions - do not wipe it before they run (see runtime loop).
 			if action.op ~= "IF" and action.op ~= "CHOOSE" then
 				context.last_action_succeeded = nil
+				context.last_action_effected = nil
 			end
 			out[#out + 1] = C.ExecuteAction(action.op, action, context)
 			if context.last_action_succeeded == nil then context.last_action_succeeded = true end
+			if context.last_action_effected == nil then
+				context.last_action_effected = context.last_action_succeeded
+			end
 		end
 		previous_action_succeeded = context.last_action_succeeded == true
 	end
@@ -1404,6 +1425,7 @@ function C.ExecuteAction(op, action, context)
 			for _, card in ipairs(cards) do moved = moved + opcg.GiveDon(player, card, per_target, action.state) end
 		elseif cards[1] then moved = opcg.GiveDon(player, cards[1], action.count or 1, action.state) end
 		context.last_action_succeeded = moved > 0 or (action.mode == "UP_TO")
+		context.last_action_effected = moved > 0
 		return cards
 	elseif op == "SET_DON_ACTIVE" then
 		local maximum = action.mode == "UP_TO"
@@ -1514,6 +1536,7 @@ function C.ExecuteAction(op, action, context)
 			else Duel.SendtoGrave(card, REASON_EFFECT) end
 		end
 		context.last_action_succeeded = #cards > 0 or action.mode == "UP_TO"
+		context.last_action_effected = #cards > 0
 		if #cards > 0 and opcg.life and opcg.life.notify_decreased then
 			opcg.life.notify_decreased(player, context, #cards)
 		end
@@ -1530,6 +1553,7 @@ function C.ExecuteAction(op, action, context)
 	elseif op == "ACTIVATE_CARD_EFFECT" then
 		if choose_number_up_to(chooser, action.count or 1, action.mode) == 0 then
 			context.last_action_succeeded = action.mode == "UP_TO"
+			context.last_action_effected = false
 			return {}
 		end
 		local timing = action.effect_timing or "MAIN"
