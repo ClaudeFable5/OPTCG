@@ -513,6 +513,9 @@ function X.execute(op, action, context)
 			cards[#cards + 1] = card
 			Duel.SendtoGrave(card, REASON_EFFECT)
 		end
+		if #cards > 0 and opcg.life and opcg.life.notify_decreased then
+			opcg.life.notify_decreased(player, context, #cards)
+		end
 		context.last_action_succeeded = true
 		return remember(context, cards)
 	elseif op == "TRASH_FACEUP_LIFE_ALL" then
@@ -521,6 +524,9 @@ function X.execute(op, action, context)
 			if card:IsPosition(POS_FACEUP) then cards[#cards + 1] = card end
 		end
 		if #cards > 0 then Duel.SendtoGrave(to_group(cards), REASON_EFFECT) end
+		if #cards > 0 and opcg.life and opcg.life.notify_decreased then
+			opcg.life.notify_decreased(player, context, #cards)
+		end
 		context.last_action_succeeded = true
 		return remember(context, cards)
 	elseif op == "SET_ALL_LIFE_FACE_DOWN" then
@@ -536,6 +542,9 @@ function X.execute(op, action, context)
 		if not card then context.last_action_succeeded = false return {} end
 		Duel.SendtoDeck(card, player, action.destination == "DECK_BOTTOM"
 			and SEQ_DECKBOTTOM or SEQ_DECKTOP, REASON_EFFECT)
+		if opcg.life and opcg.life.notify_decreased then
+			opcg.life.notify_decreased(player, context, 1)
+		end
 		context.last_action_succeeded = true
 		return remember(context, {card})
 	elseif op == "ADD_LIFE_FROM_HAND_OR_TRASH" then
