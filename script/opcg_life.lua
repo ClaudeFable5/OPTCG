@@ -250,21 +250,15 @@ end
 -- 여기로 모은다. 리스너 조건(자신 턴/라이프 0장 등)은 IR conditions가 거른다.
 function L.notify_decreased(player, context, count)
 	if not count or count <= 0 then return end
-	if not (opcg.effect_queue and opcg.effect_queue.resolve_timing) then return end
-	local function field_cards(who)
-		local group = Duel.GetMatchingGroup(function(c)
-			return opcg.IsLeader(c) or opcg.IsCharacter(c) or opcg.IsStage(c)
-		end, who, LOCATION_MZONE + LOCATION_FZONE, 0, nil)
-		local cards = {}
-		for c in aux.Next(group) do cards[#cards + 1] = c end
-		return cards
-	end
+	if not (opcg.contract_ops and opcg.contract_ops.emit) then return end
+	-- X.emit 경유: 비배틀 문맥이면 engine 경로(코어 발동), 배틀/중첩 해결
+	-- 문맥이면 direct 큐 - 문맥 게이트는 emit이 일원화해서 판단한다.
 	local event = copy(context)
 	event.event_player = player
 	event.decrease_count = count
 	event.source_card = event.source_card or (context and context.card) or nil
-	opcg.effect_queue.resolve_timing(field_cards(player), "ON_YOUR_LIFE_DECREASED", event)
-	opcg.effect_queue.resolve_timing(field_cards(1 - player), "ON_OPPONENT_LIFE_DECREASED", event)
+	opcg.contract_ops.emit("ON_YOUR_LIFE_DECREASED", event, player)
+	opcg.contract_ops.emit("ON_OPPONENT_LIFE_DECREASED", event, 1 - player)
 end
 
 return L
