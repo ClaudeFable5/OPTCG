@@ -234,13 +234,12 @@ function Q.flush()
 		Q._inflight = selected.serial
 		if Duel and Duel.RaiseSingleEvent then
 			-- 시간의 신의 문법: 재발신 후 프로세서에 양보한다(RaiseSingleEvent
-			-- 자체가 process_single_event+yield). 체인 종료 문맥(after_chain)
-			-- 은 자연 수집이 따르므로 순수 양보만으로 후보가 산다(무-DELAY
-			-- 리졸버 전제 - 실측). 예외: 무체인 lua 훅(페이즈 처리·프로브)은
-			-- 코어가 수집 지점을 제공하지 않아 표류사하므로, 그 문맥에 한해
-			-- 최소 개방(ProcessPointEvent)한다. 훅 문맥은 다른 대기 후보가
-			-- 있을 확률이 낮은 지점이라 재판-소거 위험이 최소다(V2의 한정
-			-- 존치 - 반성문 참고).
+			-- 자체가 process_single_event+yield). 강제 수집은 없다 — PPE
+			-- 실호출 0(도구로만 존치). 후보가 사는 조건 = 이 raise 뒤 코어가
+			-- 스스로 수집 지점을 밟는 문맥일 것: 체인 종료(after_chain 경유,
+			-- zephyr 실측)·페이즈 처리 내부(YOUR_TURN_END류)·소환 직후
+			-- (ON_PLAY류). 그 밖의 무수집 문맥은 게이트가 애초에 direct로
+			-- 보내므로 여기 도달하지 않는다.
 			Duel.RaiseSingleEvent(selected.card, Q.EVENT_RESOLVE, selected.resolver,
 				0, player, player, selected.serial)
 		end
@@ -425,17 +424,18 @@ function Q.register_trigger(card, effect, code, options)
 		if options.timing ~= nil then context.timing = options.timing end
 		local ok = opcg.runtime.can_resolve(handler, effect.effect_id, context)
 		if not ok then return end
-		-- [8-6] a trigger born inside an ongoing resolution — a direct drain
-		-- OR a resolving chain (battle KO happens inside the silent attack
-		-- chain!) — joins the DIRECT queue; it resolves right after that
-		-- resolution (after_chain pump / battle boundary drain). The engine
-		-- path would degrade it into a delayed chain offer that effectively
-		-- never resolves for the player.
-		-- 배틀 진행 중(B._live)도 direct: t=9 네이티브 데미지 스텝 안에서
-		-- raise된 EVENT_RESOLVE 리졸버는 코어가 체인 오퍼를 영영 주지 않아
-		-- (어택시 창 무발동 + inflight 좀비로 큐 전체 마비) 엔진 경로가
-		-- 죽은 길이다. 배수는 announce 말미/배틀 경계의 drain_direct.
-		if Q.is_draining() or current_chain() > 0
+		-- [문법 게이트 — 극성 교정] 체인 진행 중(비배틀·비드레인) 파생은
+		-- 엔진이 정답이다: enqueue만 해두면 flush가 체인 중엔 대기하고
+		-- (flush 첫 줄), CHAIN_END의 after_chain이 재발신 → 무-DELAY
+		-- 리졸버를 코어 자연 수집이 집어 네이티브 발동(판정·연출·음)을
+		-- 준다(zephyr 실측, f9c89d1). 종전 "엔진 = 지연 체인 강등으로 영영
+		-- 미해결" 서사는 코덱스 원본 EFFECT_FLAG_DELAY 시절의 실측 화석
+		-- (반성문 판결 참조) — 극성이 X.emit 게이트와 정반대로 남아 있었다.
+		-- direct 잔류는 미증명 문맥 둘뿐:
+		--   ① 진행 중 드레인 내부(수집 지점 없음 — 드레인 직후 배수)
+		--   ② 배틀 스텝(t=9): 어택시 창은 블록 전(announce 말미)이라야
+		--      하고 배틀 내 수집 창은 무-DELAY 재검 전(V6) — 경계 배수.
+		if Q.is_draining()
 			or (Duel.GetAttacker and Duel.GetAttacker() ~= nil) then
 			Q.enqueue_direct(handler, effect, context, {
 				optional=options.optional,
