@@ -134,6 +134,27 @@ local ENGINE_SEMANTIC_TIMING = {
 	ON_OPPONENT_HIGH_COST_OR_EFFECT_PLAY=true,
 }
 
+-- emit 계열(자동효과) 타이밍: X.emit이 발화하는 전 종목. 카드마다 리졸버
+-- (네이티브 TRIGGER, Q.EVENT_RESOLVE)를 등록해 두면, 비배틀 문맥의 emit이
+-- engine 경로(RaiseSingleEvent)로 올라가 발동 판정/체인 연출/1링크 강제를
+-- 전부 코어가 집행한다. 배틀/중첩 해결 문맥은 direct 큐(8-6 경계 배수) 유지.
+local EMIT_ENGINE_TIMING = {
+	ON_HAND_DISCARDED_BY_TRAIT_EFFECT=true, ON_DON_RETURNED=true,
+	ON_DON_ATTACHED_TO_OWN_FIELD=true, ON_DRAW_OUTSIDE_DRAW_PHASE=true,
+	ON_YOUR_LIFE_DECREASED=true, ON_OPPONENT_LIFE_DECREASED=true,
+	ON_LIFE_ADDED_TO_HAND=true, ON_LIFE_TRIGGER_ACTIVATED=true,
+	ON_YOUR_EVENT_ACTIVATED=true, ON_OPPONENT_EVENT_ACTIVATED=true,
+	ON_OPPONENT_EVENT_OR_TRIGGER_ACTIVATED=true,
+	ON_OPPONENT_BLOCKER_OR_EVENT_ACTIVATED=true,
+	ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO=true,
+	ON_SELF_RESTED_BY_OPPONENT_EFFECT=true, ON_OWN_CHARACTER_RESTED_BY_EFFECT=true,
+	ON_OWN_CHARACTER_LEFT_BY_EFFECT=true, ON_OWN_TRAIT_CHARACTER_LEFT_BY_EFFECT=true,
+	ON_OWN_TRAIT_CHARACTER_LEFT_BY_OPPONENT_EFFECT=true,
+	ON_OWN_TRAIT_CHARACTER_KO_OR_LEFT_BY_OPPONENT_EFFECT=true,
+	ON_KO_BY_OPPONENT_EFFECT=true,
+	ON_OPPONENT_CHARACTER_RETURNED_TO_HAND_BY_OWN_EFFECT=true,
+}
+
 local function other(player) return 1 - player end
 local function controller(context)
 	if context.player ~= nil then return context.player end
@@ -1901,7 +1922,7 @@ function C.BindCard(card, definition)
 					-- OPCG "play/appear" is a semantic event emitted by opcg.EmitPlayed.
 					-- Do not bind it to native YGO summon/special-summon success.
 				end
-				if ENGINE_SEMANTIC_TIMING[timing]
+				if (ENGINE_SEMANTIC_TIMING[timing] or EMIT_ENGINE_TIMING[timing])
 					and opcg.effect_queue and opcg.effect_queue.register_semantic then
 					opcg.effect_queue.register_semantic(card, effect, timing, {
 						description_index=effect_index,

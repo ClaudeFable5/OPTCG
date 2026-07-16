@@ -181,21 +181,53 @@ function Q.take(serial, resolver)
 	return item
 end
 
+-- 총합룰 8-6-1: 같은 플레이어의 동시 트리거는 그 플레이어가 처리 순서를
+-- 정한다. 서로 다른 카드가 2장 이상 대기 중이면 매 처리마다 "다음 카드"를
+-- 표준 카드 선택창으로 묻는다(메인/배틀 공통 — 공식룰에 리더 우선 규정은
+-- 없다). 같은 카드의 복수 효과는 카드 클릭으로 구분할 수 없으므로 삽입순
+-- (= 카드 기재순) 폴백. 순서 선택은 발동 여부와 무관: 강제 아이템은 어떤
+-- 순서로 골라도 발동 단계에서 예/아니오 없이 그대로 소화된다.
+local function choose_next_direct(player, candidates)
+	if not (Group and Group.CreateGroup) then return nil end
+	local group = Group.CreateGroup()
+	local first_by_card = {}
+	for _, item in ipairs(candidates) do
+		local card = item.card
+		if card then
+			group:AddCard(card)
+			if not first_by_card[card] or item.serial < first_by_card[card].serial then
+				first_by_card[card] = item
+			end
+		end
+	end
+	if group:GetCount() < 2 then return nil end
+	if Duel.Hint and HINT_SELECTMSG then
+		local hint = aux and aux.Stringid and aux.Stringid(879999999, 8) or 560
+		Duel.Hint(HINT_SELECTMSG, player, hint)
+	end
+	local picked = group:Select(player, 1, 1, nil)
+	local card = picked and picked:GetFirst() or nil
+	return card and first_by_card[card] or nil
+end
+
 function Q.flush()
 	if Q._flushing or #Q._items == 0 or current_chain() > 0 then return false end
 	if Q._inflight ~= nil then return false end
 	local generation, player = eligible_bucket()
 	if generation == nil then return false end
 	Q._flushing = true
-	-- Chain-path buckets are one card's own effects in practice (multi-card
-	-- simultaneity rides the direct queue), so first-eligible = insertion
-	-- order = the card's printed order. No leader bias.
-	local selected
+	-- 8-6-1-1: 같은 (세대, 플레이어) 버킷에 서로 다른 카드가 2장 이상 대기
+	-- 중이면 어떤 것을 먼저 체인에 올릴지 그 플레이어가 고른다 - 발동(raise)
+	-- 직전 선택. 한 카드의 복수 효과는 삽입순(기재순) 폴백.
+	local bucket = {}
 	for _, item in ipairs(Q._items) do
 		if item.generation == generation and item.player == player and not item.raised then
-			selected = item
-			break
+			bucket[#bucket + 1] = item
 		end
+	end
+	local selected = bucket[1]
+	if #bucket >= 2 then
+		selected = choose_next_direct(player, bucket) or selected
 	end
 	if selected then
 		selected.raised = true
@@ -203,6 +235,17 @@ function Q.flush()
 		if Duel and Duel.RaiseSingleEvent then
 			Duel.RaiseSingleEvent(selected.card, Q.EVENT_RESOLVE, selected.resolver,
 				0, player, player, selected.serial)
+			-- 무체인 lua 문맥에서는 PointEvent 유닛이 자연히 오지 않아 등재된
+			-- 후보가 방치되다 다음 자연 지점에서 소거된다(코어 실측). 발동
+			-- 창을 즉시 연다(Duel.ProcessPointEvent = 구세대 raise+PROCESSOR_
+			-- WAIT+yield 수법의 정식판). 단 체인 종료 처리 문맥(after_chain)은
+			-- 코어가 후속 PointEvent를 자연 스케줄하므로 즉석 개방을 생략한다
+			-- - 이중 수집이 먼저 돌면 재검 탈락 후보가 영구 소거된다(실측).
+			-- 어택 처리 중도 금지 - 그 문맥 아이템은 경계 배수가 소화한다.
+			if Duel.ProcessPointEvent
+				and not (Duel.GetAttacker and Duel.GetAttacker() ~= nil) then
+				Duel.ProcessPointEvent()
+			end
 		end
 	end
 	Q._flushing = false
@@ -223,7 +266,9 @@ function Q.after_chain()
 		end
 	end
 	for _, item in ipairs(Q._items) do item.raised = false end
+	Q._in_after_chain = true
 	Q.flush()
+	Q._in_after_chain = false
 	-- triggers born during the finished chain (battle KO, effect KO) wait in
 	-- the direct queue: resolve them now, right after the resolution that
 	-- spawned them (rule 8-6-3)
@@ -298,6 +343,9 @@ local function create_resolver(card, effect, description_index)
 	local resolver = Effect.CreateEffect(card)
 	resolver:SetType(EFFECT_TYPE_SINGLE + EFFECT_TYPE_TRIGGER_F)
 	resolver:SetCode(Q.EVENT_RESOLVE)
+	-- 리더존/스테이지 등 어느 위치에서든 발동 가능해야 한다(레인지 미설정
+	-- 리졸버는 위치 게이트에서 후보 소거될 수 있다 - 쿠잔 리더 실측).
+	resolver:SetRange(0xff)
 	-- DELAY: a resolve raised while another chain runs must not lose its
 	-- timing. DAMAGE_STEP/DAMAGE_CAL: defensive — OPCG battle is a scripted
 	-- main-phase chain so the native damage step never gates us today, but
@@ -469,10 +517,25 @@ local function direct_bucket()
 	return generation, player, result
 end
 
+-- [OPCG] 대기열 가시화: 직접 큐가 변할 때마다 CLEAR(212) + 아이템당 PUSH(210)
+-- 힌트를 흘려 클라가 LP 프레임 아래 썸네일 스트립을 그린다. 표시 전용 채널
+-- (MSG_HINT, 코어 무수정)이라 게임 상태/리플레이 재현에 영향 없다.
+-- PUSH: player=컨트롤러, value=code | (임의발동이면 2^32).
+local function sync_queue_display()
+	if not (Duel and Duel.Hint) then return end
+	Duel.Hint(212, 0, 0)
+	for _, item in ipairs(Q._direct_items) do
+		local code = 0
+		if item.card and item.card.GetOriginalCode then code = item.card:GetOriginalCode() end
+		Duel.Hint(210, item.player or 0, code + (item.optional and 4294967296 or 0))
+	end
+end
+
 local function remove_direct(item)
 	for index, candidate in ipairs(Q._direct_items) do
 		if candidate == item then
 			table.remove(Q._direct_items, index)
+			sync_queue_display()
 			return true
 		end
 	end
@@ -528,6 +591,7 @@ function Q.enqueue_direct(card, effect, context, options)
 		timing=options.timing or context.timing,
 	}
 	Q._direct_items[#Q._direct_items + 1] = item
+	sync_queue_display()
 	return item
 end
 
@@ -581,36 +645,8 @@ function Q.enqueue_timing(cards, timing, context, options)
 		end
 	end)
 
+	if #enqueued > 0 then sync_queue_display() end
 	return enqueued
-end
-
--- 총합룰 8-6-1: 같은 플레이어의 동시 트리거는 그 플레이어가 처리 순서를
--- 정한다. 서로 다른 카드가 2장 이상 대기 중이면 매 처리마다 "다음 카드"를
--- 표준 카드 선택창으로 묻는다(메인/배틀 공통 — 공식룰에 리더 우선 규정은
--- 없다). 같은 카드의 복수 효과는 카드 클릭으로 구분할 수 없으므로 삽입순
--- (= 카드 기재순) 폴백. 순서 선택은 발동 여부와 무관: 강제 아이템은 어떤
--- 순서로 골라도 resolve_direct_item에서 예/아니오 없이 그대로 소화된다.
-local function choose_next_direct(player, candidates)
-	if not (Group and Group.CreateGroup) then return nil end
-	local group = Group.CreateGroup()
-	local first_by_card = {}
-	for _, item in ipairs(candidates) do
-		local card = item.card
-		if card then
-			group:AddCard(card)
-			if not first_by_card[card] or item.serial < first_by_card[card].serial then
-				first_by_card[card] = item
-			end
-		end
-	end
-	if group:GetCount() < 2 then return nil end
-	if Duel.Hint and HINT_SELECTMSG then
-		local hint = aux and aux.Stringid and aux.Stringid(879999999, 8) or 560
-		Duel.Hint(HINT_SELECTMSG, player, hint)
-	end
-	local picked = group:Select(player, 1, 1, nil)
-	local card = picked and picked:GetFirst() or nil
-	return card and first_by_card[card] or nil
 end
 
 local function resolve_direct_item(selected, options, context, resolved)

@@ -1255,8 +1255,29 @@ function X.emit(timing, context, player, cards)
 	context.timing = timing
 	local candidates = emit_candidates(player, cards)
 	if #candidates == 0 then return {} end
-	if opcg.effect_queue and opcg.effect_queue.resolve_timing then
-		return opcg.effect_queue.resolve_timing(candidates, timing, context)
+	local queue = opcg.effect_queue
+	if queue and queue.resolve_timing then
+		-- 발동 집행은 코어가 한다: engine 경로로 쌓으면 flush가 RaiseSingle-
+		-- Event로 올리고 리졸버(네이티브 TRIGGER)가 발동 판정/체인 연출/1링크
+		-- 강제를 수행한다(8-6-3). 체인 진행 중이면 CHAIN_END의 flush가, 무체인
+		-- lua 문맥이면 flush의 Duel.ProcessPointEvent(신설 코어 API)가 발동
+		-- 창을 연다. 구코어(ProcessPointEvent 부재)에서는 무체인 raise가
+		-- 증발하므로 체인 문맥에서만 engine(하위호환). 직접 큐 해결 중/어택
+		-- 문맥은 direct 잔류 - 코어가 그 안에서는 체인 오퍼를 주지 않으므로
+		-- 8-6 경계 배수가 정답이다.
+		local nested = (queue.is_draining and queue.is_draining())
+			or (Duel.GetAttacker and Duel.GetAttacker() ~= nil)
+		-- engine(코어 발동)은 "무체인 lua 문맥 + 신 코어 API"에서만: 그 자리서
+		-- ProcessPointEvent로 발동 창을 열어 완주가 실증된 유일 구성이다.
+		-- 체인 진행 중 파생(효과 해결 중 emit)은 direct 큐 - CHAIN_END 뒤의
+		-- 연쇄 raise는 이 세대 코어가 소비하지 않음을 실측(zephyr 2차 트리거).
+		local engine_ok = Duel.ProcessPointEvent ~= nil
+			and (not Duel.GetCurrentChain or Duel.GetCurrentChain() == 0)
+		if engine_ok and not nested then
+			return queue.resolve_timing(candidates, timing, context,
+				{engine=true, fallback_direct=true})
+		end
+		return queue.resolve_timing(candidates, timing, context)
 	end
 	local results = {}
 	for _, card in ipairs(candidates) do
