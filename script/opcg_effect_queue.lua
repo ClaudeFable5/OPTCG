@@ -142,6 +142,8 @@ function Q.reset()
 	Q._direct_draining = false
 end
 
+local sync_queue_display
+
 function Q.enqueue(card, effect, resolver, context, options)
 	options = options or {}
 	context = shallow_copy(context)
@@ -168,6 +170,7 @@ function Q.enqueue(card, effect, resolver, context, options)
 		raised=false,
 	}
 	Q._items[#Q._items + 1] = item
+	sync_queue_display()
 	return item
 end
 
@@ -178,6 +181,7 @@ function Q.take(serial, resolver)
 	if Q._inflight == serial then
 		Q._inflight = nil
 	end
+	sync_queue_display()
 	return item
 end
 
@@ -516,14 +520,17 @@ end
 -- 힌트를 흘려 클라가 LP 프레임 아래 썸네일 스트립을 그린다. 표시 전용 채널
 -- (MSG_HINT, 코어 무수정)이라 게임 상태/리플레이 재현에 영향 없다.
 -- PUSH: player=컨트롤러, value=code | (임의발동이면 2^32).
-local function sync_queue_display()
+sync_queue_display = function()
+	-- 대기열 전체 미러: 엔진 큐(네이티브 대기) + direct 큐.
 	if not (Duel and Duel.Hint) then return end
 	Duel.Hint(212, 0, 0)
-	for _, item in ipairs(Q._direct_items) do
+	local function push(item)
 		local code = 0
 		if item.card and item.card.GetOriginalCode then code = item.card:GetOriginalCode() end
 		Duel.Hint(210, item.player or 0, code + (item.optional and 4294967296 or 0))
 	end
+	for _, item in ipairs(Q._items) do push(item) end
+	for _, item in ipairs(Q._direct_items) do push(item) end
 end
 
 local function remove_direct(item)
