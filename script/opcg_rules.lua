@@ -465,6 +465,14 @@ function R.register_game_start()
 		no_sset:SetTargetRange(LOCATION_HAND, LOCATION_HAND)
 		no_sset:SetTarget(function(e, c) return opcg.IsStage(c) or opcg.IsEvent(c) end)
 		Duel.RegisterEffect(no_sset, 0)
+		
+		local extra_attack = Effect.GlobalEffect()
+		extra_attack:SetType(EFFECT_TYPE_FIELD)
+		extra_attack:SetProperty(EFFECT_FLAG_CANNOT_DISABLE + EFFECT_FLAG_UNCOPYABLE)
+		extra_attack:SetCode(EFFECT_EXTRA_ATTACK)
+		extra_attack:SetTargetRange(LOCATION_MZONE, LOCATION_MZONE)
+		extra_attack:SetValue(999999999)
+		Duel.RegisterEffect(extra_attack, 0)
 
 		-- OPCG has no hand size limit: lift the YGO end-phase discard cap
 		-- (processor.cpp EP adjust reads the LAST EFFECT_HAND_LIMIT value).
