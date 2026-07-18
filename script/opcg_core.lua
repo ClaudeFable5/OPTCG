@@ -826,7 +826,13 @@ function C.PayCost(op, cost, context)
 	elseif op == "REST_DON" then
 		assert(opcg.RestDon(player, n) == n, "REST_DON failed")
 	elseif op == "RETURN_DON" then
-		local maximum = cost.count or cost.max_count or n
+		local maximum = cost.count or cost.max_count
+		if maximum == nil then
+			-- "두웅!!을 1장 이상 되돌리고"(AT_LEAST/상한 무지정): 상한 = 필드 둥
+			-- 전량. 종전 `or n` 폴백이 상한을 min_count로 붕괴시켜 2장 이상
+			-- 반납이 불가였다(OP09 조로/상디/브룩 계열, 2026-07-18 제보).
+			maximum = opcg.GetFieldDonGroup(player, cost.state):GetCount()
+		end
 		assert(opcg.ReturnDon(player, maximum, player, cost.state, n) >= n, "RETURN_DON failed")
 	elseif op == "REST_SELF" then
 		opcg.SetRested(context.card)
