@@ -135,6 +135,7 @@ function Q.reset()
 	Q._flushing = false
 	Q._active_item = nil
 	Q._inflight = nil
+	Q._asked = nil
 	Q._last_generation = 0
 	Q._direct_items = {}
 	Q._direct_serial = 0
@@ -157,6 +158,13 @@ function Q.enqueue(card, effect, resolver, context, options)
 	else
 		generation = minimum_generation() or Q._last_generation
 	end
+	local optional = options.optional
+	if optional == nil then optional = Q.is_optional(effect) end
+	-- e2/e3 쌍: 임의성은 여기서 리졸버 선택으로 확정된다(임의=TRIGGER_O 코어
+	-- 발동 질문 / 강제=TRIGGER_F 무질문).
+	if type(resolver) == "table" and resolver.is_pair then
+		resolver = optional and resolver.optional or resolver.forced
+	end
 	local item = {
 		serial=Q._serial,
 		card=card,
@@ -165,7 +173,7 @@ function Q.enqueue(card, effect, resolver, context, options)
 		player=context.player == nil and card:GetControler() or context.player,
 		generation=generation,
 		context=context,
-		optional=options.optional == nil and Q.is_optional(effect) or options.optional,
+		optional=optional,
 		description=options.description or 0,
 		raised=false,
 	}
@@ -180,6 +188,9 @@ function Q.take(serial, resolver)
 	table.remove(Q._items, index)
 	if Q._inflight == serial then
 		Q._inflight = nil
+	end
+	if Q._asked == serial then
+		Q._asked = nil
 	end
 	sync_queue_display()
 	return item
@@ -216,6 +227,21 @@ end
 
 function Q.flush()
 	if Q._flushing or #Q._items == 0 or current_chain() > 0 then return false end
+	-- 거절 감지 자가치유: 임의 후보가 코어 질문 단계(_asked 마크)까지 지나고도
+	-- 소비되지 않았다면 거절이다. 거절은 체인을 만들지 않아 CHAIN_END 펌프
+	-- (after_chain)가 오지 않으므로, 여기서 소각하고 다음 아이템을 진행한다
+	-- (8-6 순차 유지 - 방치하면 _inflight가 큐를 영구 마비시킨다: 에이스 E1
+	-- 카운터 거절 -> E2 강제 드로 불발 실측).
+	if Q._inflight ~= nil and Q._asked == Q._inflight then
+		local index, item = find_index(Q._inflight, nil)
+		if item and item.raised and item.optional then
+			table.remove(Q._items, index)
+			sync_queue_display()
+		end
+		Q._inflight = nil
+		Q._asked = nil
+		if #Q._items == 0 then return false end
+	end
 	if Q._inflight ~= nil then return false end
 	local generation, player = eligible_bucket()
 	if generation == nil then return false end
@@ -265,7 +291,24 @@ function Q.after_chain()
 			end
 		end
 	end
-	for _, item in ipairs(Q._items) do item.raised = false end
+	-- raised 잔존 정리: 임의(O) 아이템의 잔존은 거절이다 — 코어 발동 질문에서
+	-- "아니오"면 오퍼레이션이 안 돌아 소비가 없다. 룰대로 소각(임의 발동 포기
+	-- = 그 타이밍에서 소멸, 재질문 금지). 강제(F) 잔존은 창 불발 자가치유로
+	-- 종전대로 재발신 대상에 남긴다 — 강제에는 포기가 없다.
+	local kept = {}
+	for _, item in ipairs(Q._items) do
+		if item.raised and item.optional then
+			if Q._inflight == item.serial then Q._inflight = nil end
+			if Q._asked == item.serial then Q._asked = nil end
+		else
+			item.raised = false
+			kept[#kept + 1] = item
+		end
+	end
+	if #kept ~= #Q._items then
+		Q._items = kept
+		sync_queue_display()
+	end
 	Q._in_after_chain = true
 	Q.flush()
 	Q._in_after_chain = false
@@ -338,10 +381,30 @@ local function timing_resolver(card, effect, timing)
 	return by_effect[resolver_key(effect)]
 end
 
-local function create_resolver(card, effect, description_index)
-	Q.install()
+-- e2/e3 쌍 등록 (legacy2.lua:916 Card.RegisterTriggerEffect 원형 이식, 2026-07-18
+-- 반성문 수술 — OPCG_OPTIONAL_FORCED_REPENTANCE_20260718.md). 임의성은 해결부가
+-- 아니라 등록 타입이 진다: 임의 아이템은 TRIGGER_O 리졸버로 재발신되어 코어가
+-- 발동 여부를 묻고(거절 = 발동 자체 없음·무송출), 강제 아이템은 TRIGGER_F로
+-- 무질문 발동한다. 해결 시점 예/아니오는 룰의 [발동 여부 선택]을 [해결 여부
+-- 선택]으로 옮긴 표기 위반 + 거절 노출(정보 누출)이었다.
+local function resolver_operation(e, ev)
+	local item = Q.take(ev, e)
+	if not item then return end
+	Q._last_generation = item.generation
+	local previous = Q._active_item
+	Q._active_item = item
+	local context = item.context
+	context.player = item.player
+	context.timing = context.timing or item.timing
+	if opcg.runtime.can_resolve(item.card, item.effect.effect_id, context) then
+		opcg.runtime.resolve(item.card, item.effect.effect_id, context)
+	end
+	Q._active_item = previous
+end
+
+local function build_resolver(card, effect, description, trigger_type)
 	local resolver = Effect.CreateEffect(card)
-	resolver:SetType(EFFECT_TYPE_SINGLE + EFFECT_TYPE_TRIGGER_F)
+	resolver:SetType(EFFECT_TYPE_SINGLE + trigger_type)
 	resolver:SetCode(Q.EVENT_RESOLVE)
 	-- 리더존/스테이지 등 어느 위치에서든 발동 가능해야 한다(레인지 미설정
 	-- 리졸버는 위치 게이트에서 후보 소거될 수 있다 - 쿠잔 리더 실측).
@@ -352,48 +415,59 @@ local function create_resolver(card, effect, description_index)
 	-- 회귀가 판정). 우리 raise는 flush의 체인 가드 덕에 항상 소비 가능한
 	-- 순간(체인 밖)에만 나가므로 타이밍 소실 보호가 필요 없다.
 	resolver:SetProperty(EFFECT_FLAG_DAMAGE_STEP + EFFECT_FLAG_DAMAGE_CAL)
-	local description = description_for(card, effect, description_index)
 	if description ~= 0 then resolver:SetDescription(description) end
 	resolver:SetCondition(function(e, _, _, _, ev, re)
 		local _, item = find_index(ev, e)
 		return re == e and item ~= nil
 	end)
-	resolver:SetTarget(function(e, _, _, _, ev, _, _, _, check)
-		if check == 0 then
-			local _, item = find_index(ev, e)
-			return item ~= nil
-		end
-		-- One OPCG effect resolves before the next effect may activate.
-		Duel.SetChainLimit(aux.FALSE)
-	end)
-	resolver:SetOperation(function(e, player, _, _, ev)
-		local item = Q.take(ev, e)
-		if not item then return end
-		Q._last_generation = item.generation
-		local previous = Q._active_item
-		Q._active_item = item
-		local context = item.context
-		context.player = item.player
-		context.timing = context.timing or item.timing
-		local can_resolve = opcg.runtime.can_resolve(item.card,
-			item.effect.effect_id, context)
-		local accepted = can_resolve
-		if accepted and item.optional then
-			if Duel.SelectEffectYesNo and item.card
-				and (item.description == 0 or item.description == 222) then
-				accepted = Duel.SelectEffectYesNo(player, item.card)
-			else
-				accepted = Duel.SelectYesNo(player, item.description)
+	if trigger_type == EFFECT_TYPE_TRIGGER_O then
+		resolver:SetTarget(function(e, _, _, _, ev, _, _, _, check)
+			if check == 0 then
+				-- 코어 질문 단계 도달 마킹: 이 지점 이후 lua가 다시 돌 때까지
+				-- 아이템이 소비되지 않았다면 발동 거절이다(질문과 응답 사이에
+				-- 다른 lua 진입 없음 - 코어 PointEvent case4 실측). 거절은
+				-- 체인을 만들지 않아 CHAIN_END 펌프가 안 오므로, flush가 이
+				-- 마크로 거절을 감지해 소각·재개한다.
+				Q._asked = ev
+				-- 해결 불능이면 발동 질문 자체를 열지 않는다("예"를 받고도
+				-- 아무 일도 없는 새 거짓말 방지).
+				local _, item = find_index(ev, e)
+				if not item then return false end
+				item.context.player = item.player
+				item.context.timing = item.context.timing or item.timing
+				return opcg.runtime.can_resolve(item.card,
+					item.effect.effect_id, item.context)
 			end
-		end
-		if accepted then
-			opcg.runtime.resolve(item.card, item.effect.effect_id, context)
-		end
-		Q._active_item = previous
+			-- One OPCG effect resolves before the next effect may activate.
+			Duel.SetChainLimit(aux.FALSE)
+		end)
+	else
+		resolver:SetTarget(function(e, _, _, _, ev, _, _, _, check)
+			if check == 0 then
+				local _, item = find_index(ev, e)
+				return item ~= nil
+			end
+			-- One OPCG effect resolves before the next effect may activate.
+			Duel.SetChainLimit(aux.FALSE)
+		end)
+	end
+	resolver:SetOperation(function(e, _, _, _, ev)
+		resolver_operation(e, ev)
 	end)
 	Q._resolvers[resolver] = true
 	card:RegisterEffect(resolver)
-	return resolver, description
+	return resolver
+end
+
+local function create_resolver(card, effect, description_index)
+	Q.install()
+	local description = description_for(card, effect, description_index)
+	local pair = {
+		is_pair=true,
+		optional=build_resolver(card, effect, description, EFFECT_TYPE_TRIGGER_O),
+		forced=build_resolver(card, effect, description, EFFECT_TYPE_TRIGGER_F),
+	}
+	return pair, description
 end
 
 function Q.register_trigger(card, effect, code, options)
