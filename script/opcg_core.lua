@@ -1392,6 +1392,16 @@ function C.ExecuteAction(op, action, context)
 		local selector = action.selector
 		if op == "REST" then selector = selector_with_state(selector, "ACTIVE")
 		elseif op == "SET_ACTIVE" then selector = selector_with_state(selector, "RESTED") end
+		-- "상대는 자신의 ~를 …한다" 계열: 생성기가 액션 레벨에 뽑은 chooser를
+		-- 셀렉터로 병합해 선택 주체를 피대상 쪽으로 넘긴다(SelectCards가
+		-- selector.chooser를 존중). 방치하면 시전자가 골라버린다 — OP06-051
+		-- 츠루 실전 제보(2026-07-18).
+		if action.chooser and (selector == nil or selector.chooser == nil) then
+			local merged = {}
+			for key, value in pairs(selector or {}) do merged[key] = value end
+			merged.chooser = action.chooser
+			selector = merged
+		end
 		cards = choose_selector(selector, context)
 		if op == "REST" then for _, card in ipairs(cards) do opcg.SetRested(card) end
 		elseif op == "SET_ACTIVE" then for _, card in ipairs(cards) do opcg.SetActive(card) end
