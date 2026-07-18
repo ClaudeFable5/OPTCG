@@ -83,8 +83,9 @@ local function eligible_bucket()
 end
 
 -- 총합룰 8-6-1: within a bucket the owner picks the order. Multi-card
--- buckets go through the choose_next_direct prompt below; effects of one
--- same card fall back to insertion order (= printed order on the card).
+-- buckets go through the choose_next_item card prompt below; multiple
+-- effects of one same card are picked in a SelectOption window (no more
+-- silent printed-order fallback -- 2026-07-18 order-confession surgery).
 
 local function description_for(card, effect, index)
 	if type(effect.description) == "number" then return effect.description end
@@ -197,11 +198,13 @@ function Q.take(serial, resolver)
 end
 
 -- 총합룰 8-6-1: 같은 플레이어의 동시 트리거는 그 플레이어가 처리 순서를
--- 정한다. 서로 다른 카드가 2장 이상 대기 중이면 매 처리마다 "다음 카드"를
--- 표준 카드 선택창으로 묻는다(메인/배틀 공통 — 공식룰에 리더 우선 규정은
--- 없다). 같은 카드의 복수 효과는 카드 클릭으로 구분할 수 없으므로 삽입순
--- (= 카드 기재순) 폴백. 순서 선택은 발동 여부와 무관: 강제 아이템은 어떤
--- 순서로 골라도 발동 단계에서 예/아니오 없이 그대로 소화된다.
+-- 정한다. 자동 폴백 금지(순서 실토 수술 2026-07-18) — 2단 선택 전부 gframe
+-- 창으로: 서로 다른 카드는 표준 카드 선택창, 같은 카드의 복수 효과는
+-- 옵션창(SelectOption)으로 소유자가 고른다. 순서 선택은 발동 여부와 무관:
+-- 강제 아이템은 어떤 순서로 골라도 발동 단계에서 예/아니오 없이 소화된다.
+-- ※ 구판은 아래 주석 보관(삭제 금지 — 유저 지시). 죄목: "같은 카드=기재순
+-- 폴백"+first_by_card 최소-serial 고정 = 유저 미승인 자동 순서 결정이었다.
+--[[ [구판 보관 2026-07-18 — 같은 카드 복수 효과를 기재순으로 자동 결정하던 판]
 local function choose_next_direct(player, candidates)
 	if not (Group and Group.CreateGroup) then return nil end
 	local group = Group.CreateGroup()
@@ -223,6 +226,50 @@ local function choose_next_direct(player, candidates)
 	local picked = group:Select(player, 1, 1, nil)
 	local card = picked and picked:GetFirst() or nil
 	return card and first_by_card[card] or nil
+end
+--]]
+
+local function choose_effect_item(player, items)
+	if #items <= 1 then return items[1] end
+	if not (Duel and Duel.SelectOption) then return items[1] end
+	-- 옵션 나열 = 기재순, 선택 = 소유자. desc가 제네릭(0)이라 문구가 같아도
+	-- 위/아래 = 기재 1/2번째로 선택권은 보장된다(카드별 문구는 후속 개선).
+	local options = {}
+	for _, item in ipairs(items) do
+		options[#options + 1] = (item.description ~= 0) and item.description or 222
+	end
+	local picked = Duel.SelectOption(player, table.unpack(options))
+	return items[(picked or 0) + 1] or items[1]
+end
+
+local function choose_next_item(player, candidates)
+	if #candidates <= 1 then return candidates[1] end
+	if not (Group and Group.CreateGroup) then return candidates[1] end
+	local group = Group.CreateGroup()
+	local by_card = {}
+	for _, item in ipairs(candidates) do
+		local card = item.card
+		if card then
+			if not by_card[card] then
+				by_card[card] = {}
+				group:AddCard(card)
+			end
+			table.insert(by_card[card], item)
+		end
+	end
+	local card
+	if group:GetCount() >= 2 then
+		if Duel.Hint and HINT_SELECTMSG then
+			local hint = aux and aux.Stringid and aux.Stringid(879999999, 8) or 560
+			Duel.Hint(HINT_SELECTMSG, player, hint)
+		end
+		local picked = group:Select(player, 1, 1, nil)
+		card = picked and picked:GetFirst() or nil
+	else
+		card = group:GetFirst()
+	end
+	local items = card and by_card[card] or candidates
+	return choose_effect_item(player, items) or candidates[1]
 end
 
 function Q.flush()
@@ -255,10 +302,7 @@ function Q.flush()
 			bucket[#bucket + 1] = item
 		end
 	end
-	local selected = bucket[1]
-	if #bucket >= 2 then
-		selected = choose_next_direct(player, bucket) or selected
-	end
+	local selected = choose_next_item(player, bucket)
 	if selected then
 		selected.raised = true
 		Q._inflight = selected.serial
@@ -792,8 +836,8 @@ function Q.drain_direct(options, timing, context)
 			local choice = options.choose_item(player, candidates, timing, context)
 			if type(choice) == "number" then selected = candidates[choice] or selected
 			elseif choice then selected = choice end
-		elseif #candidates >= 2 then
-			selected = choose_next_direct(player, candidates) or selected
+		else
+			selected = choose_next_item(player, candidates) or selected
 		end
 		remove_direct(selected)
 		resolve_direct_item(selected, options, context, resolved)
