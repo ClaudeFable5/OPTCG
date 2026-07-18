@@ -928,7 +928,19 @@ function X.register_continuous(card, effect, action, condition)
 		local native = Effect.CreateEffect(card)
 		native:SetCode(EFFECT_UPDATE_LEVEL)
 		native:SetCondition(combined)
-		native:SetValue(action.amount or 0)
+		local amount = action.amount or 0
+		if amount < 0 then
+			-- 마이너스 레벨 불허(유저 재정 2026-07-18) — opcg_core modify_stat과
+			-- 동일한 소스 클램프(현재 코스트 밑으로 감소 불가, uint32 랩 방어).
+			native:SetValue(function(e, c)
+				local cur = c:GetLevel()
+				if cur < 0 or cur >= 0x80000000 then cur = 0 end
+				if cur + amount < 0 then return -cur end
+				return amount
+			end)
+		else
+			native:SetValue(amount)
+		end
 		if selector.kind == "SELF" then
 			native:SetType(EFFECT_TYPE_SINGLE)
 			native:SetProperty(EFFECT_FLAG_SINGLE_RANGE)

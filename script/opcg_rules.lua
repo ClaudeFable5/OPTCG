@@ -320,9 +320,12 @@ function R.register_game_start()
 		-- level<1 && TYPE_MONSTER && !EFFECT_ALLOW_NEGATIVE → 1). OPCG는
 		-- 코스트=레벨이고 MODIFY_COST가 EFFECT_UPDATE_LEVEL을 타므로,
 		-- "코스트를 0으로" 감소가 1에서 바닥에 걸리고 코스트0 판정 필터도
-		-- 영영 거짓이 된다. 코어가 마련한 허용 문구(EFFECT_ALLOW_NEGATIVE)를
-		-- 전장 전역에 깔아 0/음수 레벨을 개방한다 — 음수는 GetCost가 0으로
-		-- 바닥 처리한다.
+		-- 영영 거짓이 된다. 코어의 허용 문구(EFFECT_ALLOW_NEGATIVE)로 클램프를
+		-- 열되, 마이너스는 애초에 허용하지 않는다(유저 재정) — 감소 효과의
+		-- 값 함수가 소스에서 클램프한다(opcg_core modify_stat / contract_ops
+		-- MODIFY_HAND/NEXT_PLAY_COST). ※시작 시 등록하는 CHANGE_LEVEL_FINAL
+		-- 바닥은 채택 불가 — filter_effect가 효과 id순 정렬이라 나중에 붙는
+		-- 감소 효과보다 먼저 평가돼 불발(실측).
 		local allow_zero = Effect.GlobalEffect()
 		allow_zero:SetType(EFFECT_TYPE_FIELD)
 		allow_zero:SetProperty(EFFECT_FLAG_CANNOT_DISABLE + EFFECT_FLAG_UNCOPYABLE
