@@ -995,7 +995,22 @@ local function modify_stat(source, target, code, amount, duration)
 	local effect = Effect.CreateEffect(source)
 	effect:SetType(EFFECT_TYPE_SINGLE)
 	effect:SetCode(code)
-	effect:SetValue(amount or 0)
+	if code == EFFECT_UPDATE_LEVEL and (amount or 0) < 0 then
+		-- 코스트 감소는 현재 코스트 밑으로 내려가지 않는다(마이너스 레벨
+		-- 불허 — 유저 재정 2026-07-18; 0 개방은 opcg_rules의 ALLOW_NEGATIVE).
+		-- 값 함수 안 GetLevel()은 코어 집계 중 진행 합계(temp.level)를
+		-- 돌려주므로 감소가 겹쳐도 순차적으로 클램프된다. 음수가 uint32로
+		-- 랩되어 도착하는 경우도 0으로 간주.
+		local down = amount
+		effect:SetValue(function(e, c)
+			local cur = c:GetLevel()
+			if cur < 0 or cur >= 0x80000000 then cur = 0 end
+			if cur + down < 0 then return -cur end
+			return down
+		end)
+	else
+		effect:SetValue(amount or 0)
+	end
 	effect:SetReset(reset, reset_count or 1)
 	target:RegisterEffect(effect)
 	-- OPCG has no native damage phase, so battle-scoped durations expire at the
