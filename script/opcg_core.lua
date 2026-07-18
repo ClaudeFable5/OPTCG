@@ -1814,10 +1814,19 @@ local function register_event_play(card, effect)
 	-- normal resolution flow. EFFECT_TYPE_ACTIVATE is only the carrier.
 	local native = Effect.CreateEffect(card)
 	native:SetType(EFFECT_TYPE_IGNITION)
-	native:SetCode(EVENT_FREE_CHAIN)
+	--native:SetCode(EVENT_FREE_CHAIN)
 	native:SetRange(LOCATION_HAND)
 	native:SetCondition(function(e, tp)
-		if Duel.GetCurrentPhase() ~= PHASE_MAIN1 then return false end
+		-- [OPCG] 메인 창 판정. 하이브리드 코어의 t=9 어택은 배틀 기계를 메인
+		-- 안에서 돌리고, 배틀이 끝나도 페이즈를 MAIN1(4)로 되돌리지 않는다
+		-- (BATTLE_STEP=16 잔존, 턴 끝까지 - OP12-039 "어택 후 이벤트 전멸"
+		-- 제보 실측). 메인 창의 실체 = MAIN1이거나, 배틀 페이즈군 값이되
+		-- 배틀 비진행(어태커 부재)인 자기 턴 아이들.
+		local phase = Duel.GetCurrentPhase()
+		--[[local in_main = phase == PHASE_MAIN1
+			or ((phase == PHASE_BATTLE_START or phase == PHASE_BATTLE_STEP
+				or phase == PHASE_BATTLE) and Duel.GetAttacker() == nil)
+		if not in_main then return false end]]--
 		return opcg.runtime.can_resolve(e:GetHandler(), effect.effect_id,
 			runtime_context(e:GetHandler(), tp))
 	end)
