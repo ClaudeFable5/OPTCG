@@ -40,7 +40,8 @@ function s.initial_effect(c)
               },
               kind=[[CHARACTER]],
               mode=[[EXACT]],
-              owner=[[YOU]],
+              owner=[[ANY]],
+              -- [수기 교정 2026-07-18] 원문 무소유지정("주인의 덱") - YOU→ANY (OP06-043 제보 패밀리)
             },
           },
         },
