@@ -315,6 +315,22 @@ function R.register_game_start()
 		play_proc:SetValue(SUMMON_TYPE_NORMAL)
 		Duel.RegisterEffect(play_proc, 0)
 
+		-- [OPCG] 코스트 0 개방 (2026-07-18, "0코스트 안 됨" 제보). 코어
+		-- get_level은 몬스터 프레임의 레벨<1을 1로 강제한다(card.cpp:
+		-- level<1 && TYPE_MONSTER && !EFFECT_ALLOW_NEGATIVE → 1). OPCG는
+		-- 코스트=레벨이고 MODIFY_COST가 EFFECT_UPDATE_LEVEL을 타므로,
+		-- "코스트를 0으로" 감소가 1에서 바닥에 걸리고 코스트0 판정 필터도
+		-- 영영 거짓이 된다. 코어가 마련한 허용 문구(EFFECT_ALLOW_NEGATIVE)를
+		-- 전장 전역에 깔아 0/음수 레벨을 개방한다 — 음수는 GetCost가 0으로
+		-- 바닥 처리한다.
+		local allow_zero = Effect.GlobalEffect()
+		allow_zero:SetType(EFFECT_TYPE_FIELD)
+		allow_zero:SetProperty(EFFECT_FLAG_CANNOT_DISABLE + EFFECT_FLAG_UNCOPYABLE
+			+ EFFECT_FLAG_IGNORE_IMMUNE)
+		allow_zero:SetCode(EFFECT_ALLOW_NEGATIVE)
+		allow_zero:SetTargetRange(0xff, 0xff)
+		Duel.RegisterEffect(allow_zero, 0)
+
 		-- ===== 네이티브 배틀 심판 심(정적 판정 레이어, 2026-07-12) =====
 		-- 어택이 네이티브 배틀 머신(idle t=9 → BattleCommand)을 타는 구조에서
 		-- 스톡 YGO 심판을 OPCG 룰로 교정하는 '오라' 레이어. 이벤트 진행형

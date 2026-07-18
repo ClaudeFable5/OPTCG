@@ -251,7 +251,15 @@ function opcg.GetCost(c)
 	local t = type(c)
 	if t ~= "Card" and t ~= "userdata" then return 0 end
 	local cost = c:GetLevel()
-	if cost == 0 and c.GetOriginalLevel then cost = c:GetOriginalLevel() end
+	-- 이벤트/스테이지(비몬스터 프레임)는 코어 get_level이 구조적으로 0을
+	-- 반환하므로 인쇄 코스트를 원레벨에서 읽는다. 몬스터 프레임(캐릭터/리더)
+	-- 은 ALLOW_NEGATIVE 전역 개방(opcg_rules) 후 0이 실값이므로 폴백 금지 —
+	-- 폴백하면 "코스트를 0으로" 감소가 원가로 되살아난다.
+	if cost == 0 and c.IsType and not c:IsType(TYPE_MONSTER)
+		and c.GetOriginalLevel then
+		cost = c:GetOriginalLevel()
+	end
+	if cost < 0 then cost = 0 end
 	return cost
 end
 function opcg.GetBaseCost(c)
