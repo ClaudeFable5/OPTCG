@@ -325,6 +325,11 @@ function B.install()
 		local attacker = Duel.GetAttacker()
 		local target = Duel.GetAttackTarget()
 		if not attacker or not target then return end
+		-- 어택시 창 마감 펌프: 선행 임의효과 거절로 표류 중인 [상대의 어택 시]
+		-- 계열 잔여 후보를 블록 프롬프트 전에 완주시킨다(타이밍 통일).
+		if opcg.effect_queue and opcg.effect_queue.pump_window then
+			opcg.effect_queue.pump_window()
+		end
 		local live = live_for(attacker)
 		local blocker = select_blocker(live.defending_player, blocker_candidates(live))
 		if blocker then
@@ -355,6 +360,10 @@ function B.install()
 		local attacker = Duel.GetAttacker()
 		local target = Duel.GetAttackTarget()
 		if not attacker or not target then return end
+		-- 블록 창 잔여 펌프(블록 스텝의 거절 표류분) — 카운터 프롬프트 전 완주.
+		if opcg.effect_queue and opcg.effect_queue.pump_window then
+			opcg.effect_queue.pump_window()
+		end
 		local live = live_for(attacker)
 		run_counter_step(live)
 		-- 데미지·KO 판정 직전의 최종 타겟을 박제(파괴 후 훅들이 참조)
