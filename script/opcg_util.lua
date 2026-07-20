@@ -162,6 +162,17 @@ function opcg.HasLifeTrigger(c)
 	end
 	return false
 end
+function opcg.HasAttackEffect(c)
+	local d = definition(c)
+	if not d then return false end
+	for _, effect in ipairs(d.effects or {}) do
+		for _, timing in ipairs(effect.timings or {}) do
+			if timing == "WHEN_ATTACKING" or timing == "WHEN_ATTACKING_OPPONENT_LEADER"
+				or timing == "WHEN_ATTACKING_OR_ATTACKED" then return true end
+		end
+	end
+	return false
+end
 function opcg.HasKeyword(c, keyword)
 	local effect_code = opcg.KEYWORD_EFFECT[keyword]
 	if effect_code and c.IsHasEffect and c:IsHasEffect(effect_code) then return true end
@@ -376,6 +387,7 @@ local function scalar_filter(c, key, value, context)
 	if key == "power_sum_lte" then return true end
 	if key == "vanilla" then return opcg.IsVanilla(c) == value end
 	if key == "has_trigger" then return opcg.HasLifeTrigger(c) == value end
+	if key == "no_attack_effect" then return (not opcg.HasAttackEffect(c)) == value end
 	if key == "exclude_self" then return not value or c ~= context.card end
 	if key == "cost_lte_life_total" then
 		return opcg.GetCost(c) <= opcg.LifeCount(0) + opcg.LifeCount(1)
