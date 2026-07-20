@@ -1573,8 +1573,9 @@ function C.ExecuteAction(op, action, context)
 		end
 	elseif op == "RETURN_HAND_TO_DECK" then
 		local minimum = action.mode == "UP_TO" and 0 or (action.count or 1)
+		-- 패는 비공개 정보 — 고르는 쪽은 패 주인(TRASH_HAND와 동일 관례)
 		cards = assert(select_zone(player, LOCATION_HAND, action.filter, minimum,
-			action.count or 1, chooser, context))
+			action.count or 1, action.chooser == "OPPONENT" and other(chooser) or player, context))
 		remove_cards_to_chosen_deck(cards, REASON_EFFECT, action, chooser, player)
 		if action.shuffle then Duel.ShuffleDeck(player) end
 	elseif op == "RETURN_OWN_CARD_TO_DECK_BOTTOM" or op == "REST_OWN_CARD" then
@@ -1582,6 +1583,22 @@ function C.ExecuteAction(op, action, context)
 		if op == "REST_OWN_CARD" then for _, card in ipairs(cards) do opcg.SetRested(card) end
 		else remove_cards(cards, REASON_EFFECT, "DECK_BOTTOM") end
 	elseif op == "ACTIVATE_CARD_EFFECT" then
+		if action.source == "TRASH" then
+			-- 다른 카드(트래시)의 기재 효과를 발동: 카드 선택 후 그 카드의
+			-- 타이밍을 새 컨텍스트로 디스패치(카드 자체는 트래시에 남는다)
+			local minimum = action.mode == "UP_TO" and 0 or (action.count or 1)
+			local chosen = assert(select_zone(player, LOCATION_GRAVE, action.filter, minimum,
+				action.count or 1, chooser, context))
+			local timing = action.effect_timing or "MAIN"
+			local effected = false
+			for _, card in ipairs(chosen) do
+				local done = C.DispatchTiming(card, timing, nil)
+				effected = effected or #(done or {}) > 0
+			end
+			context.last_action_succeeded = #chosen > 0 or action.mode == "UP_TO"
+			context.last_action_effected = effected
+			return {}
+		end
 		if choose_number_up_to(chooser, action.count or 1, action.mode) == 0 then
 			context.last_action_succeeded = action.mode == "UP_TO"
 			context.last_action_effected = false
