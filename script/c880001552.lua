@@ -29,9 +29,10 @@ function s.initial_effect(c)
         costs={},
         effect_id=[[E1]],
         once_per_turn=false,
-        source_text=[[【자신의 턴 동안】라이프가 줄어들었을 때, 카드를 1장 뽑는다. 그 후, 이번 턴 동안, 자신은 자신의 효과로 카드를 뽑을 수 없다.]],
+        source_text=[[【자신의 턴 동안】자신 또는 상대의 라이프가 줄어들었을 때, 카드를 1장 뽑는다. 그 후, 이번 턴 동안, 자신은 자신의 효과로 카드를 뽑을 수 없다.]],
         timings={
           [[ON_YOUR_LIFE_DECREASED]],
+          [[ON_OPPONENT_LIFE_DECREASED]],
         },
       },
     },

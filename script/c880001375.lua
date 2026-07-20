@@ -27,9 +27,10 @@ function s.initial_effect(c)
         costs={},
         effect_id=[[E1]],
         once_per_turn=true,
-        source_text=[[【자신의 턴 동안】【턴 1회】라이프가 줄어들었을 때, 발동할 수 있다. 자신의 패가 7장 이하인 경우, 카드를 1장 뽑는다.]],
+        source_text=[[【자신의 턴 동안】【턴 1회】자신 또는 상대의 라이프가 줄어들었을 때, 발동할 수 있다. 자신의 패가 7장 이하인 경우, 카드를 1장 뽑는다.]],
         timings={
           [[ON_YOUR_LIFE_DECREASED]],
+          [[ON_OPPONENT_LIFE_DECREASED]],
         },
       },
       {
