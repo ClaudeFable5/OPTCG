@@ -2,7 +2,13 @@
     {
         "name":  "OPCGPro-update.zip",
         "url":  "https://github.com/ClaudeFable5/OPTCG/releases/latest/download/OPCGPro-update.zip",
-        "md5":  "e240f669876d2eb1d88070e960ec27d6",
-        "rev":  12
+        "md5":  "019c45fe8d61897f4b5e9d7c824dfcd4",
+        "rev":  13
+    },
+    {
+        "name":  "OPCGPro-parallels.zip",
+        "url":  "https://github.com/ClaudeFable5/OPTCG/releases/latest/download/OPCGPro-parallels.zip",
+        "md5":  "5c17e8457905bfc9e20f2edba563be0a",
+        "rev":  13
     }
 ]
