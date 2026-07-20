@@ -306,7 +306,9 @@ local function execute_restriction(op, action, context)
 			target_filter=action.target_filter,
 		}
 	end
-	local code = op == "CANNOT_ATTACK_TARGETS" and opcg.EFFECT_CANNOT_ATTACK_TARGETS
+	-- 코어 get_attack_target가 소비하는 스톡 코드로 등록해야 어택 후보에서
+	-- 실제로 걸러진다 (커스텀 0x7f4f1210은 소비자 없는 사코드였음 - OP12-020).
+	local code = op == "CANNOT_ATTACK_TARGETS" and EFFECT_CANNOT_SELECT_BATTLE_TARGET
 		or restriction_code[op]
 	return apply_selector_effect(action, context, code, restriction_value(action, context))
 end
@@ -876,7 +878,7 @@ local continuous_card_code = {
 	ALLOW_ATTACK_ACTIVE_CHARACTER=opcg.EFFECT_ALLOW_ATTACK_ACTIVE_CHARACTER,
 	ALLOW_ATTACK_CHARACTER=opcg.EFFECT_ALLOW_ATTACK_CHARACTER,
 	CANNOT_ATTACK_LEADER=opcg.EFFECT_CANNOT_ATTACK_LEADER,
-	CANNOT_ATTACK_TARGETS=opcg.EFFECT_CANNOT_ATTACK_TARGETS,
+	CANNOT_ATTACK_TARGETS=EFFECT_CANNOT_SELECT_BATTLE_TARGET,
 	CANNOT_SET_ACTIVE=opcg.EFFECT_CANNOT_SET_ACTIVE,
 	CANNOT_BE_RESTED=opcg.EFFECT_CANNOT_BE_RESTED,
 	PREVENT_BLOCKER_ACTIVATION=opcg.EFFECT_PREVENT_BLOCKER_ACTIVATION,
