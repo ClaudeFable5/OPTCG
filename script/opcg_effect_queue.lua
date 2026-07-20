@@ -322,6 +322,25 @@ function Q.flush()
 	return selected ~= nil
 end
 
+-- 스텝 경계 펌프: 선행 임의효과가 거절되면 체인이 없어 CHAIN_END 캐스케이드가
+-- 끊기고, 남은 엔진 후보(예: ST22-002 이조 [상대의 어택 시])가 다음 체인
+-- 종료(카운터 이후)까지 표류한다. 이 펌프를 배틀 스텝 경계 머리에서 돌리면
+-- 잔여 후보가 제 창 안에서 발동한다(어택시 타이밍 통일 재정 — 카운터 처리
+-- 뒤 발동 금지). 수락 연쇄는 원래 캐스케이드가 잇고, 거절 연쇄만 여기서
+-- 최소 개방(ProcessPointEvent)으로 잇는다.
+function Q.pump_window()
+	if Q._pumping or Q._direct_draining then return end
+	if not (Duel and Duel.ProcessPointEvent) then return end
+	Q._pumping = true
+	local guard = 0
+	while guard < 24 do
+		guard = guard + 1
+		if not Q.flush() then break end
+		Duel.ProcessPointEvent()
+	end
+	Q._pumping = false
+end
+
 function Q.after_chain()
 	-- inflight 좀비 회수: raise된 리졸버가 체인 오퍼를 못 받고 증발하면
 	-- (어택 문맥 등) 소비가 없어 _inflight가 영구 잔존, flush가 게임 끝까지
