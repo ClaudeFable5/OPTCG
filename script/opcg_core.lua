@@ -1583,15 +1583,22 @@ function C.ExecuteAction(op, action, context)
 		if op == "REST_OWN_CARD" then for _, card in ipairs(cards) do opcg.SetRested(card) end
 		else remove_cards(cards, REASON_EFFECT, "DECK_BOTTOM") end
 	elseif op == "ACTIVATE_CARD_EFFECT" then
-		if action.source == "TRASH" then
-			-- 다른 카드(트래시)의 기재 효과를 발동: 카드 선택 후 그 카드의
-			-- 타이밍을 새 컨텍스트로 디스패치(카드 자체는 트래시에 남는다)
+		local source = action.source or action.source_zone
+		if source == "TRASH" or source == "HAND" then
+			-- 다른 카드의 기재 효과를 발동. 트래시 소스는 카드가 그대로 남고,
+			-- 패 소스(OP12-041)는 정규 이벤트 처리처럼 공개→트래시→해결 순서로
+			-- 옮긴 뒤 같은 디스패치 경로를 태운다(자체 코스트는 지불하지 않음)
 			local minimum = action.mode == "UP_TO" and 0 or (action.count or 1)
-			local chosen = assert(select_zone(player, LOCATION_GRAVE, action.filter, minimum,
+			local location = source == "HAND" and LOCATION_HAND or LOCATION_GRAVE
+			local chosen = assert(select_zone(player, location, action.filter, minimum,
 				action.count or 1, chooser, context))
 			local timing = action.effect_timing or "MAIN"
 			local effected = false
 			for _, card in ipairs(chosen) do
+				if source == "HAND" then
+					reveal_cards_to(other(player), { card })
+					remove_cards({ card }, REASON_EFFECT, "TRASH")
+				end
 				local done = C.DispatchTiming(card, timing, nil)
 				effected = effected or #(done or {}) > 0
 			end
