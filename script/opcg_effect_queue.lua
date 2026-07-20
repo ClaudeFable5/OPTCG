@@ -89,6 +89,16 @@ end
 
 local function description_for(card, effect, index)
 	if type(effect.description) == "number" then return effect.description end
+	-- 카드별 효과 원문 라벨(cdb 자동 주입): E{n}→str(4+n), T1→str8.
+	-- 순서 선택창/발동 질문창에 어느 효과인지 원문이 뜬다.
+	local id = effect.effect_id
+	if aux and aux.Stringid and card and card.GetOriginalCode and type(id) == "string" then
+		local n = id:match("^E(%d)$")
+		if n and tonumber(n) <= 3 then
+			return aux.Stringid(card:GetOriginalCode(), 3 + tonumber(n))
+		end
+		if id == "T1" then return aux.Stringid(card:GetOriginalCode(), 7) end
+	end
 	-- EDOPro system string 222: "Activate a Trigger Effect?"
 	return 222
 end

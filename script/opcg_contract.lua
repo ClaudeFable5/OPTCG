@@ -362,9 +362,28 @@ function opcg.ValidateDefinition(definition)
     return true
 end
 
+-- 선택지 라벨은 cdb str9+에 카드당 이어붙여 저장된다(생성 도구와 동일한
+-- 순회 순서) — 각 CHOOSE/OPPONENT_CHOOSES에 시작 슬롯을 배정해 둔다
+local function assign_choice_string_bases(definition)
+    local next_base = 8
+    local function walk(actions)
+        for _, action in ipairs(actions or {}) do
+            if action.op == "CHOOSE" or action.op == "OPPONENT_CHOOSES" then
+                action._string_base = next_base
+                next_base = next_base + #(action.options or {})
+                for _, option in ipairs(action.options or {}) do walk(option) end
+            elseif action.op == "IF" then
+                walk(action.actions)
+            end
+        end
+    end
+    for _, effect in ipairs(definition.effects or {}) do walk(effect.actions) end
+end
+
 function opcg.RegisterCard(card, definition)
     assert(card ~= nil, "card is required")
     opcg.ValidateDefinition(definition)
+    assign_choice_string_bases(definition)
     opcg._definitions[card] = definition
     if opcg.runtime and opcg.runtime.register_card then
         return opcg.runtime.register_card(card, definition)
