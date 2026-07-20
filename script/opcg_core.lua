@@ -1624,7 +1624,10 @@ function C.ExecuteAction(op, action, context)
 		if #available == 0 then context.last_action_succeeded = false return {} end
 		local descriptions = {}
 		local code = context.card:GetOriginalCode()
-		for _, option in ipairs(available) do descriptions[#descriptions + 1] = aux.Stringid(code, option.index - 1) end
+		-- 옵션 라벨 = cdb str9+(카드당 CHOOSE 복수면 등록 시 배정된 시작 슬롯);
+		-- str1/2/14는 인쇄체계 예약, str4=예/아니오, str5~8=효과 순서 라벨
+		local sbase = action._string_base or 8
+		for _, option in ipairs(available) do descriptions[#descriptions + 1] = aux.Stringid(code, sbase + option.index - 1) end
 		local selected = #available == 1 and 1 or (Duel.SelectOption(chooser, table.unpack(descriptions)) + 1)
 		execute_nested(available[selected].actions, context)
 		context.last_action_succeeded = true
