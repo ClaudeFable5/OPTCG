@@ -115,3 +115,5 @@
 881000695	EN	ST21-015_p2
 881000696	JP	P-001_p5
 881000698	EN	P-017_p1
+881000335	KR	https://onepiece-cardgame.kr/fileDownload?downname=20251111_171621_a91baa0479
+881000412	KR	https://onepiece-cardgame.kr/fileDownload?downname=20260122_182740_1d07055cec
