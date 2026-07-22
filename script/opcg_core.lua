@@ -34,6 +34,7 @@ local CONDITION = {
 	BATTLE_ATTACKER_HAS_ATTRIBUTE=true, EVENT_CAUSED_BY_OWN_EFFECT=true,
 	EVENT_SOURCE_TRAIT_CONTAINS=true,
 	EVENT_COUNT_GTE=true, EVENT_DAMAGE_OR_TARGET_BASE_POWER_GTE=true,
+	EVENT_TARGET_BASE_POWER_GTE=true,
 	EVENT_TARGET_BASE_COST_GTE_OR_EFFECT_PLAY=true, EVENT_TARGET_BASE_COST_LTE=true,
 	EVENT_TARGET_HAS_ATTRIBUTE=true, EVENT_TARGET_TRAIT_CONTAINS=true,
 	LIFE_TRIGGER_ACTIVATED=true, SELF_BATTLED_OPPONENT_CHARACTER_THIS_TURN=true,
@@ -94,6 +95,7 @@ local ACTION = {
 	RETURN_TRASH_ANY_FOR_POWER=true, RETURN_OWN_ANY_FOR_POWER=true, REVEAL_PLAY_SPLIT_FROM_HAND=true,
 	SET_ACTIVE_CARD_OR_DON=true, SET_ALL_LIFE_FACE_DOWN=true,
 	SET_BASE_POWER=true, SET_BASE_POWER_FROM_TARGET=true, SET_COST=true,
+	SWAP_BASE_POWER=true,
 	SET_POWER=true, TRASH_FACEUP_LIFE_ALL=true, TRASH_HAND_TO_COUNT=true,
 	TRASH_LIFE_UNTIL=true, WIN_GAME=true,
 }
@@ -106,6 +108,7 @@ local NATIVE_TIMING = {
 	WHEN_ATTACKING_OR_ATTACKED=true, WHEN_BATTLING=true,
 	AFTER_BATTLE_WITH_OPPONENT_CHARACTER=true, ON_BATTLE_KO=true,
 	ON_DAMAGE_TO_OPPONENT_LIFE=true, ON_ANY_CHARACTER_KO=true,
+	ON_OWN_CHARACTER_PLAYED=true,
 	ON_OPPONENT_CHARACTER_KO=true, ON_SELF_KO=true,
 	ON_YOUR_LIFE_DECREASED=true, ON_OPPONENT_LIFE_DECREASED=true,
 	ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO=true, ON_DON_ATTACHED_TO_OWN_FIELD=true,
@@ -122,6 +125,7 @@ local NATIVE_TIMING = {
 	ON_OWN_TRAIT_CHARACTER_LEFT_BY_EFFECT=true,
 	ON_OWN_TRAIT_CHARACTER_LEFT_BY_OPPONENT_EFFECT=true,
 	ON_OWN_TRIGGER_CHARACTER_PLAYED=true, ON_OWN_VANILLA_CHARACTER_PLAYED_FROM_HAND=true,
+	ON_SELF_RESTED=true,
 	ON_SELF_RESTED_BY_OPPONENT_EFFECT=true, ON_YOUR_EVENT_ACTIVATED=true,
 	WHEN_ATTACKING_OPPONENT_LEADER=true, YOUR_TURN_START=true,
 }
@@ -147,6 +151,7 @@ local EMIT_ENGINE_TIMING = {
 	ON_OPPONENT_EVENT_OR_TRIGGER_ACTIVATED=true,
 	ON_OPPONENT_BLOCKER_OR_EVENT_ACTIVATED=true,
 	ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO=true,
+	ON_SELF_RESTED=true, ON_OWN_CHARACTER_PLAYED=true,
 	ON_SELF_RESTED_BY_OPPONENT_EFFECT=true, ON_OWN_CHARACTER_RESTED_BY_EFFECT=true,
 	ON_OWN_CHARACTER_LEFT_BY_EFFECT=true, ON_OWN_TRAIT_CHARACTER_LEFT_BY_EFFECT=true,
 	ON_OWN_TRAIT_CHARACTER_LEFT_BY_OPPONENT_EFFECT=true,
@@ -562,6 +567,9 @@ function C.CheckCondition(op, condition, context)
 		return context.effect_play == true or context.event_is_effect_play == true
 			or (target ~= nil and opcg.GetBaseCost(target) >= n)
 	end
+	if op == "EVENT_TARGET_BASE_POWER_GTE" then
+		return target ~= nil and opcg.GetBasePower(target) >= n
+	end
 	if op == "EVENT_DAMAGE_OR_TARGET_BASE_POWER_GTE" then
 		-- GTE(amount)는 'KO된 대상의 원래 파워' 분기에만 걸린다 (OP13-002 E2:
 		-- "대미지를 받았을 때 또는 원래 파워 6000 이상이 KO"). 데미지 분기는
@@ -573,7 +581,16 @@ function C.CheckCondition(op, condition, context)
 		return target ~= nil and opcg.HasAttribute(target, condition.attribute)
 	end
 	if op == "EVENT_TARGET_TRAIT_CONTAINS" then
-		return target ~= nil and opcg.TraitContains(target, condition.trait)
+		if target == nil then return false end
+		if condition.owner == "YOU" and target:GetControler() ~= player then return false end
+		if condition.owner == "OPPONENT" and target:GetControler() == player then return false end
+		if condition.traits then
+			for _, trait in ipairs(condition.traits) do
+				if opcg.TraitContains(target, trait) then return true end
+			end
+			return false
+		end
+		return opcg.TraitContains(target, condition.trait)
 	end
 	if op == "EVENT_SOURCE_TRAIT_CONTAINS" then
 		-- "자신의 《특징》 카드의 효과로 ~했을 때" 필터: 사건을 일으킨 효과의
