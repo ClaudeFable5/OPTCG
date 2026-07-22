@@ -465,6 +465,26 @@ function X.execute(op, action, context)
 		local targets = choose(action.selector, context)
 		for _, card in ipairs(targets) do modify(context.card, card, EFFECT_SET_BASE_ATTACK, value, action.duration) end
 		return targets
+	elseif op == "SWAP_BASE_POWER" then
+		-- 두 카드의 원래 파워를 서로 맞바꾼다. 두 값을 먼저 읽어야 원자적으로
+		-- 교환된다(먼저 덮으면 두 번째 읽기가 오염됨). 대상은 한 셀렉터 2장이나
+		-- 두 셀렉터 각 1장(리더+캐릭터 - OP14-009)로 지정한다.
+		local a, b
+		if action.second_selector then
+			a = choose(action.selector, context)[1]
+			b = choose(action.second_selector, context)[1]
+		else
+			local cards = choose(action.selector, context)
+			a, b = cards[1], cards[2]
+		end
+		context.last_action_succeeded = a ~= nil and b ~= nil
+		if a and b then
+			local pa, pb = opcg.GetBasePower(a), opcg.GetBasePower(b)
+			modify(context.card, a, EFFECT_SET_BASE_ATTACK, pb, action.duration)
+			modify(context.card, b, EFFECT_SET_BASE_ATTACK, pa, action.duration)
+			return { a, b }
+		end
+		return {}
 	elseif op == "MODIFY_POWER_SPLIT" then
 		local cards = choose(action.selector, context)
 		for index, card in ipairs(cards) do
@@ -1365,6 +1385,10 @@ function X.emit_played(card, player, context)
 		append_all(enqueued, enqueue_emit("ON_PLAY", event, player, {card},
 			emit_options))
 		if opcg.IsCharacter(card) then
+			-- generic own-character-played listener (OP14-041 Hancock leader:
+			-- "자신의 캐릭터가 등장했을 때") - turn/side gates live on the listener
+			append_all(enqueued, enqueue_emit("ON_OWN_CHARACTER_PLAYED",
+				event, player, nil, emit_options))
 			append_all(enqueued, enqueue_emit("ON_OPPONENT_CHARACTER_PLAYED",
 				event, other(player), nil, emit_options))
 			if opcg.HasLifeTrigger(card) then
@@ -1388,6 +1412,7 @@ function X.emit_played(card, player, context)
 	local results = {}
 	append_all(results, X.emit("ON_PLAY", event, player, {card}))
 	if opcg.IsCharacter(card) then
+		append_all(results, X.emit("ON_OWN_CHARACTER_PLAYED", event, player))
 		append_all(results, X.emit("ON_OPPONENT_CHARACTER_PLAYED", event, other(player)))
 		if opcg.HasLifeTrigger(card) then append_all(results, X.emit("ON_OWN_TRIGGER_CHARACTER_PLAYED", event, player)) end
 		if opcg.IsVanilla(card) and card:IsPreviousLocation(LOCATION_HAND) then

@@ -233,18 +233,33 @@ function opcg.SetRested(c, context)
 	if opcg.contract_ops and opcg.contract_ops.before_rest
 		and not opcg.contract_ops.before_rest(c, event) then return false end
 	local moved = Duel.ChangePosition(c, POS_FACEUP_DEFENSE)
-	if moved and moved ~= 0 and event and event.effect and opcg.contract_ops then
+	if moved and moved ~= 0 and opcg.contract_ops then
 		local owner = c:GetControler()
-		local emitted = {}
-		for key, value in pairs(event) do emitted[key] = value end
-		emitted.event_target = c
-		emitted.event_targets = {c}
-		emitted.event_cards = {c}
-		emitted.event_count = 1
-		emitted.reason_player = event.effect_player or event.player
-		opcg.contract_ops.emit("ON_OWN_CHARACTER_RESTED_BY_EFFECT", emitted, owner)
-		if emitted.reason_player ~= nil and emitted.reason_player ~= owner then
-			opcg.contract_ops.emit("ON_SELF_RESTED_BY_OPPONENT_EFFECT", emitted, owner, {c})
+		-- ON_SELF_RESTED: fires whenever this card actually becomes rested, by
+		-- ANY cause - attack declaration (opcg_battle calls SetRested with no
+		-- context), a rest-cost, or an effect. The listener card gates on its
+		-- own 【자신의 턴 중】 (YOUR_TURN condition); scope is the card itself so
+		-- only its own trigger evaluates.
+		local base = {}
+		if event then for key, value in pairs(event) do base[key] = value end end
+		base.event_target = c
+		base.event_targets = {c}
+		base.event_cards = {c}
+		base.event_count = 1
+		opcg.contract_ops.emit("ON_SELF_RESTED", base, owner, {c})
+		-- effect-caused rest also feeds the narrower "by effect" timings
+		if event and event.effect then
+			local emitted = {}
+			for key, value in pairs(event) do emitted[key] = value end
+			emitted.event_target = c
+			emitted.event_targets = {c}
+			emitted.event_cards = {c}
+			emitted.event_count = 1
+			emitted.reason_player = event.effect_player or event.player
+			opcg.contract_ops.emit("ON_OWN_CHARACTER_RESTED_BY_EFFECT", emitted, owner)
+			if emitted.reason_player ~= nil and emitted.reason_player ~= owner then
+				opcg.contract_ops.emit("ON_SELF_RESTED_BY_OPPONENT_EFFECT", emitted, owner, {c})
+			end
 		end
 	end
 	return moved
@@ -467,6 +482,9 @@ function opcg.KindPredicate(kind)
 	if kind == "LEADER_OR_CHARACTER" then
 		return function(c) return opcg.IsLeader(c) or opcg.IsCharacter(c) end
 	end
+	if kind == "CHARACTER_OR_STAGE" then
+		return function(c) return opcg.IsCharacter(c) or opcg.IsStage(c) end
+	end
 	return nil
 end
 
@@ -483,7 +501,9 @@ function opcg.GetCandidateGroup(selector, context)
 	if selector.chooser == "OPPONENT" then chooser = 1 - chooser end
 	local owner = selector.owner or "YOU"
 	local target_player = opcg.ResolvePlayer(owner, context)
-	local loc = selector.kind == "STAGE" and LOCATION_FZONE or LOCATION_MZONE
+	local loc = selector.kind == "STAGE" and LOCATION_FZONE
+		or selector.kind == "CHARACTER_OR_STAGE" and (LOCATION_MZONE + LOCATION_FZONE)
+		or LOCATION_MZONE
 	local loc_self, loc_opp = loc, 0
 	if owner == "ANY" then target_player, loc_self, loc_opp = chooser, loc, loc end
 	return Duel.GetMatchingGroup(function(c) return kind_filter(c) and card_filter(c) end,
