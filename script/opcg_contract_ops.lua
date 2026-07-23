@@ -1112,15 +1112,19 @@ local function reason_matches(action, card, reason, context, ko)
 	local destroyed = (reason & REASON_DESTROY) ~= 0
 	local battle = (reason & REASON_BATTLE) ~= 0
 	local effect = (reason & REASON_EFFECT) ~= 0
-	local opponent = context and (context.reason_player or context.effect_player)
-		and (context.reason_player or context.effect_player) ~= card:GetControler()
+	-- 행위 주체: 명시 필드(reason_player/effect_player)는 소생·대체 같은 특수
+	-- 흐름만 실어 주고, 일반 효과 해결 문맥은 .player(효과 시전자)와 .card(시전
+	-- 카드)만 갖고 다닌다. 종전엔 명시 필드만 봐서 "상대의 효과로 필드를 벗어나지
+	-- 않는다"류가 실전에서 한 번도 발동하지 못했다(OP13-089 오로성 가족 유저 제보).
+	local actor = context and (context.reason_player or context.effect_player or context.player)
+	local actor_card = context and (context.reason_card or context.card)
+	local opponent = actor ~= nil and actor ~= card:GetControler()
 	if wanted == "BATTLE" then return battle end
 	if wanted == "EFFECT" then return effect end
 	if wanted == "OPPONENT_EFFECT" then return effect and opponent end
 	if wanted == "KO_OR_OPPONENT_EFFECT" then return (ko and destroyed) or (effect and opponent) end
 	if wanted == "OPPONENT_CHARACTER_EFFECT" then
-		return effect and opponent and context and context.reason_card
-			and opcg.IsCharacter(context.reason_card)
+		return effect and opponent and actor_card ~= nil and opcg.IsCharacter(actor_card)
 	end
 	return false
 end
