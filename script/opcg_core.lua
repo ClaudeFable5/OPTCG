@@ -382,12 +382,16 @@ end
 local function character_count(player, condition, context)
 	local predicate = filter_for(condition.filter or {}, context)
 	if not predicate then return nil end
+	-- player=ANY = 무주어형 원문("~인 캐릭터가 있는 경우") - 양쪽 필드 전부.
+	-- 종전엔 자기 쪽만 훑어 상대의 코스트 0 캐릭터를 못 봤다(OP14-090 유저 제보:
+	-- 조건 성립인데 등장 턴 캐릭터 어택 허가가 안 켜짐).
+	local opponent_side = condition.player == "ANY" and LOCATION_MZONE or 0
 	return Duel.GetMatchingGroupCount(function(card)
 		return opcg.IsCharacter(card)
 			and (condition.state == nil or (condition.state == "ACTIVE" and opcg.IsActive(card))
 				or (condition.state == "RESTED" and opcg.IsRested(card)))
 			and predicate(card)
-	end, player, LOCATION_MZONE, 0, nil)
+	end, player, LOCATION_MZONE, opponent_side, nil)
 end
 local function comparison_count(condition, context)
 	local op = condition.op
