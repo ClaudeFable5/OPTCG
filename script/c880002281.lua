@@ -1,4 +1,4 @@
--- AUTO-GENERATED: OP14-116 / 불꽃의 뱀신
+-- AUTO-GENERATED: OP14-116 / 샐러맨더
 -- rules_id=OP14-116 script_id=880002281 fingerprint=f151c4390d59299715314251531bbbdb74fb3ee6372c4c3b119430c69ea805e5
 local s,id=GetID()
 function s.initial_effect(c)

@@ -1,4 +1,4 @@
--- AUTO-GENERATED: OP14-059 / 나도 데려가 줘라!!! 반드시 도움이 된다!!!
+-- AUTO-GENERATED: OP14-059 / 나도 데려가줘!! 반드시 도움이 될 터!!!
 -- rules_id=OP14-059 script_id=880002224 fingerprint=7bcd8580e832e969cc48427b55a03dee59fdc524c65b429381d899245732692a
 local s,id=GetID()
 function s.initial_effect(c)

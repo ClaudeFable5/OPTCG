@@ -1,4 +1,4 @@
--- AUTO-GENERATED: OP14-076 / 바다의 흰 물결
+-- AUTO-GENERATED: OP14-076 / 에버 화이트
 -- rules_id=OP14-076 script_id=880002241 fingerprint=4f8b368ab918ef775fa3f35e9189232ab42f5c25d88960f68998d26678514c12
 local s,id=GetID()
 function s.initial_effect(c)

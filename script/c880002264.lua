@@ -1,5 +1,5 @@
--- AUTO-GENERATED: OP14-099 / 불복이냐?
--- rules_id=OP14-099 script_id=880002264 fingerprint=accf6725ff3a2feafc70f317edbdccc4d3ab3ad41b3c5aac095c08ceabb77a4b
+-- AUTO-GENERATED: OP14-099 / 불만인가?
+-- rules_id=OP14-099 script_id=880002264 fingerprint=c0bc7d2c04e061ee4967dede2b270d775fcb464f110fd1f0960224f8abfc0087
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -11,7 +11,7 @@ function s.initial_effect(c)
           {
             destination=[[HAND]],
             filter={
-              name_neq=[[불복이냐?]],
+              name_neq=[[불만인가?]],
               trait_contains=[[바로크 워크스]],
             },
             look_count=3,
@@ -26,7 +26,7 @@ function s.initial_effect(c)
         costs={},
         effect_id=[[E1]],
         once_per_turn=false,
-        source_text=[[【메인】자신의 덱 위에서 3장을 보고, 「불복이냐?」 이외의 『바로크 워크스』를 포함한 특징을 가진 카드 1장까지를 공개하고 패에 더한다. 그 후, 남은 카드를 트래시에 놓는다.]],
+        source_text=[[【메인】자신의 덱 위에서 3장을 보고, 「불만인가?」 이외의 『바로크 워크스』를 포함한 특징을 가진 카드 1장까지를 공개하고 패에 더한다. 그 후, 남은 카드를 트래시에 놓는다.]],
         timings={
           [[MAIN]],
         },

@@ -1,4 +1,4 @@
--- AUTO-GENERATED: OP14-118 / 소첩 무서워…♡
+-- AUTO-GENERATED: OP14-118 / 난 무서워…♡
 -- rules_id=OP14-118 script_id=880002283 fingerprint=836ecbd1203d379edbf0e094a084ded317226d7c9d4b034b76bb87c1777f7e0b
 local s,id=GetID()
 function s.initial_effect(c)

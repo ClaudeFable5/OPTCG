@@ -1,4 +1,4 @@
--- AUTO-GENERATED: OP14-058 / 해류 업어치기
+-- AUTO-GENERATED: OP14-058 / 해류 한팔 업어치기
 -- rules_id=OP14-058 script_id=880002223 fingerprint=89b063051c4ebc1fa760412a623ff9e905ab80728aa60eb488e20e1298e0c2ca
 local s,id=GetID()
 function s.initial_effect(c)
