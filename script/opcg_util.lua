@@ -227,9 +227,19 @@ function opcg.IsInHand(c)  return c:IsLocation(LOCATION_HAND) end
 function opcg.IsActive(c) return c:IsPosition(POS_FACEUP_ATTACK) end
 function opcg.IsRested(c) return c:IsPosition(POS_FACEUP_DEFENSE) end
 function opcg.SetActive(c) if opcg.HasMatchingEffect(c, opcg.EFFECT_CANNOT_SET_ACTIVE) then return false end return Duel.ChangePosition(c, POS_FACEUP_ATTACK) end
-function opcg.SetRested(c, context)
-	if opcg.HasMatchingEffect(c, opcg.EFFECT_CANNOT_BE_RESTED) then return false end
+-- cause: "ATTACK"(공격 선언) / "BLOCK"(블로커 발동) / "COST"(비용 지불) /
+-- "EFFECT"(효과, 기본값). "레스트로 할 수 없다"(전면형)는 원인 불문 전부 막고,
+-- reason=OPPONENT_EFFECT("상대의 효과로 레스트 되지 않는다")는 상대 효과만 막는다
+-- - 판별은 효과에 심긴 값 함수(rest_block_value)가 이 cause/source_player로 한다.
+function opcg.CanBeRested(c, cause, source_player)
+	return not opcg.HasMatchingEffect(c, opcg.EFFECT_CANNOT_BE_RESTED, nil,
+		{ cause = cause or "EFFECT", source_player = source_player })
+end
+function opcg.SetRested(c, context, cause)
 	local event = context or (opcg.contract_ops and opcg.contract_ops.current_context)
+	local source = event and (event.player or event.effect_player
+		or (event.card and event.card.GetControler and event.card:GetControler()))
+	if not opcg.CanBeRested(c, cause, source) then return false end
 	if opcg.contract_ops and opcg.contract_ops.before_rest
 		and not opcg.contract_ops.before_rest(c, event) then return false end
 	local moved = Duel.ChangePosition(c, POS_FACEUP_DEFENSE)

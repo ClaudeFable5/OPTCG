@@ -112,9 +112,16 @@ local function single_effect(source, target, code, value, duration)
 	target:RegisterEffect(effect)
 	return effect
 end
-local function apply_selector_effect(action, context, code, value)
+local function apply_selector_effect(action, context, code, value, extras)
+	-- extras: 같은 선택 대상에게 같은 기간으로 얹는 동반 효과 {{code, value}, ...}
+	-- (재선택 프롬프트 없이 한 번 고른 카드들에 전부 부여)
 	local cards = choose(action.selector, context)
-	for _, card in ipairs(cards) do single_effect(context.card, card, code, value, action.duration) end
+	for _, card in ipairs(cards) do
+		single_effect(context.card, card, code, value, action.duration)
+		for _, extra in ipairs(extras or {}) do
+			single_effect(context.card, card, extra[1], extra[2], action.duration)
+		end
+	end
 	return cards
 end
 local function modify(source, target, code, value, duration)
@@ -291,7 +298,39 @@ local function restriction_value(action, context)
 	end
 end
 
+-- CANNOT_BE_RESTED 효과에 심는 값 함수. CanBeRested/SetRested가 넘기는
+-- {cause, source_player}로 막을지 판별한다:
+--   reason 무지정/ANY = "레스트로 할 수 없다"(전면형) - 원인 불문 전부 차단.
+--   reason=OPPONENT_EFFECT = "상대의 효과로 레스트 되지 않는다" - 상대 효과의
+--   레스트만 차단, 자기 어택 선언·블록·비용 레스트는 통과(종전엔 이것까지
+--   막혀 어택 후 액티브로 남는 잠복 결함이 있었다).
+local function rest_block_value(action, context)
+	local base = restriction_value(action, context)
+	local reason = action.reason
+	return function(effect, target, ctx)
+		if not base(effect, target, ctx) then return false end
+		if reason ~= "OPPONENT_EFFECT" then return true end
+		local cause = ctx and ctx.cause or "EFFECT"
+		if cause ~= "EFFECT" then return false end
+		local owner = effect and effect.GetHandler and effect:GetHandler()
+		owner = owner and owner:GetControler()
+		if ctx and ctx.source_player ~= nil and ctx.source_player == owner then return false end
+		return true
+	end
+end
+
 local function execute_restriction(op, action, context)
+	if op == "CANNOT_BE_RESTED" then
+		-- 총합룰상 어택 선언(6-1-2)과 블로커 발동(6-3-2)은 그 카드를 "레스트로
+		-- 하는" 행위 자체 - 전면형은 레스트가 불가능하므로 어택 선언도 불가능
+		-- 해야 한다(유저 제보: 페로나 대상이 레스트만 안 되고 어택은 됨).
+		-- 네이티브 CANNOT_ATTACK을 같은 대상·같은 기간으로 동반 부여해 코어
+		-- 어택 후보에서부터 걸러낸다. OPPONENT_EFFECT형은 어택이 정상이라 제외.
+		local extras = action.reason ~= "OPPONENT_EFFECT"
+			and { { EFFECT_CANNOT_ATTACK, restriction_value(action, context) } } or nil
+		return apply_selector_effect(action, context, opcg.EFFECT_CANNOT_BE_RESTED,
+			rest_block_value(action, context), extras)
+	end
 	if op == "PREVENT_BLOCKER_ACTIVATION" and action.attacker_selector and not action.selector then
 		action = {
 			selector=action.attacker_selector, duration=action.duration,
@@ -675,7 +714,7 @@ function X.execute(op, action, context)
 		local cards = {}
 		if card_action.selector then cards = choose(card_action.selector, context) end
 		for _, card in ipairs(cards) do
-			if op == "REST_CARD_OR_DON" then opcg.SetRested(card) else opcg.SetActive(card) end
+			if op == "REST_CARD_OR_DON" then opcg.SetRested(card, context) else opcg.SetActive(card) end
 		end
 		local remaining = math.max(0, amount - #cards)
 		local moved_don
@@ -925,6 +964,19 @@ function X.register_continuous(card, effect, action, condition)
 		return register_native_replace(card, action, condition,
 			op == "REPLACE_KO" and { EFFECT_DESTROY_REPLACE }
 			or { EFFECT_DESTROY_REPLACE, EFFECT_SEND_REPLACE })
+	end
+	if op == "CANNOT_BE_RESTED" then
+		-- 타깃형(execute_restriction)과 같은 reason 판별. 지속 전면형이면
+		-- 어택 선언 불가(CANNOT_ATTACK)도 동반 상주 - 현행 지속형 2장
+		-- (OP11-046/OP12-021)은 전부 OPPONENT_EFFECT라 동반 없음.
+		local ctx = {card=card, player=card:GetControler()}
+		local ok = continuous_card_effect(card, action,
+			opcg.EFFECT_CANNOT_BE_RESTED, rest_block_value(action, ctx), condition)
+		if ok and action.reason ~= "OPPONENT_EFFECT" then
+			continuous_card_effect(card, action, EFFECT_CANNOT_ATTACK,
+				restriction_value(action, ctx), condition)
+		end
+		return ok
 	end
 	local code = continuous_card_code[op]
 	if code then
