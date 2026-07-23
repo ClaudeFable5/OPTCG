@@ -1,4 +1,4 @@
--- AUTO-GENERATED: OP14-096 / 침식윤회
+-- AUTO-GENERATED: OP14-096 / 그라운드 데스
 -- rules_id=OP14-096 script_id=880002261 fingerprint=d70eb81144257fa0ba89dc10f302491975b9ea55400316b75040da2dd49fcdd4
 local s,id=GetID()
 function s.initial_effect(c)

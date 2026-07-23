@@ -1,4 +1,4 @@
--- AUTO-GENERATED: OP14-078 / 탄사
+-- AUTO-GENERATED: OP14-078 / 총탄실
 -- rules_id=OP14-078 script_id=880002243 fingerprint=45b8527552558139febf7ca90ac315494d80a45d47e75253cfe24e1658e0a9ab
 local s,id=GetID()
 function s.initial_effect(c)

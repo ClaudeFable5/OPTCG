@@ -1,4 +1,4 @@
--- AUTO-GENERATED: OP14-098 / 초승달 모양 사구
+-- AUTO-GENERATED: OP14-098 / 초승달 사구
 -- rules_id=OP14-098 script_id=880002263 fingerprint=93c6d87b00cb1aaad98a124898132ba6b42c237dabc4068905b827f9e2a5ec37
 local s,id=GetID()
 function s.initial_effect(c)

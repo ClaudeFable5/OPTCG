@@ -1,4 +1,4 @@
--- AUTO-GENERATED: OP14-036 / 나를 넘어서 봐라 롤로노아!!!
+-- AUTO-GENERATED: OP14-036 / 이 나를 밟고 올라서 봐라 롤로노아!!!
 -- rules_id=OP14-036 script_id=880002201 fingerprint=c173d3ec4614815058e2a4f5284a28228e3ceb5139443ea2faf394b8cdad51d5
 local s,id=GetID()
 function s.initial_effect(c)

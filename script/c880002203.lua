@@ -1,4 +1,4 @@
--- AUTO-GENERATED: OP14-038 / 벌레 나부랭이의 얼굴 따위 일일이 기억하지 않는다!!!
+-- AUTO-GENERATED: OP14-038 / 버러지들의 얼굴 따위, 일일히 기억하진 않는다!!!
 -- rules_id=OP14-038 script_id=880002203 fingerprint=91e0a496e614a2c4d48c844330875e76a6ace84ddc380c100de48c966923d8e2
 local s,id=GetID()
 function s.initial_effect(c)

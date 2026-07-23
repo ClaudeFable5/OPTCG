@@ -1,4 +1,4 @@
--- AUTO-GENERATED: OP14-117 / 조각 박쥐
+-- AUTO-GENERATED: OP14-117 / 브릭 배트
 -- rules_id=OP14-117 script_id=880002282 fingerprint=4c5681fcbef713d6df0b68cd697a8305b0f1962c836ef2ab8b364bd78ebcc24f
 local s,id=GetID()
 function s.initial_effect(c)

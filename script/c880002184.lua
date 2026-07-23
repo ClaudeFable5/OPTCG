@@ -1,4 +1,4 @@
--- AUTO-GENERATED: OP14-019 / 「사황」 한 명을…!!! 끌어내릴 "책략"이 있다
+-- AUTO-GENERATED: OP14-019 / 「사황」 한 명을…!!! 끌어내릴 "묘책"이 있다
 -- rules_id=OP14-019 script_id=880002184 fingerprint=1a9a057d222653fe17a5d577aaca84974b2ab9cf3eb3881db359d43014db7422
 local s,id=GetID()
 function s.initial_effect(c)
