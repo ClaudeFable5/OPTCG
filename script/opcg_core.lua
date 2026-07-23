@@ -954,7 +954,8 @@ function C.PayCost(op, cost, context)
 	elseif op == "MILL_DECK" then
 		local available = Duel.GetFieldGroupCount(player, LOCATION_DECK, 0)
 		local amount = math.min(n, available)
-		if cost.mode == "OPTIONAL" and amount > 0 and not Duel.SelectYesNo(player, 30) then amount = 0 end
+		if cost.mode == "OPTIONAL" and amount > 0 and not Duel.SelectYesNo(player,
+			aux.Stringid(opcg.DON_COST_HOST_ID or 879999999, 9)) then amount = 0 end
 		if amount > 0 then Duel.SendtoGrave(Duel.GetDecktopGroup(player, amount), REASON_COST) end
 	elseif op == "REVEAL_HAND" then
 		cards = assert(select_zone(player, LOCATION_HAND, cost.filter, n, n, player, context))
@@ -1523,15 +1524,25 @@ function C.ExecuteAction(op, action, context)
 		context.last_action_succeeded = opcg.ReturnDon(player, action.count or 1, chooser, action.state, minimum) >= minimum
 		return {}
 	elseif op == "MILL_DECK" then
-		local n = choose_number_up_to(chooser,
-			math.min(action.count or 0, Duel.GetFieldGroupCount(player, LOCATION_DECK, 0)),
-			action.mode)
+		local available = math.min(action.count or 0, Duel.GetFieldGroupCount(player, LOCATION_DECK, 0))
+		local n
+		if action.mode == "OPTIONAL" then
+			-- "~놓아도 된다"(임의): 전량이냐 0이냐를 예/아니오로. 종전엔 이 모드를
+			-- 몰라 강제 밀덱이 됐다(OP14-079). 문구는 호스트 카드 str10(시스템 30은
+			-- 재공격 확인 문구라 오표기였음)
+			n = (available > 0 and Duel.SelectYesNo(chooser,
+				aux.Stringid(opcg.DON_COST_HOST_ID or 879999999, 9))) and available or 0
+		else
+			n = choose_number_up_to(chooser, available, action.mode)
+		end
 		local group = Duel.GetDecktopGroup(player, n)
-		context.last_action_succeeded = n == 0 and action.mode == "UP_TO"
+		context.last_action_succeeded = n == 0 and (action.mode == "UP_TO" or action.mode == "OPTIONAL")
 			or Duel.SendtoGrave(group, REASON_EFFECT) > 0
 		return {}
 	elseif op == "ADD_FROM_TRASH" then
-		if action.destination ~= "HAND" then error("unsupported trash destination") end
+		-- 목적지 무지정 = 패("패에 더한다"가 이 op의 기본형; OP14 스펙이 명시를
+		-- 빠뜨려 Mr.4 회수가 실행 오류로 무산되던 결함의 방어선)
+		if (action.destination or "HAND") ~= "HAND" then error("unsupported trash destination") end
 		local minimum = action.mode == "EXACT" and (action.count or 1) or 0
 		cards = assert(select_zone(player, LOCATION_GRAVE, action.filter, minimum, action.count or 1, chooser, context))
 		remove_cards(cards, REASON_EFFECT, "HAND")
