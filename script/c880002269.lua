@@ -1,5 +1,5 @@
 -- AUTO-GENERATED: OP14-104 / 겟코 모리아
--- rules_id=OP14-104 script_id=880002269 fingerprint=b6fc3e8b19b2f517ae6c767ab2e6324db11eebef075ad1280edd338699da1715
+-- rules_id=OP14-104 script_id=880002269 fingerprint=0c0240aac2fcf4290ce7ea8fef64d839fdbe5aab9a1911088d6f7892310550e3
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -15,21 +15,16 @@ function s.initial_effect(c)
               {
                 {
                   count=1,
-                  destination=[[LIFE_TOP]],
                   faceup=true,
-                  mode=[[UP_TO]],
-                  op=[[ADD_TO_LIFE]],
-                  selector={
-                    count=1,
-                    filter={
-                      card_type=[[CHARACTER]],
-                      cost_lte=4,
-                      trait=[[스릴러 바크 해적단]],
-                    },
-                    kind=[[TRASH]],
-                    mode=[[UP_TO]],
-                    owner=[[YOU]],
+                  filter={
+                    card_type=[[CHARACTER]],
+                    cost_lte=4,
+                    trait=[[스릴러 바크 해적단]],
                   },
+                  mode=[[UP_TO]],
+                  op=[[ADD_LIFE_FROM_TRASH]],
+                  player=[[YOU]],
+                  position=[[TOP]],
                 },
               },
               {
