@@ -691,15 +691,27 @@ local function cost_selector(cost)
 end
 local function rest_own_group(cost, context)
 	local player = cost_player(context)
+	-- "자신의 카드 N장을 레스트" - "카드"는 리더/캐릭터/스테이지에 더해 코스트
+	-- 에리어의 액티브 두웅!!까지 전부(공식 재정). kinds 명시가 없을 때의 기본값이
+	-- 이 전 종류다(종전 기본 CHARACTER는 유저 제보로 교정 - 스테이지/두웅 누락).
+	-- 「이름」 지정 비용(우타/에넬/어인섬/벌집 등)은 kinds 명시로 종전 그대로.
 	local allowed = {}
-	for _, kind in ipairs(cost.kinds or { "CHARACTER" }) do allowed[kind] = true end
+	for _, kind in ipairs(cost.kinds or { "LEADER", "CHARACTER", "STAGE", "DON" }) do allowed[kind] = true end
 	local predicate = filter_for(cost.filter, context)
 	if not predicate then return nil end
-	return Duel.GetMatchingGroup(function(card)
+	local group = Duel.GetMatchingGroup(function(card)
 		-- "레스트로 할 수 없다" 상태인 카드는 레스트 비용으로 지불 불가
 		return allowed[opcg.GetCardType(card)] == true and opcg.IsActive(card)
 			and opcg.CanBeRested(card, "COST", player) and predicate(card)
 	end, player, LOCATION_MZONE + LOCATION_FZONE, 0, nil)
+	if allowed.DON then
+		-- 두웅은 코스트 호스트에 겹쳐 있어 위치 검색에 안 잡힌다 - 액티브만 병합
+		-- (부착 두웅은 레스트 대상이 아님)
+		for card in aux.Next(opcg.GetFieldDonGroup(player, "ACTIVE")) do
+			if predicate(card) then group:AddCard(card) end
+		end
+	end
+	return group
 end
 
 local function mixed_cost_group(cost, context, characters_only)
@@ -873,11 +885,19 @@ function C.PayCost(op, cost, context)
 		local group = assert(rest_own_group(cost, context), "REST_OWN_CARD filter unsupported")
 		local selected = group:Select(player, n, n, nil)
 		cards = {}
-		for card in aux.Next(selected) do cards[#cards + 1] = card end
+		local don_picked = 0
+		for card in aux.Next(selected) do
+			-- 두웅은 위치 카드가 아니라 겹침 카드 - 전용 레스트 경로로 분리
+			if opcg.IsDon(card) then don_picked = don_picked + 1
+			else cards[#cards + 1] = card end
+		end
 		remember_targets(context, cards)
 		for _, card in ipairs(cards) do
 			assert(opcg.IsActive(card), "REST_OWN_CARD target is rested")
 			assert(opcg.SetRested(card, context, "COST"), "REST_OWN_CARD blocked")
+		end
+		if don_picked > 0 then
+			assert(opcg.RestDon(player, don_picked) == don_picked, "REST_OWN_CARD don rest failed")
 		end
 	elseif op == "RETURN_OWN_CARD_TO_HAND" then
 		cards = choose_selector(cost_selector(cost), context)
