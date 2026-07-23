@@ -151,6 +151,9 @@ local function blocker_candidates(live)
 		if card ~= live.original_target
 			and (opcg.IsCharacter(card) or opcg.IsLeader(card))
 			and opcg.IsActive(card)
+			-- 블로커 발동 = 그 카드를 레스트로 하는 행위(총합룰 6-3-2) -
+			-- "레스트로 할 수 없다" 상태면 블록도 선언 불가
+			and opcg.CanBeRested(card, "BLOCK")
 			and opcg.HasKeyword(card, "BLOCKER")
 			and not has_matching_effect(live.attacker,
 				opcg.EFFECT_PREVENT_BLOCKER_ACTIVATION, card, live.context)
@@ -298,7 +301,9 @@ function B.install()
 	announce:SetOperation(function()
 		local attacker = Duel.GetAttacker()
 		if not attacker then return end
-		if not opcg.IsRested(attacker) then opcg.SetRested(attacker) end
+		-- cause=ATTACK: 전면형 레스트 금지는 애초에 CANNOT_ATTACK 동반이라 여기
+		-- 못 오고, OPPONENT_EFFECT형(자기 어택은 정상)은 이 원인 표기로 통과한다
+		if not opcg.IsRested(attacker) then opcg.SetRested(attacker, nil, "ATTACK") end
 		local live = begin_battle(attacker, Duel.GetAttackTarget())
 		pay_attack_discard(attacker, live.attacking_player, live.context)
 		local target = Duel.GetAttackTarget()
@@ -338,7 +343,7 @@ function B.install()
 		local blocker = select_blocker(live.defending_player, blocker_candidates(live))
 		if blocker then
 			live.blocker = blocker
-			opcg.SetRested(blocker)
+			opcg.SetRested(blocker, nil, "BLOCK")
 			-- 스톡 타겟 교체(두 번째 인자 = 후보 재검사 생략: OPCG 적법성은
 			-- 위에서 이미 판단). MSG_ATTACK 재발신으로 어택선이 블로커로
 			-- 다시 그려지고, 클라 attack_target(마젠타 프리뷰 앵커)도 갱신.

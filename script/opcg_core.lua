@@ -696,7 +696,9 @@ local function rest_own_group(cost, context)
 	local predicate = filter_for(cost.filter, context)
 	if not predicate then return nil end
 	return Duel.GetMatchingGroup(function(card)
-		return allowed[opcg.GetCardType(card)] == true and opcg.IsActive(card) and predicate(card)
+		-- "레스트로 할 수 없다" 상태인 카드는 레스트 비용으로 지불 불가
+		return allowed[opcg.GetCardType(card)] == true and opcg.IsActive(card)
+			and opcg.CanBeRested(card, "COST", player) and predicate(card)
 	end, player, LOCATION_MZONE + LOCATION_FZONE, 0, nil)
 end
 
@@ -750,7 +752,11 @@ function C.CanPayCost(op, cost, context)
 	end
 	if op == "REST_DON" then return opcg.ActiveDon(player) >= n end
 	if op == "RETURN_DON" then return opcg.GetFieldDonGroup(player, cost.state):GetCount() >= n end
-	if op == "REST_SELF" then return context.card ~= nil and opcg.IsOnField(context.card) and opcg.IsActive(context.card) end
+	if op == "REST_SELF" then
+		-- "이 캐릭터를 레스트할 수 있다:" - 레스트 금지 상태면 비용 지불 불가
+		return context.card ~= nil and opcg.IsOnField(context.card)
+			and opcg.IsActive(context.card) and opcg.CanBeRested(context.card, "COST", player)
+	end
 	if op == "TRASH_SELF" or op == "RETURN_SELF_TO_DECK_BOTTOM" or op == "RETURN_SELF_TO_HAND" then
 		return context.card ~= nil and opcg.IsOnField(context.card)
 	end
@@ -852,7 +858,7 @@ function C.PayCost(op, cost, context)
 		end
 		assert(opcg.ReturnDon(player, maximum, player, cost.state, n) >= n, "RETURN_DON failed")
 	elseif op == "REST_SELF" then
-		opcg.SetRested(context.card)
+		assert(opcg.SetRested(context.card, context, "COST"), "REST_SELF blocked")
 		cards = { context.card }
 	elseif op == "TRASH_SELF" then
 		cards = { context.card }
@@ -869,7 +875,10 @@ function C.PayCost(op, cost, context)
 		cards = {}
 		for card in aux.Next(selected) do cards[#cards + 1] = card end
 		remember_targets(context, cards)
-		for _, card in ipairs(cards) do assert(opcg.IsActive(card), "REST_OWN_CARD target is rested") opcg.SetRested(card) end
+		for _, card in ipairs(cards) do
+			assert(opcg.IsActive(card), "REST_OWN_CARD target is rested")
+			assert(opcg.SetRested(card, context, "COST"), "REST_OWN_CARD blocked")
+		end
 	elseif op == "RETURN_OWN_CARD_TO_HAND" then
 		cards = choose_selector(cost_selector(cost), context)
 		remove_cards(cards, REASON_COST, "HAND")
@@ -1426,7 +1435,7 @@ function C.ExecuteAction(op, action, context)
 			selector = merged
 		end
 		cards = choose_selector(selector, context)
-		if op == "REST" then for _, card in ipairs(cards) do opcg.SetRested(card) end
+		if op == "REST" then for _, card in ipairs(cards) do opcg.SetRested(card, context) end
 		elseif op == "SET_ACTIVE" then for _, card in ipairs(cards) do opcg.SetActive(card) end
 		elseif op == "KO" then remove_cards(cards, REASON_EFFECT + REASON_DESTROY, "TRASH")
 		elseif op == "TRASH" then
@@ -1597,7 +1606,7 @@ function C.ExecuteAction(op, action, context)
 		if action.shuffle then Duel.ShuffleDeck(player) end
 	elseif op == "RETURN_OWN_CARD_TO_DECK_BOTTOM" or op == "REST_OWN_CARD" then
 		cards = choose_selector(action.selector, context)
-		if op == "REST_OWN_CARD" then for _, card in ipairs(cards) do opcg.SetRested(card) end
+		if op == "REST_OWN_CARD" then for _, card in ipairs(cards) do opcg.SetRested(card, context) end
 		else remove_cards(cards, REASON_EFFECT, "DECK_BOTTOM") end
 	elseif op == "ACTIVATE_CARD_EFFECT" then
 		local source = action.source or action.source_zone
