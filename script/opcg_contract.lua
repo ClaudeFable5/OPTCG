@@ -105,7 +105,7 @@ local known_action = {
     REST_DON=true,
     RETURN_DON=true,
     PLAY_FROM_HAND=true,
-    ADD_TO_LIFE=true,
+    ADD_TO_LIFE=true, ADD_LIFE_FROM_TRASH=true,
     ADD_LIFE_FROM_HAND=true,
     ADD_FROM_TRASH=true,
     CANNOT_LEAVE_FIELD=true,

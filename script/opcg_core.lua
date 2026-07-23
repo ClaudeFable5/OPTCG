@@ -63,7 +63,7 @@ local ACTION = {
 	TRANSFER_ATTACHED_DON=true, MODIFY_COST=true, MODIFY_COUNTER=true,
 	GAIN_KEYWORD=true, SEARCH_DECK_TOP=true, PLAY_FROM_DECK_TOP=true,
 	LOOK_REORDER_DECK_TOP=true, REVEAL_DECK_TOP=true, ADD_LIFE_FROM_DECK_TOP=true,
-	ADD_LIFE_FROM_HAND=true, ADD_TO_LIFE=true, ADD_TO_OWNER_LIFE=true,
+	ADD_LIFE_FROM_HAND=true, ADD_LIFE_FROM_TRASH=true, ADD_TO_LIFE=true, ADD_TO_OWNER_LIFE=true,
 	RETURN_LIFE_TO_DECK=true, PLAY_FROM_HAND_OR_TRASH=true, PLAY_FROM_LIFE_TOP=true,
 	REVEAL_HAND=true, TAKE_LIFE_TO_HAND=true, TRASH_LIFE_TOP=true, ACTIVATE_CARD_EFFECT=true,
 	CHOOSE=true, RETURN_HAND_TO_DECK=true, REST_SELF=true, TRASH_SELF=true,
@@ -1283,12 +1283,12 @@ local function look_reorder_deck_top(action, context)
 	context.last_action_succeeded = true
 	return {}
 end
-local function add_life_from_hand(action, context)
+local function add_life_from_hand(action, context, location)
 	local player = context_player(action.player, context)
 	local chooser = controller(context)
 	local minimum = action.mode == "EXACT" and (action.count or 1) or 0
 	local maximum = action.count or 1
-	local cards = assert(select_zone(player, LOCATION_HAND, action.filter, minimum, maximum, chooser, context))
+	local cards = assert(select_zone(player, location or LOCATION_HAND, action.filter, minimum, maximum, chooser, context))
 	local added = {}
 	for _, card in ipairs(cards) do
 		if send_to_life(card, player, choose_life_position(action, chooser), action.faceup == true, REASON_EFFECT) then
@@ -1605,6 +1605,7 @@ function C.ExecuteAction(op, action, context)
 		end
 		return {}
 	elseif op == "ADD_LIFE_FROM_HAND" then return add_life_from_hand(action, context)
+	elseif op == "ADD_LIFE_FROM_TRASH" then return add_life_from_hand(action, context, LOCATION_GRAVE)
 	elseif op == "ADD_TO_LIFE" or op == "ADD_TO_OWNER_LIFE" then return add_selected_to_life(action, context)
 	elseif op == "RETURN_LIFE_TO_DECK" then return return_life_to_deck(action, context)
 	elseif op == "REVEAL_HAND" then
