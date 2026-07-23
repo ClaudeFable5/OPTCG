@@ -96,7 +96,11 @@ local function reset_for(duration, source)
 end
 local function attach_reset(effect, duration, source)
 	local reset, count = reset_for(duration, source)
-	if reset then effect:SetReset(reset, count or 1) end
+	-- 카드에 부착되는 기간제 효과는 그 카드가 필드를 떠나면 즉시 소멸해야
+	-- 한다(총합룰: 필드를 떠난 카드는 별개 취급). 종전엔 페이즈 타이머만 있어
+	-- 바운스/소생으로 되돌아온 같은 카드가 어택 금지 등을 그대로 짊어졌다
+	-- (OP14-120 유저 제보). 전역 등록 효과에는 이벤트 리셋이 무의미할 뿐 무해.
+	if reset then effect:SetReset(reset + RESET_EVENT + RESETS_STANDARD, count or 1) end
 	-- OPCG has no native damage phase: battle durations expire at the battle
 	-- machine's END_OF_BATTLE boundary, the native reset is only a fallback.
 	if duration == "THIS_BATTLE" or duration == "END_OF_BATTLE" then

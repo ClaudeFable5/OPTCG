@@ -1,5 +1,5 @@
 -- AUTO-GENERATED: OP14-093 / Mr.4(베이브)
--- rules_id=OP14-093 script_id=880002258 fingerprint=23789ded343dcb147c7c1574f3083daa37d936f0f92519df85d60c25e7f4b737
+-- rules_id=OP14-093 script_id=880002258 fingerprint=dbf8dfb68e2cf311d090ccf8cb74883782cc61ebceb32f85b38d748c8a268ad9
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -10,6 +10,7 @@ function s.initial_effect(c)
         actions={
           {
             count=1,
+            destination=[[HAND]],
             filter={
               card_type=[[CHARACTER]],
               cost_lte=8,
