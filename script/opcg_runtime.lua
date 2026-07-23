@@ -120,8 +120,14 @@ function runtime.can_resolve(card, effect_id, context)
         local usage = runtime._once_usage[card]
         if usage and usage[once_key(effect, context)] then return false, "ONCE_PER_TURN_USED" end
     end
-    for _, condition in ipairs(effect.conditions) do
-        if not adapter:check_condition(condition, context) then return false, "CONDITION_FAILED" end
+    -- 기동효과(context.ignition)의 "~인 경우"는 발동 잠금이 아니라 해결 시
+    -- 판정(공식 재정: 조건 미충족이어도 코스트를 지불하고 발동할 수 있고,
+    -- 본문만 불발 - 2026-07-23 OP05-082 유저 재정). 트리거 계열은 종전대로
+    -- 여기서 거른다.
+    if not context.ignition then
+        for _, condition in ipairs(effect.conditions) do
+            if not adapter:check_condition(condition, context) then return false, "CONDITION_FAILED" end
+        end
     end
     for _, cost in ipairs(effect.costs) do
         if not adapter:can_pay_cost(cost, context) then return false, "COST_UNPAYABLE" end
@@ -139,6 +145,17 @@ local function resolve_effect(card, effect, context)
             local usage = runtime._once_usage[card] or {}
             usage[once_key(effect, context)] = true
             runtime._once_usage[card] = usage
+        end
+        -- "~인 경우" 판정의 정위치 = 코스트 지불 후, 본문 해결 직전. 미충족이면
+        -- 본문 전체 불발(코스트·턴1회 소모는 유지 - 룰상 발동은 성립).
+        -- 트리거 계열은 can_resolve에서 이미 걸렀으므로 재판정은 참이 정상이고,
+        -- 프롬프트~해결 사이에 상태가 변한 드문 경우도 룰대로 여기서 불발된다.
+        for _, condition in ipairs(effect.conditions) do
+            if not adapter:check_condition(condition, context) then
+                context.last_action_succeeded = false
+                context.last_action_effected = false
+                return {}
+            end
         end
         local action_results = {}
         local previous_action_succeeded = true

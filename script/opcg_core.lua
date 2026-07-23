@@ -1967,11 +1967,16 @@ local function register_main(card, effect)
 	native:SetType(EFFECT_TYPE_IGNITION)
 	native:SetRange(opcg.IsStage(card) and LOCATION_FZONE or LOCATION_MZONE)
 	native:SetCondition(function(e, player)
-		return opcg.runtime.can_resolve(e:GetHandler(), effect.effect_id,
-			runtime_context(e:GetHandler(), player))
+		-- ignition 표기: "~인 경우" 조건은 발동을 막지 않고 해결 시 판정된다
+		-- (runtime.can_resolve/resolve_effect의 기동 분기)
+		local context = runtime_context(e:GetHandler(), player)
+		context.ignition = true
+		return opcg.runtime.can_resolve(e:GetHandler(), effect.effect_id, context)
 	end)
 	native:SetOperation(function(e, player)
-		opcg.runtime.resolve(e:GetHandler(), effect.effect_id, runtime_context(e:GetHandler(), player))
+		local context = runtime_context(e:GetHandler(), player)
+		context.ignition = true
+		opcg.runtime.resolve(e:GetHandler(), effect.effect_id, context)
 	end)
 	card:RegisterEffect(native)
 	return true
