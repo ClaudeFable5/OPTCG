@@ -472,6 +472,11 @@ function opcg.CompileFilter(filter, context)
 		exclude_self=true, cost_lte_life_total=true, cost_lte_life_of=true,
 		cost_lte_field_don_of=true, name_eq_last_target=true,
 		color_neq_last_target=true, any=true,
+		-- scalar_filter가 처리하는데 이 프로브 화이트리스트에 빠져 있던 키들:
+		-- 누락되면 keys_ok=false → CompileFilter가 nil → shape 미지원 판정으로
+		-- 그 필터를 쓴 효과 전체가 발동 봉쇄됐다(EB03-001 비비 no_attack_effect
+		-- 유저 제보). 아래는 scalar_filter 구현과 대조해 채운 잔여분.
+		no_attack_effect=true,
 	}
 	local function keys_ok(value)
 		for key, nested in pairs(value or {}) do
