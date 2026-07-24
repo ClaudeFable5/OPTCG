@@ -176,6 +176,11 @@ end
 function opcg.HasKeyword(c, keyword)
 	local effect_code = opcg.KEYWORD_EFFECT[keyword]
 	if effect_code and c.IsHasEffect and c:IsHasEffect(effect_code) then return true end
+	-- 인쇄 키워드(【블로커】【속공】 등)는 그 카드 자신의 효과 - 효과 무효
+	-- (EFFECT_DISABLE, 런타임 EFFECT_NEGATED와 같은 신호) 상태면 꺼져야 한다.
+	-- 종전엔 정의 목록을 무검사로 읽어 무효된 캐릭터가 블록을 선언했다
+	-- (2026-07-23 유저 제보). 타 효과로 부여된 키워드는 위 네이티브 검사 몫.
+	if c.IsDisabled and c:IsDisabled() then return false end
 	local d = definition(c)
 	if not d then return false end
 	for _, value in ipairs(d.keywords or {}) do
