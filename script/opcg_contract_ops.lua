@@ -969,6 +969,28 @@ function X.register_continuous(card, effect, action, condition)
 			op == "REPLACE_KO" and { EFFECT_DESTROY_REPLACE }
 			or { EFFECT_DESTROY_REPLACE, EFFECT_SEND_REPLACE })
 	end
+	if op == "CANNOT_ATTACK_TARGETS" and not action.selector and not action.attacker_selector then
+		-- 오라형 "상대는 X 이외에 어택할 수 없다"(OP01-051 키드): 효과의 탑승자는
+		-- 상대 어택커 전원(리더+캐릭터)이고, 값이 금지 대상 필터를 판정한다.
+		-- 종전엔 selector 부재로 continuous_card_effect가 조용히 false를 뱉어
+		-- 효과가 아예 등록되지 않았다(유저 제보: 두웅 부착 효과 무반응).
+		local ctx = {card=card, player=card:GetControler()}
+		local native = Effect.CreateEffect(card)
+		native:SetCode(EFFECT_CANNOT_SELECT_BATTLE_TARGET)
+		native:SetCondition(condition)
+		opcg.SetEffectValue(native, restriction_value(action, ctx))
+		native:SetType(EFFECT_TYPE_FIELD)
+		native:SetRange(LOCATION_MZONE)
+		local mine = action.attacker_player == "YOU"
+		local both = action.attacker_player == "ANY"
+		native:SetTargetRange((mine or both) and LOCATION_MZONE or 0,
+			(both or not mine) and LOCATION_MZONE or 0)
+		native:SetTarget(function(_, target)
+			return opcg.IsLeader(target) or opcg.IsCharacter(target)
+		end)
+		card:RegisterEffect(native)
+		return true
+	end
 	if op == "CANNOT_BE_RESTED" then
 		-- 타깃형(execute_restriction)과 같은 reason 판별. 지속 전면형이면
 		-- 어택 선언 불가(CANNOT_ATTACK)도 동반 상주 - 현행 지속형 2장

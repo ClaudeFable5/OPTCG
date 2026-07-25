@@ -12,9 +12,19 @@ function s.initial_effect(c)
             attacker_player=[[OPPONENT]],
             duration=[[WHILE_CONDITION]],
             op=[[CANNOT_ATTACK_TARGETS]],
+            -- 원문 "캐릭터인 「유스타스 키드」 이외는 어택할 수 없다" = 허용
+            -- 대상이 키드 캐릭터뿐 - 리더도 금지 목록에 든다(종전 필터는
+            -- 캐릭터만 걸러 리더가 무방비였음)
             target_filter={
-              card_type=[[CHARACTER]],
-              name_neq=[[유스타스 키드]],
+              any={
+                {
+                  card_type=[[LEADER]],
+                },
+                {
+                  card_type=[[CHARACTER]],
+                  name_neq=[[유스타스 키드]],
+                },
+              },
             },
           },
         },
