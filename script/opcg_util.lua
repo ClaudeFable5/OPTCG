@@ -575,8 +575,10 @@ function opcg.SelectCards(selector, context)
 				return opcg.GetPower(card) <= remaining
 			end, nil)
 			if affordable:GetCount() == 0 then break end
-			local card = affordable:Select(chooser, 0, 1, nil):GetFirst()
+			local picked = affordable:Select(chooser, 0, 1, nil)
+			local card = picked:GetFirst()
 			if not card then break end
+			Duel.HintSelection(picked, true)
 			selected[#selected + 1] = card
 			remaining = remaining - opcg.GetPower(card)
 			candidates:RemoveCard(card)
@@ -585,6 +587,11 @@ function opcg.SelectCards(selector, context)
 		return selected
 	end
 	local selected = candidates:Select(chooser, minimum, maximum, nil)
+	-- 효과 대상 가시성(2026-07-27): 고른 카드를 양측에 공지 — 현대 EDOPro
+	-- 표준 관용구(트리슈라: Select 직후 Duel.HintSelection(g, true) =
+	-- MSG_CARD_SELECTED 80). 이 함수의 후보는 전부 필드(MZONE/FZONE)
+	-- 공개 영역이라 정보 누설 없음.
+	if selected:GetCount() > 0 then Duel.HintSelection(selected, true) end
 	local out = {}
 	for card in aux.Next(selected) do out[#out + 1] = card end
 	return out
