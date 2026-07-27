@@ -96,7 +96,20 @@ local function original_code(c)
 end
 local function meta(c)
 	if not c then return nil end
-	return opcg.card_meta and opcg.card_meta[original_code(c)] or nil
+	local m = opcg.card_meta
+	if not m then return nil end
+	local code = original_code(c)
+	local found = m[code]
+	if found then return found end
+	-- 별쇄(얼트 아트) 인쇄 id: cdb alias가 정본 룰 id를 가리킨다. 별칭 표
+	-- (printing_alias)가 새 세트에서 구멍 나도 여기서 정본 메타로 정규화 —
+	-- EB03 별쇄 28장 누락으로 별쇄 비비 리더의 특징 조회가 전멸했던 사건
+	-- (2026-07-27 유저 리플레이: 나미 EB03-006 기동이 대상도 없이 불발).
+	local alias = c.GetAlias and c:GetAlias() or 0
+	if alias ~= 0 and m[alias] then return m[alias] end
+	local mapped = opcg.printing_alias and opcg.printing_alias[code]
+	if mapped then return m[mapped] end
+	return nil
 end
 local function definition(c)
 	if not opcg.runtime or not opcg.runtime.get_definition then return nil end
