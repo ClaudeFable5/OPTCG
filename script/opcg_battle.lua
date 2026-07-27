@@ -116,6 +116,9 @@ local function pay_attack_discard(attacker, player, context)
 end
 
 local function begin_battle(attacker, target)
+	-- 치환 생존 도장(contract_ops register_native_replace가 찍음)은 배틀
+	-- 단위 — 새 배틀마다 백지로
+	opcg._replace_saved = setmetatable({}, {__mode="k"})
 	local attacking_player = attacker:GetControler()
 	local live = {
 		attacker = attacker,
@@ -434,6 +437,7 @@ function B.install()
 		-- (EB03-001 유저 제보 2026-07-27: 패 1장 버리고도 배틀 KO됨).
 		if target and live.final_target_is_character
 			and target ~= live.original_target
+			and not (opcg._replace_saved and opcg._replace_saved[target])
 			and target:IsLocation(LOCATION_MZONE)
 			and attacker and attacker:GetAttack() >= target:GetAttack() then
 			opcg.ReturnAttachedDon(target)

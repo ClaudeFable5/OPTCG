@@ -1243,6 +1243,10 @@ register_native_replace = function(card, action, condition, codes)
 	end
 	for _, code in ipairs(codes) do
 		local is_destroy_code = code == EFFECT_DESTROY_REPLACE
+		-- 배틀 파괴 흐름에서 operation은 지연 실행(desrep_chain)이라 그 시점의
+		-- eg는 이미 생존자가 소거된 빈 그룹 — 판정 단계에서 찾은 생존자를
+		-- 여기 기억해 뒀다가 operation(도장·코스트 문맥)이 쓴다.
+		local last_found = nil
 		local native = Effect.CreateEffect(card)
 		native:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
 		native:SetCode(code)
@@ -1252,13 +1256,17 @@ register_native_replace = function(card, action, condition, codes)
 			-- DESTROY_REPLACE twin owns those, or we would intercept twice
 			if not is_destroy_code and (r & REASON_DESTROY) ~= 0 then return false end
 			if condition and not condition(e, tp, eg, ep, ev, re, r, rp) then return false end
-			return (eligible(eg, r, rp, is_destroy_code))
+			local ok, found = eligible(eg, r, rp, is_destroy_code)
+			if ok then last_found = found end
+			return ok
 		end)
 		native:SetTarget(function(e, tp, eg, ep, ev, re, r, rp, chk)
 			-- chk==0 is the ACTION-FORBIDDEN eligibility probe the core runs
 			-- from is_activateable; the real decision call arrives without it
 			if chk == 0 then
-				return (eligible(eg, r, rp, is_destroy_code))
+				local ok, found = eligible(eg, r, rp, is_destroy_code)
+				if ok then last_found = found end
+				return ok
 			end
 			-- 「~할 수 있다」: the decision happens HERE (the operation only
 			-- runs after the core has already canceled the removal)
@@ -1273,12 +1281,22 @@ register_native_replace = function(card, action, condition, codes)
 			for target in aux.Next(eg) do
 				if protects(target) then saved = target break end
 			end
+			saved = saved or last_found
 			local context = replace_context(saved or card, r, rp)
 			for _, cost in ipairs(action.replacement_costs or {}) do
 				OPCGCore.PayCost(cost.op, cost, context)
 			end
 			execute_nested(action.replacement_actions, context)
 			mark_replacement_used(action, context)
+			-- 배틀 파괴를 치환으로 살린 카드에 도장: opcg_battle ⑤의 ko= 예비
+			-- 집행이 이 카드를 "네이티브가 놓친 몫"으로 오인해 재파괴하는 것을
+			-- 막는다(블록 교체 배틀은 원타겟 대조 게이트를 통과해 버림 —
+			-- EB03-001 유저 재제보 2026-07-27: 정면은 나았는데 블록이 그대로).
+			-- 도장은 begin_battle마다 초기화되는 배틀 스코프.
+			if saved and (r & REASON_BATTLE) ~= 0 then
+				opcg._replace_saved = opcg._replace_saved or setmetatable({}, {__mode="k"})
+				opcg._replace_saved[saved] = true
+			end
 		end)
 		card:RegisterEffect(native)
 	end
