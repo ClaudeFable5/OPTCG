@@ -428,7 +428,12 @@ function B.install()
 		-- → 수동 EVENT_DESTROYED (스톡 send_to는 전투 파괴엔 이벤트를 안
 		-- 올린다 — operations.cpp 비전투 한정 raise). 카운터 버프 청산 전이라
 		-- 판정 파워도 정확하다. 정상 KO된 타겟은 이미 묘지라 자연 통과.
+		-- 단, 교체된 배틀 한정(원래 타겟과 다를 때만): 원래 타겟이 아직
+		-- MZONE인 건 "네이티브가 놓친" 게 아니라 치환(REPLACE_KO)이 파괴를
+		-- 취소한 결과다 — 여기서 또 죽이면 코스트만 떼먹는 이중 집행이 된다
+		-- (EB03-001 유저 제보 2026-07-27: 패 1장 버리고도 배틀 KO됨).
 		if target and live.final_target_is_character
+			and target ~= live.original_target
 			and target:IsLocation(LOCATION_MZONE)
 			and attacker and attacker:GetAttack() >= target:GetAttack() then
 			opcg.ReturnAttachedDon(target)

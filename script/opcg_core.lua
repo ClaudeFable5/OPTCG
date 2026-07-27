@@ -347,7 +347,12 @@ end
 local function remove_cards_to_chosen_deck(cards, reason, action, chooser, player)
 	local count = #(cards or {})
 	if count <= 0 then return end
-	local destination = choose_deck_destination(action, chooser, array_group(cards))
+	-- confirm_group 금지: 여기 오는 카드는 패 등 비공개 출처인데
+	-- ConfirmCards는 양쪽에 정체를 공개하는 방송이다(OP11-054 유저 제보
+	-- 2026-07-27: 되돌리는 패 2장이 상대에게 공개). 덱 소재 look 계열
+	-- (chooser에게만 보임)과 달리 이 경로는 상대에게 장수·행선지만 보여야
+	-- 하고, 고른 본인은 방금 직접 골랐으니 확인 팝업도 불필요.
+	local destination = choose_deck_destination(action, chooser)
 	remove_cards(cards, reason, destination)
 	if action.order == "CHOOSE" and count > 1 then
 		if destination == "DECK_TOP" then Duel.SortDecktop(chooser, player, count)
