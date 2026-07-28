@@ -66,6 +66,7 @@ local ACTION = {
 	PLAY_SELF=true, SHUFFLE_DECK=true, ADD_SELF_TO_HAND=true, IF=true,
 	TRANSFER_ATTACHED_DON=true, MODIFY_COST=true, MODIFY_COUNTER=true,
 	GAIN_KEYWORD=true, GAIN_ATTRIBUTE=true, REVEAL_LIFE_TOP_FOR_POWER=true,
+	DRAW_PER_COUNT=true,
 	GIVE_OPPONENT_DON=true, TRASH_HAND_FOR_POWER=true,
 	OPPONENT_MAY_RETURN_ACTIVE_DON_OR=true, DON_DECK_SIZE=true,
 	DEFER_DECKOUT_TO_TURN_END=true, MODIFY_POWER_PER_OWN_DON=true,
@@ -1678,6 +1679,27 @@ function C.ExecuteAction(op, action, context)
 	elseif op == "RETURN_DON" then
 		local minimum = action.mode == "EXACT" and (action.count or 1) or 0
 		context.last_action_succeeded = opcg.ReturnDon(player, action.count or 1, chooser, action.state, minimum) >= minimum
+		return {}
+	elseif op == "DRAW_PER_COUNT" then
+		-- EB04-011 우로코: 자신의 필터 일치 캐릭터 1장당 amount_per장 드로우.
+		-- then_discard_drawn=true면 그 후 뽑은 수만큼 패를 버린다(원문 결합형).
+		local predicate = filter_for(action.filter, context)
+		local matched = 0
+		if predicate then
+			matched = Duel.GetMatchingGroupCount(function(c)
+				return opcg.IsCharacter(c) and predicate(c)
+			end, player, LOCATION_MZONE, 0, nil)
+		end
+		local drawn = 0
+		if matched > 0 then
+			drawn = Duel.Draw(player, matched * (action.amount_per or 1), REASON_EFFECT)
+		end
+		if drawn > 0 and action.then_discard_drawn then
+			local sel = assert(select_zone(player, LOCATION_HAND, nil, drawn, drawn, player, context))
+			remove_cards(sel, REASON_EFFECT + REASON_DISCARD, "TRASH")
+		end
+		context.last_action_succeeded = drawn > 0
+		context.last_action_effected = drawn > 0
 		return {}
 	elseif op == "REVEAL_LIFE_TOP_FOR_POWER" then
 		-- OP15-119 루피: 라이프 위에서 N장까지 공개, 공개한 카드의 코스트 1당
