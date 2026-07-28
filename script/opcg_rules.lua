@@ -386,6 +386,28 @@ function R.register_game_start()
 			return false
 		end)
 		Duel.RegisterEffect(declare_rules, 0)
+		-- (c2) 분류군: 등장턴 캐릭터 한정 어택 허가(EFFECT_ALLOW_ATTACK_CHARACTER)
+		-- — "등장한 턴에 캐릭터에게 어택할 수 있다"(OP14-090 Mr.1, OP04-096
+		-- 콜로세움류)는 (c)의 등장턴 병만 면제할 뿐 대상 제한이 없어 리더까지
+		-- 때려졌다(유저 제보·분류군 신설 지시 2026-07-27). 허용효과'만'으로
+		-- 공격 가능한 등장턴 캐릭터에는 리더를 어택 대상에서 제외하는 제한을
+		-- 태운다(속공 보유자는 전면 허가라 제외). 코어 문법: 제한 효과는
+		-- 어택커에 탑승(TargetRange+Target), value가 후보 심사(true=제외).
+		local rush_char_limit = Effect.GlobalEffect()
+		rush_char_limit:SetType(EFFECT_TYPE_FIELD)
+		rush_char_limit:SetProperty(EFFECT_FLAG_CANNOT_DISABLE + EFFECT_FLAG_UNCOPYABLE)
+		rush_char_limit:SetCode(EFFECT_CANNOT_SELECT_BATTLE_TARGET)
+		rush_char_limit:SetTargetRange(LOCATION_MZONE, LOCATION_MZONE)
+		rush_char_limit:SetTarget(function(_, c)
+			return opcg.IsCharacter(c) and c.GetTurnID
+				and c:GetTurnID() == Duel.GetTurnCount()
+				and not opcg.HasKeyword(c, "RUSH")
+				and c:IsHasEffect(opcg.EFFECT_ALLOW_ATTACK_CHARACTER)
+		end)
+		rush_char_limit:SetValue(function(_, target)
+			return target ~= nil and opcg.IsLeader(target)
+		end)
+		Duel.RegisterEffect(rush_char_limit, 0)
 		-- (d) 공격자와 리더는 전투로 파괴되지 않음 (동률 상호자폭 차단 + 리더 특례)
 		local battle_immune = Effect.GlobalEffect()
 		battle_immune:SetType(EFFECT_TYPE_FIELD)
