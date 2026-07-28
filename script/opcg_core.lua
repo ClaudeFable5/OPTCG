@@ -2026,8 +2026,13 @@ local function register_continuous(card, effect, your_turn, opponent_turn)
 	if #(effect.costs or {}) > 0 then return false end
 	for _, action in ipairs(effect.actions or {}) do
 		local condition = continuous_condition(card, effect, your_turn, opponent_turn)
-		local extended = opcg.contract_ops and opcg.contract_ops.register_continuous
-			and opcg.contract_ops.register_continuous(card, effect, action, condition)
+		-- 덱 구축 제약은 듀얼 런타임 상주효과가 아니다(덱 체크 계층 소관) —
+		-- 등록 없이 통과. 종전엔 아래 fallback의 return false가 루프를 통째로
+		-- 끊어 P-117의 뒤따르는 WIN_GAME(덱 0장 대체 승리)까지 미등록됐다
+		-- (유저 제보 2026-07-27: 특수 승리 불발·덱아웃 시 상대 승리 판정).
+		local extended = action.op == "DECK_BUILD_RESTRICTION"
+			or (opcg.contract_ops and opcg.contract_ops.register_continuous
+			and opcg.contract_ops.register_continuous(card, effect, action, condition))
 		if not extended then
 		local effect_code = action.op == "MODIFY_POWER" and EFFECT_UPDATE_ATTACK
 			or action.op == "MODIFY_COST" and EFFECT_UPDATE_LEVEL
