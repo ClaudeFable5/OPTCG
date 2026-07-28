@@ -1147,7 +1147,14 @@ local function search_deck_top(action, context)
 	top:Sub(selected)
 	-- 공개: the PICKED cards are revealed to the opponent (the look itself
 	-- stays private). Life additions skip this -- it would leak life info.
-	if action.reveal ~= false and #cards > 0 and action.destination ~= "LIFE_TOP" then
+	-- 재정(2026-07-27 유저, OP07-111): 가져올 카드의 조건(특징 등)을 정해놓은
+	-- 서치는 「공개한다」 텍스트가 없어도 공개다 - 조건 충족을 상대에게
+	-- 증명해야 하기 때문. 필터 서치는 reveal=false(컴파일러가 원문 무공개를
+	-- 보고 박은 값)를 무시하고, 무조건 서치(필터 없음 - 울티 OP05-043,
+	-- OP12-079류)만 비공개를 존중한다.
+	local filtered_pick = action.filter ~= nil and next(action.filter) ~= nil
+	if (filtered_pick or action.reveal ~= false) and #cards > 0
+		and action.destination ~= "LIFE_TOP" then
 		Duel.ConfirmCards(other(chooser), selected)
 	end
 	if action.destination == "HAND" then
