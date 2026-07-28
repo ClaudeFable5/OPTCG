@@ -175,22 +175,26 @@ function R.register_game_start()
 			for _, player in ipairs({ 0, 1 }) do
 				if not startup_done[player] then
 					startup_done[player] = true
-					-- Hosts and all 10 physical DON exist before any opening setup continues.
-					opcg.SetupDonHosts(player)
-					-- The v1 monster-click attach (SPSUMMON_PROC_G grant) is
-					-- superseded by the per-DON ignition; granting it would put
-					-- a phantom summon command on every leader/character.
+					-- 리더 배치가 둥!! 충전보다 먼저다(공식: 리더 보고 시작).
+					-- DON_DECK_SIZE 상주(에넬 OP15-058)는 리더가 MZONE에 있어야
+					-- 보이므로, 순서가 뒤집히면 GetDonMax가 기본 10으로 읽혀
+					-- 둥!! 덱이 10장으로 차 버린다.
 					if not opcg.GetLeader(player) then
 						local leader = Duel.GetMatchingGroup(opcg.IsLeader, player,
 							LOCATION_DECK + LOCATION_EXTRA, 0, nil):GetFirst()
 						if leader then
-							-- leaders are PUBLIC from the start (공식: 리더 보고
-							-- 시작) — the scripted RPS only decides turn order
+							-- leaders are PUBLIC from the start — the scripted
+							-- RPS only decides turn order
 							Duel.MoveToField(leader, player, player, LOCATION_MZONE,
 								POS_FACEUP_ATTACK,
 								true, 1 << opcg.zone.LEADER.seq)
 						end
 					end
+					-- Hosts and all physical DON exist before any opening setup
+					-- continues. The v1 monster-click attach (SPSUMMON_PROC_G
+					-- grant) is superseded by the per-DON ignition; granting it
+					-- would put a phantom summon command on every leader/character.
+					opcg.SetupDonHosts(player)
 				end
 			end
 			if scripted_rps and not R._rps_done then

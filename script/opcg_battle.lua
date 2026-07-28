@@ -226,6 +226,7 @@ local function resolve_event_counter(card, live)
 	context.event_player = live.defending_player
 	context.effect_play = true
 	if opcg.contract_ops and opcg.contract_ops.emit then
+		if opcg.RecordEventActivated then opcg.RecordEventActivated(live.defending_player, card) end
 		opcg.contract_ops.emit("ON_YOUR_EVENT_ACTIVATED", context, live.defending_player)
 		opcg.contract_ops.emit("ON_OPPONENT_EVENT_ACTIVATED", context, live.attacking_player)
 		opcg.contract_ops.emit("ON_OPPONENT_EVENT_OR_TRIGGER_ACTIVATED", context, live.attacking_player)

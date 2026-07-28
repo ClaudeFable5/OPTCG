@@ -324,6 +324,16 @@ local function rest_block_value(action, context)
 end
 
 local function execute_restriction(op, action, context)
+	if action.schedule then
+		-- OP15-025 크로: "이번 턴 종료 시, ..." - 제약 부여(대상 선택·필터 판정
+		-- 포함)를 경계 시점으로 미룬다. 그 시점의 레스트·부여둥 상태로 고른다.
+		local scheduled = {}
+		for key, value in pairs(action) do scheduled[key] = value end
+		scheduled.schedule = nil
+		assert(X.schedule(action.schedule, context.card,
+			function() execute_restriction(op, scheduled, context) end), "unsupported schedule")
+		return {}
+	end
 	if op == "CANNOT_BE_RESTED" then
 		-- 총합룰상 어택 선언(6-1-2)과 블로커 발동(6-3-2)은 그 카드를 "레스트로
 		-- 하는" 행위 자체 - 전면형은 레스트가 불가능하므로 어택 선언도 불가능
@@ -971,6 +981,38 @@ function X.register_continuous(card, effect, action, condition)
 		local code, value = ko_protection(action, {card=card, player=card:GetControler()})
 		return continuous_card_effect(card, action, code, value, condition)
 	end
+	if op == "DEFER_DECKOUT_TO_TURN_END" then
+		-- OP15-022 브룩 리더: 룰상 덱 0장이어도 즉시 패배하지 않고, 덱이
+		-- 0장이 된 턴의 종료 시 패배한다. CANNOT_LOSE_DECK로 즉사를 막고,
+		-- 턴 종료(EVENT_PHASE+PHASE_END 끝) 시점에 덱 0이면 상대 승리.
+		continuous_player_effect(card, action, EFFECT_CANNOT_LOSE_DECK, 1, condition)
+		local lose = Effect.CreateEffect(card)
+		lose:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
+		lose:SetCode(EVENT_PHASE + PHASE_END)
+		lose:SetRange(source_range(card))
+		lose:SetCondition(function()
+			return (condition == nil or condition())
+				and Duel.GetFieldGroupCount(card:GetControler(), LOCATION_DECK, 0) == 0
+		end)
+		lose:SetOperation(function()
+			Duel.Win(1 - card:GetControler(), REASON_EFFECT)
+		end)
+		card:RegisterEffect(lose)
+		return true
+	end
+	if op == "DON_DECK_SIZE" then
+		-- 룰상 둥!! 덱 크기(에넬 6장): 리더 자신에 상주 등록, 값=크기.
+		-- selector 무지정이 정본 IR - continuous_card_effect가 요구하는 SELF
+		-- 셀렉터를 보충한다(빠뜨리면 predicate 부재로 등록 자체가 무산).
+		local shaped = action
+		if not action.selector then
+			shaped = {}
+			for key, value in pairs(action) do shaped[key] = value end
+			shaped.selector = { kind = "SELF", count = 1, mode = "EXACT", owner = "YOU" }
+		end
+		return continuous_card_effect(card, shaped, opcg.EFFECT_DON_DECK_SIZE,
+			action.count or opcg.DON_MAX, condition)
+	end
 	if op == "REPLACE_KO" or op == "REPLACE_LEAVE_FIELD" then
 		-- these ride the core's REAL replacement machinery (see
 		-- register_native_replace): every destroy/send path is intercepted
@@ -1154,6 +1196,9 @@ local function reason_matches(action, card, reason, context, ko)
 	if wanted == "BATTLE" then return battle end
 	if wanted == "EFFECT" then return effect end
 	if wanted == "OPPONENT_EFFECT" then return effect and opponent end
+	-- OP15-098 "상대에 의해 필드를 벗어날 경우": 상대의 배틀 KO(배틀 이탈은 항상
+	-- 상대 어택 측) 또는 상대의 효과 - 자기 효과로 치운 경우는 제외.
+	if wanted == "OPPONENT_ANY" then return battle or (effect and opponent) end
 	if wanted == "KO_OR_OPPONENT_EFFECT" then return (ko and destroyed) or (effect and opponent) end
 	if wanted == "OPPONENT_CHARACTER_EFFECT" then
 		return effect and opponent and actor_card ~= nil and opcg.IsCharacter(actor_card)

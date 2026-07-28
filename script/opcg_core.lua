@@ -15,6 +15,9 @@ local CONDITION = {
 	CHARACTER_COUNT_LTE=true, CHARACTER_COUNT_LT=true,
 	LEADER_HAS_TRAIT=true, LEADER_HAS_TRAIT_ANY=true, LEADER_TRAIT_CONTAINS=true,
 	LEADER_NAME_IS=true, LEADER_NAME_IS_ANY=true, LEADER_IS_MULTICOLOR=true,
+	LEADER_POWER_LTE=true, EVENT_ACTIVATED_THIS_TURN=true,
+	FIELD_DON_LTE=true, PERSONAL_TURN_GTE=true,
+	ALL_OWN_CHARACTERS_HAVE_TRAIT=true, OPPONENT_GIVEN_DON_EXISTS=true,
 	LEADER_HAS_ATTRIBUTE=true, LEADER_HAS_COLOR=true, LEADER_STATE_IS=true,
 	LEADER_POWER_LTE=true, LEADER_POWER_GTE=true,
 	FIELD_DON_GTE=true, FIELD_DON_LTE=true, FIELD_DON_EQ=true, ANY_FIELD_DON_EQ=true,
@@ -46,7 +49,8 @@ local COST = {
 	TRASH_SELF=true, REST_OWN_CARD=true, RETURN_TRASH_TO_DECK_BOTTOM=true,
 	RETURN_OWN_CARD_TO_HAND=true, RETURN_OWN_CARD_TO_DECK_BOTTOM=true,
 	RETURN_SELF_TO_DECK_BOTTOM=true, TRASH_OWN_CARD=true, RETURN_SELF_TO_HAND=true,
-	GIVE_DON=true, RETURN_HAND_TO_DECK=true, KO_OWN_CARD=true,
+	GIVE_DON=true, GIVE_OPPONENT_DON=true,
+	RETURN_HAND_TO_DECK=true, KO_OWN_CARD=true,
 	RETURN_ATTACHED_DON=true, TAKE_LIFE_TO_HAND=true, TRASH_LIFE_TOP=true,
 	FLIP_LIFE_TOP=true, MILL_DECK=true, REVEAL_HAND=true,
 	MODIFY_OWN_POWER=true, ADD_OPPONENT_CARD_TO_LIFE=true,
@@ -61,7 +65,11 @@ local ACTION = {
 	RETURN_TRASH_TO_DECK_BOTTOM=true, PLAY_FROM_HAND=true, PLAY_FROM_TRASH=true,
 	PLAY_SELF=true, SHUFFLE_DECK=true, ADD_SELF_TO_HAND=true, IF=true,
 	TRANSFER_ATTACHED_DON=true, MODIFY_COST=true, MODIFY_COUNTER=true,
-	GAIN_KEYWORD=true, SEARCH_DECK_TOP=true, PLAY_FROM_DECK_TOP=true,
+	GAIN_KEYWORD=true, GAIN_ATTRIBUTE=true, REVEAL_LIFE_TOP_FOR_POWER=true,
+	GIVE_OPPONENT_DON=true, TRASH_HAND_FOR_POWER=true,
+	OPPONENT_MAY_RETURN_ACTIVE_DON_OR=true, DON_DECK_SIZE=true,
+	DEFER_DECKOUT_TO_TURN_END=true, MODIFY_POWER_PER_OWN_DON=true,
+	SEARCH_DECK_TOP=true, PLAY_FROM_DECK_TOP=true,
 	LOOK_REORDER_DECK_TOP=true, REVEAL_DECK_TOP=true, ADD_LIFE_FROM_DECK_TOP=true,
 	ADD_LIFE_FROM_HAND=true, ADD_LIFE_FROM_TRASH=true, ADD_TO_LIFE=true, ADD_TO_OWNER_LIFE=true,
 	RETURN_LIFE_TO_DECK=true, PLAY_FROM_HAND_OR_TRASH=true, PLAY_FROM_LIFE_TOP=true,
@@ -447,6 +455,42 @@ function C.CheckCondition(op, condition, context)
 
 	local lead = leader(player)
 	if op == "LEADER_HAS_TRAIT" then return lead ~= nil and opcg.HasTrait(lead, condition.trait) end
+	if op == "ALL_OWN_CHARACTERS_HAVE_TRAIT" then
+		-- "자신의 캐릭터가 《X》 특징 캐릭터뿐인 경우"(OP15-001 크리크 리더).
+		-- 캐릭터 0장이면 성립(공식 재정 관례).
+		local group = opcg.GetCharacters and opcg.GetCharacters(player)
+		if not group then return false end
+		for c in aux.Next(group) do
+			if not opcg.HasTrait(c, condition.trait) then return false end
+		end
+		return true
+	end
+	if op == "OPPONENT_GIVEN_DON_EXISTS" then
+		-- "상대의 부여된 둥!!이 있는 경우"(리더·캐릭터 불문)
+		local opp = other(player)
+		local group = Duel.GetMatchingGroup(function(c)
+			return (opcg.IsLeader(c) or opcg.IsCharacter(c))
+				and (opcg.GetAttachedDon(c) or 0) >= 1
+		end, opp, LOCATION_MZONE, 0, nil)
+		return group:GetCount() > 0
+	end
+	if op == "FIELD_DON_LTE" then
+		return (opcg.FieldDon and opcg.FieldDon(player) or 0) <= (condition.count or 0)
+	end
+	if op == "PERSONAL_TURN_GTE" then
+		-- 개인 N번째 턴 이후(에넬 E2 "자신의 제2턴 이후")
+		return (Duel.GetTurnCount(player) or 0) >= (condition.count or 1)
+	end
+	if op == "LEADER_POWER_LTE" then
+		return lead ~= nil and lead:GetAttack() <= (condition.count or 0)
+	end
+	if op == "EVENT_ACTIVATED_THIS_TURN" then
+		-- 이번 턴 자신이 발동한 이벤트 기록(contract_ops emit 지점에서 적재).
+		-- cost_gte: 그 중 원래 코스트 N 이상이 있었는가(OP15-002 루시).
+		local usage = opcg._event_activated_usage and opcg._event_activated_usage[player]
+		if not usage or usage.turn ~= (Duel.GetTurnCount and Duel.GetTurnCount() or 0) then return false end
+		return (usage.max_cost or 0) >= (condition.cost_gte or 0)
+	end
 	if op == "LEADER_TRAIT_CONTAINS" then return lead ~= nil and opcg.TraitContains(lead, condition.trait) end
 	if op == "LEADER_HAS_TRAIT_ANY" then
 		if not lead then return false end
@@ -791,6 +835,12 @@ function C.CanPayCost(op, cost, context)
 		local available = count_zone(player, LOCATION_GRAVE, cost.filter, context)
 		return available ~= nil and available >= n
 	end
+	if op == "GIVE_OPPONENT_DON" then
+		local don = opcg.GetFieldDonGroup
+			and opcg.GetFieldDonGroup(other(cost_player(context)), cost.state)
+		return selector_payable(cost.selector, context)
+			and don ~= nil and don:GetCount() >= (cost.count or 1)
+	end
 	if op == "GIVE_DON" then
 		local available = cost.state == "ACTIVE" and opcg.ActiveDon(player)
 			or cost.state == "RESTED" and opcg.RestedDon(player) or opcg.CostAreaDon(player)
@@ -926,6 +976,63 @@ function C.PayCost(op, cost, context)
 	elseif op == "GIVE_DON" then
 		cards = choose_selector(cost.selector, context)
 		assert(opcg.GiveDon(player, cards[1], n, cost.state) == n, "GIVE_DON failed")
+	elseif op == "OPPONENT_MAY_RETURN_ACTIVE_DON_OR" then
+		-- OP15-059 아마존: 상대는 자신의 액티브 둥!! N장을 둥!! 덱에 되돌려도
+		-- 좋다. 되돌리지 않으면 otherwise 액션들을 실행한다.
+		local opp = other(player)
+		local n2 = action.count or 1
+		local can = opcg.GetFieldDonGroup
+			and opcg.GetFieldDonGroup(opp, "ACTIVE"):GetCount() >= n2
+		local agreed = false
+		if can and Duel.SelectYesNo(opp, aux.Stringid(opcg.DON_COST_HOST_ID or 879999999, 9)) then
+			agreed = opcg.ReturnDon(opp, n2, opp, "ACTIVE", n2) >= n2
+		end
+		if not agreed then
+			for _, nested in ipairs(action.otherwise or {}) do
+				C.ExecuteAction(nested.op, nested, context)
+			end
+		end
+		context.last_action_succeeded = true
+		return {}
+	elseif op == "TRASH_HAND_FOR_POWER" then
+		-- OP15-002 루시 E1: 패에서 필터 카드 임의 매수(0..N) 버리고 장당
+		-- amount만큼 리더 파워를 duration 동안 올린다.
+		local hand = zone_group(player, LOCATION_HAND, action.filter, context)
+		local available = hand and hand:GetCount() or 0
+		local picked = 0
+		if available > 0 then
+			local sel = hand:Select(player, 0, available, nil)
+			if sel:GetCount() > 0 then Duel.HintSelection(sel, true) end
+			picked = Duel.SendtoGrave(sel, REASON_COST + REASON_DISCARD)
+		end
+		if picked > 0 then
+			local lead = opcg.GetLeader(player)
+			if lead then
+				modify_stat(context.card, lead, EFFECT_UPDATE_ATTACK,
+					(action.amount or 1000) * picked, action.duration or "THIS_BATTLE")
+			end
+		end
+		context.last_action_succeeded = true
+		context.last_action_effected = picked > 0
+		return {}
+	elseif op == "MODIFY_POWER_PER_OWN_DON" then
+		-- OP15-008 크리크 E2: 셀렉터 전 대상 각각, '그 카드에 부착된 둥!! 수 ×
+		-- amount'만큼 duration 동안 파워 수정(개별 계산).
+		cards = choose_selector(action.selector, context)
+		for _, card in ipairs(cards) do
+			local dons = opcg.GetAttachedDon and (opcg.GetAttachedDon(card) or 0) or 0
+			if dons > 0 then
+				modify_stat(context.card, card, EFFECT_UPDATE_ATTACK,
+					(action.amount or -1000) * dons, action.duration or "THIS_TURN")
+			end
+		end
+		context.last_action_succeeded = true
+		context.last_action_effected = #cards > 0
+		return remember_targets(context, cards)
+	elseif op == "GIVE_OPPONENT_DON" then
+		cards = choose_selector(cost.selector, context)
+		assert(opcg.GiveDon(other(player), cards[1], n, cost.state) == n,
+			"GIVE_OPPONENT_DON failed")
 	elseif op == "RETURN_HAND_TO_DECK" then
 		cards = assert(select_zone(player, LOCATION_HAND, cost.filter, n, n, player, context))
 		remove_cards_to_chosen_deck(cards, REASON_COST, cost, player, player)
@@ -1457,7 +1564,8 @@ function C.ExecuteAction(op, action, context)
 		cards = choose_selector(action.selector, context)
 	elseif op == "REST" or op == "SET_ACTIVE" or op == "KO" or op == "TRASH"
 		or op == "RETURN_TO_HAND" or op == "RETURN_TO_DECK_BOTTOM" or op == "MODIFY_POWER"
-		or op == "MODIFY_COST" or op == "MODIFY_COUNTER" or op == "GAIN_KEYWORD" then
+		or op == "MODIFY_COST" or op == "MODIFY_COUNTER" or op == "GAIN_KEYWORD"
+		or op == "GAIN_ATTRIBUTE" then
 		local selector = action.selector
 		if op == "REST" then selector = selector_with_state(selector, "ACTIVE")
 		elseif op == "SET_ACTIVE" then selector = selector_with_state(selector, "RESTED") end
@@ -1497,6 +1605,10 @@ function C.ExecuteAction(op, action, context)
 			for _, card in ipairs(cards) do modify_cost(context.card, card, action.amount, action.duration) end
 		elseif op == "MODIFY_COUNTER" then
 			for _, card in ipairs(cards) do modify_counter(context.card, card, action.amount, action.duration) end
+		elseif op == "GAIN_ATTRIBUTE" then
+			-- OP15-093: "속성(斬)을 얻는다" - 부여 비트를 THIS_TURN 등 기간부로 상주
+			local reset, count = effect_reset(action.duration, context.card)
+			for _, card in ipairs(cards) do assert(opcg.GrantAttribute(card, action.attribute, reset, count), "unknown attribute") end
 		else
 			local reset, count = effect_reset(action.duration, context.card)
 			for _, card in ipairs(cards) do assert(opcg.GrantKeyword(card, action.keyword, reset, count), "unknown keyword") end
@@ -1514,19 +1626,47 @@ function C.ExecuteAction(op, action, context)
 	elseif op == "GIVE_DON" then
 		cards = choose_selector(action.selector, context)
 		local per_target = action.per_target and (action.count or 1) or nil
+		-- source=OWNER: 부여할 둥!!의 출처가 시전자가 아니라 '그 대상의 주인'
+		-- ("리더나 캐릭터 1장에 持ち主의 레스트 둥!!을 부여" - OP15 다수)
+		local function giver_of(target)
+			if action.source == "OWNER" then return target:GetControler() end
+			return player
+		end
 		local moved = 0
 		if per_target then
-			for _, card in ipairs(cards) do moved = moved + opcg.GiveDon(player, card, per_target, action.state) end
-		elseif cards[1] then moved = opcg.GiveDon(player, cards[1], action.count or 1, action.state) end
+			for _, card in ipairs(cards) do moved = moved + opcg.GiveDon(giver_of(card), card, per_target, action.state) end
+		elseif cards[1] then moved = opcg.GiveDon(giver_of(cards[1]), cards[1], action.count or 1, action.state) end
+		context.last_action_succeeded = moved > 0 or (action.mode == "UP_TO")
+		context.last_action_effected = moved > 0
+		return cards
+	elseif op == "GIVE_OPPONENT_DON" then
+		-- 상대 필드의 (레스트) 둥!!을 상대 캐릭터에 증여(OP15 크리크 축):
+		-- 증여 주체·둥 소스·부착 대상 전부 상대 - GiveDon의 첫 인자만 상대로.
+		cards = choose_selector(action.selector, context)
+		local moved = 0
+		if cards[1] then
+			moved = opcg.GiveDon(other(player), cards[1], action.count or 1, action.state)
+		end
 		context.last_action_succeeded = moved > 0 or (action.mode == "UP_TO")
 		context.last_action_effected = moved > 0
 		return cards
 	elseif op == "SET_DON_ACTIVE" then
-		local maximum = action.mode == "UP_TO"
-			and math.min(action.count or 1, opcg.RestedDon(player)) or (action.count or 1)
-		local amount = choose_number_up_to(chooser, maximum, action.mode)
-		context.last_action_succeeded = amount == 0 and action.mode == "UP_TO"
-			or opcg.SetDonActive(player, amount, context) > 0
+		-- schedule 지원: "이번 턴 종료 시, 두웅!!을 …액티브로"(EB02-015 쿠로) -
+		-- 매수 선택·전환 모두 경계 시점에 실행(즉시 액티브는 그 턴에 쓸 수 있어
+		-- 룰상 이득 방향 오류였다)
+		local function set_don_active_now()
+			local maximum = action.mode == "UP_TO"
+				and math.min(action.count or 1, opcg.RestedDon(player)) or (action.count or 1)
+			local amount = choose_number_up_to(chooser, maximum, action.mode)
+			context.last_action_succeeded = amount == 0 and action.mode == "UP_TO"
+				or opcg.SetDonActive(player, amount, context) > 0
+		end
+		if action.schedule then
+			context.last_action_succeeded = assert(opcg.contract_ops.schedule(
+				action.schedule, context.card, set_don_active_now), "unsupported schedule")
+		else
+			set_don_active_now()
+		end
 		return {}
 	elseif op == "REST_DON" then
 		local maximum = action.mode == "UP_TO"
@@ -1538,6 +1678,26 @@ function C.ExecuteAction(op, action, context)
 	elseif op == "RETURN_DON" then
 		local minimum = action.mode == "EXACT" and (action.count or 1) or 0
 		context.last_action_succeeded = opcg.ReturnDon(player, action.count or 1, chooser, action.state, minimum) >= minimum
+		return {}
+	elseif op == "REVEAL_LIFE_TOP_FOR_POWER" then
+		-- OP15-119 루피: 라이프 위에서 N장까지 공개, 공개한 카드의 코스트 1당
+		-- amount만큼 이 카드의 파워를 duration 동안 수정(라이프는 제자리 유지)
+		local maximum = math.min(action.count or 1, life_count(player))
+		local amount = choose_number_up_to(chooser, maximum, "UP_TO")
+		if amount > 0 then
+			local stack = life_from_top(player)
+			for index = 1, amount do
+				local card = stack[index]
+				Duel.ConfirmCards(player, card)
+				Duel.ConfirmCards(other(player), card)
+				local cost = card.GetLevel and card:GetLevel() or 0
+				if cost > 0 then
+					modify_stat(context.card, context.card, EFFECT_UPDATE_ATTACK,
+						(action.amount or 1000) * cost, action.duration or "THIS_TURN")
+				end
+			end
+		end
+		context.last_action_succeeded = true
 		return {}
 	elseif op == "MILL_DECK" then
 		local available = math.min(action.count or 0, Duel.GetFieldGroupCount(player, LOCATION_DECK, 0))
@@ -1563,10 +1723,13 @@ function C.ExecuteAction(op, action, context)
 		cards = assert(select_zone(player, LOCATION_GRAVE, action.filter, minimum, action.count or 1, chooser, context))
 		remove_cards(cards, REASON_EFFECT, "HAND")
 	elseif op == "RETURN_TRASH_TO_DECK_BOTTOM" then
-		cards = assert(select_zone(player, LOCATION_GRAVE, action.filter, action.count or 1,
+		-- mode=UP_TO: "1장까지를"(OP15-091) - 0장 선택 허용
+		local minimum = action.mode == "UP_TO" and 0 or (action.count or 1)
+		cards = assert(select_zone(player, LOCATION_GRAVE, action.filter, minimum,
 			action.count or 1, chooser, context))
 		remove_cards(cards, REASON_EFFECT, "DECK_BOTTOM")
 		if action.order == "CHOOSE" and #cards > 1 then Duel.SortDeckbottom(chooser, player, #cards) end
+		context.last_action_succeeded = #cards > 0 or action.mode == "UP_TO"
 	elseif op == "PLAY_FROM_HAND" then return play_from_zone(action, LOCATION_HAND, context)
 	elseif op == "PLAY_FROM_TRASH" then return play_from_zone(action, LOCATION_GRAVE, context)
 	elseif op == "PLAY_FROM_HAND_OR_TRASH" then return play_from_zone(action, LOCATION_HAND + LOCATION_GRAVE, context)
@@ -1606,6 +1769,23 @@ function C.ExecuteAction(op, action, context)
 		if count > 0 then
 			if Duel.ConfirmDecktop then Duel.ConfirmDecktop(player, count)
 			else Duel.ConfirmCards(chooser, top) Duel.ConfirmCards(other(chooser), top) end
+		end
+		-- filter+on_match(OP15-065 고로 등): 공개 카드가 필터에 맞으면 중첩
+		-- 액션 실행. 종전엔 이 두 필드를 실행부가 통째로 버려 "공개했는데
+		-- 조건 성립분이 침묵"하는 반쪽 동작이었다.
+		local matched = false
+		if count > 0 and action.on_match then
+			local predicate = action.filter and filter_for(action.filter, context)
+			for card in aux.Next(top) do
+				if predicate == nil or predicate(card) then matched = true break end
+			end
+			if matched then
+				for _, nested in ipairs(action.on_match) do C.ExecuteAction(nested.op, nested, context) end
+			end
+		end
+		-- rest_destination=DECK_BOTTOM: 공개 카드를 덱 아래로(무지정=제자리)
+		if count > 0 and action.rest_destination == "DECK_BOTTOM" then
+			move_deck_group_to_bottom(Duel.GetDecktopGroup(player, count))
 		end
 		context.last_action_succeeded = count > 0
 		return {}
@@ -1763,7 +1943,8 @@ local function action_shape_supported(action, card)
 		if action.selector.filter and not filter_for(action.selector.filter, { card=card }) then return false end
 	end
 	if (action.op == "MODIFY_POWER" or action.op == "MODIFY_COST"
-			or action.op == "MODIFY_COUNTER" or action.op == "GAIN_KEYWORD")
+			or action.op == "MODIFY_COUNTER" or action.op == "GAIN_KEYWORD"
+			or action.op == "GAIN_ATTRIBUTE")
 			and action.duration ~= "WHILE_CONDITION"
 		and action.duration ~= "RULE"
 		and not effect_reset(action.duration) then return false end
@@ -1978,6 +2159,8 @@ local function register_event_play(card, effect)
 		context.event_player = tp
 		context.effect_play = true
 		if opcg.contract_ops then
+			-- 이번 턴 이벤트 발동 이력(EVENT_ACTIVATED_THIS_TURN 조건용 - OP15-002)
+			if opcg.RecordEventActivated then opcg.RecordEventActivated(tp, context.card) end
 			opcg.contract_ops.emit("ON_YOUR_EVENT_ACTIVATED", context, tp)
 			opcg.contract_ops.emit("ON_OPPONENT_EVENT_ACTIVATED", context, 1 - tp)
 			opcg.contract_ops.emit("ON_OPPONENT_EVENT_OR_TRIGGER_ACTIVATED", context, 1 - tp)

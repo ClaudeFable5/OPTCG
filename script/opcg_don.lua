@@ -8,6 +8,18 @@ opcg.DON_DECK_HOST_ID = 879999998
 opcg.DON_COST_HOST_ID = 879999999
 opcg.FLAG_DON_RESTED = 0x7f4f0001
 opcg.DON_MAX = 10
+-- 룰상 둥!! 덱 크기 변경(OP15-058 에넬 리더 = 6장): 리더의 상주 효과
+-- (EFFECT_DON_DECK_SIZE, 값 = 크기)를 조회. 효과 기반이라 무효화도 자연 반영.
+function opcg.GetDonMax(player)
+	local lead = opcg.GetLeader and opcg.GetLeader(player)
+	if lead and lead.GetCardEffect and opcg.EFFECT_DON_DECK_SIZE then
+		for _, e in ipairs({lead:GetCardEffect(opcg.EFFECT_DON_DECK_SIZE)}) do
+			local v = opcg.GetEffectValue(e)
+			if type(v) == "number" and v > 0 then return v end
+		end
+	end
+	return opcg.DON_MAX
+end
 opcg.ATTACH_DON_DESC = opcg.ATTACH_DON_DESC or 1240
 local FLAG_DON_SELF_GIVE = 0x7f4f1242
 
@@ -240,7 +252,7 @@ function opcg.SetupDonHosts(player)
 	end
 	harden_host(cost_host)
 
-	local missing = opcg.DON_MAX - opcg.TotalDon(player)
+	local missing = opcg.GetDonMax(player) - opcg.TotalDon(player)
 	for _ = 1, math.max(0, missing) do
 		local don = Duel.CreateToken(player, opcg.DON_CARD_ID)
 		if not don then return false, "DON_TOKEN_FAILED" end
@@ -257,7 +269,7 @@ function opcg.SetupDonHosts(player)
 			end
 		end
 	end
-	return opcg.TotalDon(player) == opcg.DON_MAX
+	return opcg.TotalDon(player) >= opcg.GetDonMax(player)
 end
 
 -- DON deck -> cost area. Newly placed DON is active unless state == "RESTED".

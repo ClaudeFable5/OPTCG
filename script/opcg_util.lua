@@ -65,12 +65,30 @@ opcg.KEYWORD_EFFECT = opcg.KEYWORD_EFFECT or {
 	BANISH = 0x7f4f1104,
 	UNBLOCKABLE = 0x7f4f1105,
 }
+-- 부여 속성(OP15-093 "속성(참)을 얻는다"): 카드에 상주 효과로 비트를 실어 두고
+-- HasAttribute가 meta 속성과 함께 읽는다.
+opcg.EFFECT_GRANT_ATTRIBUTE = opcg.EFFECT_GRANT_ATTRIBUTE or 0x7f4f121f
+opcg.ATTRIBUTE_BITS = opcg.ATTRIBUTE_BITS or {
+	STRIKE = 1, SLASH = 2, RANGED = 4, SPECIAL = 8, WISDOM = 16,
+}
+function opcg.GrantAttribute(c, attribute, reset, reset_count)
+	local bit = opcg.ATTRIBUTE_BITS[attribute]
+	if not c or not bit then return false end
+	local effect = Effect.CreateEffect(c)
+	effect:SetType(EFFECT_TYPE_SINGLE)
+	effect:SetCode(opcg.EFFECT_GRANT_ATTRIBUTE)
+	effect:SetValue(bit)
+	if reset then effect:SetReset(reset, reset_count or 1) end
+	c:RegisterEffect(effect)
+	return true
+end
 opcg.EFFECT_ALLOW_ATTACK_ACTIVE_CHARACTER = opcg.EFFECT_ALLOW_ATTACK_ACTIVE_CHARACTER or 0x7f4f1201
 opcg.EFFECT_ALLOW_ATTACK_CHARACTER = opcg.EFFECT_ALLOW_ATTACK_CHARACTER or 0x7f4f1202
 opcg.EFFECT_CANNOT_ATTACK_LEADER = opcg.EFFECT_CANNOT_ATTACK_LEADER or 0x7f4f1203
 opcg.EFFECT_CANNOT_SET_ACTIVE = opcg.EFFECT_CANNOT_SET_ACTIVE or 0x7f4f1204
 opcg.EFFECT_CANNOT_BE_RESTED = opcg.EFFECT_CANNOT_BE_RESTED or 0x7f4f1205
 opcg.EFFECT_PREVENT_BLOCKER_ACTIVATION = opcg.EFFECT_PREVENT_BLOCKER_ACTIVATION or 0x7f4f1206
+opcg.EFFECT_DON_DECK_SIZE = opcg.EFFECT_DON_DECK_SIZE or 0x7f4f1207
 opcg.zone = {
 	CHARACTER = { loc = LOCATION_MZONE, seqs = { 0, 1, 2, 3, 4 } },
 	LEADER    = { loc = LOCATION_MZONE, seq = 5 },
@@ -163,7 +181,16 @@ function opcg.TraitContains(c, text)
 end
 function opcg.HasAttribute(c, name)
 	local m = meta(c)
-	return m ~= nil and has_value(m.attributes, name)
+	if m ~= nil and has_value(m.attributes, name) then return true end
+	-- 효과로 부여된 속성(OP15-093): GRANT_ATTRIBUTE 상주 비트 검사
+	local bit = opcg.ATTRIBUTE_BITS and opcg.ATTRIBUTE_BITS[name]
+	if bit and c and c.GetCardEffect then
+		for _, effect in ipairs({ c:GetCardEffect(opcg.EFFECT_GRANT_ATTRIBUTE) }) do
+			local value = effect:GetValue()
+			if type(value) == "number" and (value & bit) ~= 0 then return true end
+		end
+	end
+	return false
 end
 function opcg.HasLifeTrigger(c)
 	local d = definition(c)
@@ -416,6 +443,14 @@ local function scalar_filter(c, key, value, context)
 	if key == "base_cost_eq" then return opcg.GetBaseCost(c) == value end
 	if key == "base_cost_lte" then return opcg.GetBaseCost(c) <= value end
 	if key == "base_cost_gte" then return opcg.GetBaseCost(c) >= value end
+	-- 둥!! 부착 참조(OP15 크리크 축): don_given=true → 1장 이상,
+	-- don_gte=N → N장 이상 부착
+	if key == "don_given" then return (opcg.GetAttachedDon(c) or 0) >= 1 end
+	if key == "don_gte" then return (opcg.GetAttachedDon(c) or 0) >= value end
+	-- 코스트 == 부착 둥!! 수(OP15-031 프린프린)
+	if key == "cost_eq_attached_don" then
+		return opcg.GetCost(c) == (opcg.GetAttachedDon(c) or 0)
+	end
 	if key == "power_eq" then return opcg.GetPower(c) == value end
 	if key == "power_lte" then return opcg.GetPower(c) <= value end
 	if key == "power_gte" then return opcg.GetPower(c) >= value end
@@ -479,6 +514,7 @@ function opcg.CompileFilter(filter, context)
 		attribute=true, attribute_neq=true, state=true, faceup=true,
 		cost_eq=true, cost_lte=true, cost_gte=true,
 		base_cost_eq=true, base_cost_lte=true, base_cost_gte=true, power_eq=true,
+		don_given=true, don_gte=true, cost_eq_attached_don=true,
 		power_lte=true, power_gte=true, base_power_eq=true, base_power_lte=true,
 		base_power_gte=true, counter_eq=true, vanilla=true, has_trigger=true,
 		keyword=true, character_cost_lte=true, power_sum_lte=true,
@@ -595,6 +631,20 @@ function opcg.SelectCards(selector, context)
 	local out = {}
 	for card in aux.Next(selected) do out[#out + 1] = card end
 	return out
+end
+
+-- 이번 턴 이벤트 발동 이력(플레이어별 턴 스탬프+최대 원래 코스트).
+-- EVENT_ACTIVATED_THIS_TURN 조건(OP15-002 루시)이 소비한다.
+opcg._event_activated_usage = opcg._event_activated_usage or {}
+function opcg.RecordEventActivated(player, card)
+	local turn = Duel.GetTurnCount and Duel.GetTurnCount() or 0
+	local usage = opcg._event_activated_usage[player]
+	if not usage or usage.turn ~= turn then
+		usage = { turn = turn, max_cost = 0 }
+		opcg._event_activated_usage[player] = usage
+	end
+	local cost = card and opcg.GetBaseCost and (opcg.GetBaseCost(card) or 0) or 0
+	if cost > (usage.max_cost or 0) then usage.max_cost = cost end
 end
 
 return opcg
