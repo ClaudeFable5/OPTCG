@@ -761,10 +761,20 @@ function X.execute(op, action, context)
 		return remember(context, played)
 	elseif op == "CHANGE_ATTACK_TARGET" then
 		local cards = choose(action.selector, context)
-		if cards[1] and context.battle then
-			context.battle.target = cards[1]
-			context.battle.target_field_id = cards[1]:GetFieldID()
+		if cards[1] then
+			-- 구 배틀 심의 유물(context.battle.target 필드 갱신 - 현행 live
+			-- 구조체에 없는 옛 이름)이라 선택만 되고 실제 어택은 그대로였다
+			-- (OP14-060 유저 제보 2026-07-27). 현행 배틀은 네이티브 코어 소관:
+			-- 블록 처리(opcg_battle 353행)와 동일하게 코어의 대상 교체를
+			-- 호출한다(두 번째 인자 true = 후보 재검사 생략 - OPCG 적법성은
+			-- 셀렉터가 이미 판단). MSG_ATTACK 재발신으로 클라 어택선도 갱신.
+			if Duel.GetAttacker and Duel.GetAttacker() then
+				Duel.ChangeAttackTarget(cards[1], true)
+			end
 			context.battle_target = cards[1]
+			if context.battle and context.battle.context then
+				context.battle.context.battle_target = cards[1]
+			end
 		end
 		return cards
 	elseif op == "RETURN_DON_TO_MATCH_OPPONENT" then
