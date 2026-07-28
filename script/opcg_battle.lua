@@ -472,6 +472,12 @@ function B.install()
 			ko_event.event_count = 1
 			dispatch(field_cards(live.defending_player),
 				"ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO", ko_event)
+			-- "KO 당했을 때 또는 상대 효과로 이탈" 복합 타이밍(OP10-042 우솝
+			-- 드로 등): 효과 이탈 분기는 after_remove가 쏘지만 원문의 KO절은
+			-- 원인 불문이라 배틀 KO도 울려야 한다(유저 제보 2026-07-27:
+			-- 상대 어택으로 드레스로자가 죽는 정상 시나리오에서 드로 침묵).
+			dispatch(field_cards(live.defending_player),
+				"ON_OWN_TRAIT_CHARACTER_KO_OR_LEFT_BY_OPPONENT_EFFECT", ko_event)
 		end
 		if target and live.final_target_is_character then
 			-- "이번 턴 상대 캐릭터와 배틀했다" 조건용 기록
