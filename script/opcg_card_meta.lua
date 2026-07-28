@@ -2288,6 +2288,23 @@ opcg.card_meta = {
 	[880002283]={name="난 무서워…♡",base_card_no="OP14-118",card_type="EVENT",colors=32,traits={["왕의 부하 칠무해"]=true,["구사 해적단"]=true},attributes={}},
 	[880002284]={name="쥬라큘 미호크",base_card_no="OP14-119",card_type="CHARACTER",colors=2,traits={["왕의 부하 칠무해"]=true},attributes={["SLASH"]=true}},
 	[880002285]={name="크로커다일",base_card_no="OP14-120",card_type="CHARACTER",colors=16,traits={["왕의 부하 칠무해"]=true,["바로크 워크스"]=true},attributes={["SPECIAL"]=true}},
+	[880002286]={name="몽키 D. 루피",base_card_no="ST29-001",card_type="LEADER",colors=32,traits={["에그 헤드"]=true,["사황"]=true,["밀짚모자 일당"]=true},attributes={["STRIKE"]=true}},
+	[880002287]={name="우솝",base_card_no="ST29-002",card_type="CHARACTER",colors=32,traits={["에그 헤드"]=true,["밀짚모자 일당"]=true},attributes={["RANGED"]=true}},
+	[880002288]={name="카쿠",base_card_no="ST29-003",card_type="CHARACTER",colors=32,traits={["에그 헤드"]=true,["CP0"]=true},attributes={["SLASH"]=true}},
+	[880002289]={name="상디",base_card_no="ST29-004",card_type="CHARACTER",colors=32,traits={["에그 헤드"]=true,["밀짚모자 일당"]=true},attributes={["STRIKE"]=true}},
+	[880002290]={name="징베",base_card_no="ST29-005",card_type="CHARACTER",colors=32,traits={["어인족"]=true,["에그 헤드"]=true,["밀짚모자 일당"]=true},attributes={["STRIKE"]=true}},
+	[880002291]={name="스튜시",base_card_no="ST29-006",card_type="CHARACTER",colors=32,traits={["에그 헤드"]=true},attributes={["SPECIAL"]=true}},
+	[880002292]={name="토니토니 쵸파",base_card_no="ST29-007",card_type="CHARACTER",colors=32,traits={["동물"]=true,["에그 헤드"]=true,["밀짚모자 일당"]=true},attributes={["WISDOM"]=true}},
+	[880002293]={name="나미",base_card_no="ST29-008",card_type="CHARACTER",colors=32,traits={["에그 헤드"]=true,["밀짚모자 일당"]=true},attributes={["SPECIAL"]=true}},
+	[880002294]={name="니코 로빈",base_card_no="ST29-009",card_type="CHARACTER",colors=32,traits={["에그 헤드"]=true,["밀짚모자 일당"]=true},attributes={["STRIKE"]=true}},
+	[880002295]={name="프랑키",base_card_no="ST29-010",card_type="CHARACTER",colors=32,traits={["에그 헤드"]=true,["밀짚모자 일당"]=true},attributes={["RANGED"]=true}},
+	[880002296]={name="브룩",base_card_no="ST29-011",card_type="CHARACTER",colors=32,traits={["에그 헤드"]=true,["밀짚모자 일당"]=true},attributes={["SLASH"]=true}},
+	[880002297]={name="몽키 D. 루피",base_card_no="ST29-012",card_type="CHARACTER",colors=32,traits={["에그 헤드"]=true,["사황"]=true,["밀짚모자 일당"]=true},attributes={["STRIKE"]=true}},
+	[880002298]={name="로브 루치",base_card_no="ST29-013",card_type="CHARACTER",colors=32,traits={["에그 헤드"]=true,["CP0"]=true},attributes={["STRIKE"]=true}},
+	[880002299]={name="롤로노아 조로",base_card_no="ST29-014",card_type="CHARACTER",colors=32,traits={["에그 헤드"]=true,["밀짚모자 일당"]=true},attributes={["SLASH"]=true}},
+	[880002300]={name="온도 레어 스트라이크 !!!",base_card_no="ST29-015",card_type="EVENT",colors=32,traits={["에그 헤드"]=true,["밀짚모자 일당"]=true},attributes={}},
+	[880002301]={name="키자루!! 우리는 2년 전보다 100배는 강하다고",base_card_no="ST29-016",card_type="EVENT",colors=32,traits={["에그 헤드"]=true,["사황"]=true,["밀짚모자 일당"]=true},attributes={}},
+	[880002302]={name="사 · 사자의 노래",base_card_no="ST29-017",card_type="EVENT",colors=32,traits={["에그 헤드"]=true,["밀짚모자 일당"]=true},attributes={}},
 }
 
 function opcg.GetCardMetaByCode(code)
