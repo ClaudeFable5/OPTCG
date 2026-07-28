@@ -44,7 +44,10 @@ function s.initial_effect(c)
         conditions={},
         costs={},
         effect_id=[[E2]],
-        once_per_turn=false,
+        -- 턴 1회 제약(유저 재정 2026-07-27): 무효 상태에서 같은 턴 재발동 시
+        -- 자기-무효 재적용이 무한루프를 일으켜 봉인. 원문에 턴1회 표기는
+        -- 없으나 같은 턴 2회째는 어차피 무의미(이미 무효)라 실전 손실 없음.
+        once_per_turn=true,
         source_text=[[효과로 자신의 패가 버려졌을 때, 이 캐릭터는, 이번 턴 동안, 효과가 무효가 된다.]],
         timings={
           [[ON_HAND_DISCARDED_BY_TRAIT_EFFECT]],
