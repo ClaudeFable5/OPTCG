@@ -303,6 +303,64 @@ local known_cost = {
     TRASH_FIELD_OR_HAND=true,
 }
 
+-- 의미 동의어 별칭(유저 하달 2026-07-29 "같은 constant에 이름 여러 개"):
+-- 저작 IR이 동의어 op를 적어도 등록 시 정본 이름으로 정규화되어 검증·형태
+-- 검사·실행 전 경로가 그대로 동작한다. 신규 별칭은 이 표에만 추가하면 된다.
+-- (사고 이력: TRASH_HAND_FOR_POWER 자작 - 정본 DISCARD_HAND_FOR_POWER 실재)
+local op_alias = {
+    TRASH_HAND_FOR_POWER = "DISCARD_HAND_FOR_POWER",
+    DISCARD_HAND = "TRASH_HAND",
+    DISCARD_HAND_TO_COUNT = "TRASH_HAND_TO_COUNT",
+    MILL = "MILL_DECK",
+    TRASH_DECK_TOP = "MILL_DECK",
+    DECK_TOP_TO_TRASH = "MILL_DECK",
+    MAKE_ACTIVE = "SET_ACTIVE",
+    UNREST = "SET_ACTIVE",
+    GAIN_POWER = "MODIFY_POWER",
+    BUFF_POWER = "MODIFY_POWER",
+}
+local function canonical_op(op)
+    return op_alias[op] or op
+end
+local normalize_ops, normalize_costs, normalize_conditions
+normalize_conditions = function(conditions)
+    for _, condition in ipairs(conditions or {}) do
+        if type(condition) == "table" and condition.op then
+            condition.op = canonical_op(condition.op)
+        end
+    end
+end
+normalize_costs = function(costs)
+    for _, cost in ipairs(costs or {}) do
+        if type(cost) == "table" then
+            if cost.op then cost.op = canonical_op(cost.op) end
+            for _, option in ipairs(cost.options or {}) do normalize_costs(option) end
+        end
+    end
+end
+normalize_ops = function(actions)
+    for _, action in ipairs(actions or {}) do
+        if type(action) == "table" then
+            if action.op then action.op = canonical_op(action.op) end
+            for _, option in ipairs(action.options or {}) do normalize_ops(option) end
+            normalize_ops(action.actions)
+            normalize_ops(action.on_match)
+            normalize_ops(action.otherwise)
+            normalize_ops(action.replacement_actions)
+            normalize_costs(action.replacement_costs)
+            normalize_conditions(action.conditions)
+            normalize_conditions(action.disabled_if)
+        end
+    end
+end
+local function normalize_definition(definition)
+    for _, effect in ipairs((definition or {}).effects or {}) do
+        normalize_ops(effect.actions)
+        normalize_costs(effect.costs)
+        normalize_conditions(effect.conditions)
+    end
+end
+
 local function validate_array(value, label)
     assert(type(value) == "table", label .. " must be a table")
 end
@@ -401,6 +459,7 @@ end
 
 function opcg.RegisterCard(card, definition)
     assert(card ~= nil, "card is required")
+    normalize_definition(definition)
     opcg.ValidateDefinition(definition)
     assign_choice_string_bases(definition)
     opcg._definitions[card] = definition
@@ -432,6 +491,7 @@ end
 
 function opcg.RegisterReviewCard(card, definition)
     assert(card ~= nil, "card is required")
+    normalize_definition(definition)
     opcg.ValidateReviewDefinition(definition)
     opcg._review_definitions[card] = definition
     if opcg.runtime and opcg.runtime.register_review_card then
