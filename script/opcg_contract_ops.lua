@@ -984,11 +984,15 @@ function X.register_continuous(card, effect, action, condition)
 	if op == "DEFER_DECKOUT_TO_TURN_END" then
 		-- OP15-022 브룩 리더: 룰상 덱 0장이어도 즉시 패배하지 않고, 덱이
 		-- 0장이 된 턴의 종료 시 패배한다. CANNOT_LOSE_DECK로 즉사를 막고,
-		-- 턴 종료(EVENT_PHASE+PHASE_END 끝) 시점에 덱 0이면 상대 승리.
+		-- 턴 종료에 덱 0이면 상대 승리. 발화는 EVENT_TURN_END(엔드 페이즈가
+		-- 다 끝난 턴 경계, 즉석 해결)여야 한다 — EVENT_PHASE+PHASE_END에
+		-- 태우면 PhaseEvent 수집 루프가 소진 표식 없는 이 연속효과를 매
+		-- 재시작마다 다시 주워 SELECT_CHAIN 무한 공회전(유저 리플레이
+		-- 2026-07-29, 항복으로만 탈출 가능)에 빠진다.
 		continuous_player_effect(card, action, EFFECT_CANNOT_LOSE_DECK, 1, condition)
 		local lose = Effect.CreateEffect(card)
 		lose:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
-		lose:SetCode(EVENT_PHASE + PHASE_END)
+		lose:SetCode(EVENT_TURN_END)
 		lose:SetRange(source_range(card))
 		lose:SetCondition(function()
 			return (condition == nil or condition())
