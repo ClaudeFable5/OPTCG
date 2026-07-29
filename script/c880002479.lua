@@ -1,4 +1,4 @@
--- AUTO-GENERATED: EB04-058 / 보르살리노
+-- AUTO-GENERATED: EB04-058 / 볼사리노
 -- rules_id=EB04-058 script_id=880002479 fingerprint=1791e55918688e2e046ae4db66689275a1fb2f69ecbffff7da7e36507f336067
 local s,id=GetID()
 function s.initial_effect(c)

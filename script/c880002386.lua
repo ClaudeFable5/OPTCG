@@ -1,4 +1,4 @@
--- AUTO-GENERATED: OP15-084 / 닥터 호그백
+-- AUTO-GENERATED: OP15-084 / Dr. 호그백
 -- rules_id=OP15-084 script_id=880002386 fingerprint=92cef87258e668927a534ae05050f6224f18a6f90d9aee51b98bdabf6658cd7c
 local s,id=GetID()
 function s.initial_effect(c)
