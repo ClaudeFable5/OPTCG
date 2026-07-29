@@ -455,14 +455,11 @@ function B.install()
 			and target:IsLocation(LOCATION_GRAVE) and target:IsReason(REASON_BATTLE) then
 			dispatch({attacker}, "ON_BATTLE_KO", context)
 			dispatch({target}, "ON_SELF_KO", context)
-			dispatch(field_cards(live.attacking_player),
-				"ON_OPPONENT_CHARACTER_KO", context)
-			dispatch(field_cards(live.attacking_player), "ON_ANY_CHARACTER_KO", context)
-			dispatch(field_cards(live.defending_player), "ON_ANY_CHARACTER_KO", context)
-			-- 아군 캐릭터 KO 청취(OP13-002 E2 등): 효과 KO는 after_remove가
-			-- 쏘지만 배틀 KO는 그 경로를 안 타므로 여기서 쏜다. 판정 대상은
-			-- event_target에 박은 깨끗한 사본으로 — live.context를 그대로 주면
-			-- 리더 히트가 남긴 damage가 조건의 '데미지 받음' 분기를 오발시킨다.
+			-- KO 계열 공통 정제 문맥: event_target에 KO된 캐릭터를 박은 사본.
+			-- live.context를 그대로 주면 ①리더 히트가 남긴 damage가 '데미지
+			-- 받음' 분기를 오발시키고 ②EVENT_TARGET_* 조건(행콕 OP14-041 등)이
+			-- 판정할 대상이 없어 소리 없이 탈락한다(유저 리플레이 제보
+			-- 2026-07-29: 둥×1 부여 상태에서 아군 KO에도 E2 무프롬프트).
 			local ko_event = {}
 			for key, value in pairs(context or {}) do ko_event[key] = value end
 			ko_event.damage = nil
@@ -471,6 +468,10 @@ function B.install()
 			ko_event.event_targets = {target}
 			ko_event.event_cards = {target}
 			ko_event.event_count = 1
+			dispatch(field_cards(live.attacking_player),
+				"ON_OPPONENT_CHARACTER_KO", ko_event)
+			dispatch(field_cards(live.attacking_player), "ON_ANY_CHARACTER_KO", ko_event)
+			dispatch(field_cards(live.defending_player), "ON_ANY_CHARACTER_KO", ko_event)
 			dispatch(field_cards(live.defending_player),
 				"ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO", ko_event)
 			-- "KO 당했을 때 또는 상대 효과로 이탈" 복합 타이밍(OP10-042 우솝

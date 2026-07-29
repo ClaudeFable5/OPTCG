@@ -622,7 +622,9 @@ function C.CheckCondition(op, condition, context)
 			or (target ~= nil and opcg.GetBaseCost(target) >= n)
 	end
 	if op == "EVENT_TARGET_BASE_POWER_GTE" then
-		return target ~= nil and opcg.GetBasePower(target) >= n
+		-- IR 표기는 amount=5000(행콕 OP14-041) — count 기본값 0과 비교하면
+		-- 문턱이 무력화된다(과발동 방향 잠복 결함).
+		return target ~= nil and opcg.GetBasePower(target) >= (condition.amount or n)
 	end
 	if op == "EVENT_DAMAGE_OR_TARGET_BASE_POWER_GTE" then
 		-- GTE(amount)는 'KO된 대상의 원래 파워' 분기에만 걸린다 (OP13-002 E2:
