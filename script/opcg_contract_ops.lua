@@ -1000,6 +1000,18 @@ function X.register_continuous(card, effect, action, condition)
 		card:RegisterEffect(lose)
 		return true
 	end
+	if op == "NATIVE_EFFECT" then
+		-- 예비 함수 연속형: 네이티브 코드를 상주 효과로 직결(셀렉터 무지정=SELF)
+		local code = opcg.ResolveNativeEffectCode(action.code)
+		if not code then return false end
+		local shaped = action
+		if not action.selector then
+			shaped = {}
+			for key, value in pairs(action) do shaped[key] = value end
+			shaped.selector = { kind = "SELF", count = 1, mode = "EXACT", owner = "YOU" }
+		end
+		return continuous_card_effect(card, shaped, code, action.value or 1, condition)
+	end
 	if op == "DON_DECK_SIZE" then
 		-- 룰상 둥!! 덱 크기(에넬 6장): 리더 자신에 상주 등록, 값=크기.
 		-- selector 무지정이 정본 IR - continuous_card_effect가 요구하는 SELF

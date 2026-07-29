@@ -71,6 +71,17 @@ opcg.EFFECT_GRANT_ATTRIBUTE = opcg.EFFECT_GRANT_ATTRIBUTE or 0x7f4f121f
 opcg.ATTRIBUTE_BITS = opcg.ATTRIBUTE_BITS or {
 	STRIKE = 1, SLASH = 2, RANGED = 4, SPECIAL = 8, WISDOM = 16,
 }
+-- NATIVE_EFFECT(예비 함수)용 코드 해석: 숫자 그대로, "EFFECT_*"는 전역
+-- 네이티브 상수, "opcg.EFFECT_*"는 커스텀 상수를 찾는다.
+function opcg.ResolveNativeEffectCode(code)
+	if type(code) == "number" then return code end
+	if type(code) ~= "string" then return nil end
+	local custom = code:match("^opcg%.(.+)$")
+	if custom then return opcg[custom] end
+	local value = _G[code]
+	if type(value) == "number" then return value end
+	return nil
+end
 function opcg.GrantAttribute(c, attribute, reset, reset_count)
 	local bit = opcg.ATTRIBUTE_BITS[attribute]
 	if not c or not bit then return false end

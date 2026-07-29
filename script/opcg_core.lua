@@ -66,7 +66,7 @@ local ACTION = {
 	PLAY_SELF=true, SHUFFLE_DECK=true, ADD_SELF_TO_HAND=true, IF=true,
 	TRANSFER_ATTACHED_DON=true, MODIFY_COST=true, MODIFY_COUNTER=true,
 	GAIN_KEYWORD=true, GAIN_ATTRIBUTE=true, REVEAL_LIFE_TOP_FOR_POWER=true,
-	DRAW_PER_COUNT=true,
+	DRAW_PER_COUNT=true, NATIVE_EFFECT=true,
 	GIVE_OPPONENT_DON=true,
 	OPPONENT_MAY_RETURN_ACTIVE_DON_OR=true, DON_DECK_SIZE=true,
 	DEFER_DECKOUT_TO_TURN_END=true, MODIFY_POWER_PER_OWN_DON=true,
@@ -1659,6 +1659,20 @@ function C.ExecuteAction(op, action, context)
 		local minimum = action.mode == "EXACT" and (action.count or 1) or 0
 		context.last_action_succeeded = opcg.ReturnDon(player, action.count or 1, chooser, action.state, minimum) >= minimum
 		return {}
+	elseif op == "NATIVE_EFFECT" then
+		-- 예비 함수(유저 하달 2026-07-29 "정 모르겠으면 유희왕 효과로 우겨라"):
+		-- 마땅한 OPCG op가 없을 때 네이티브 효과 코드를 셀렉터 대상에 직결하는
+		-- 최후수단. code = "EFFECT_*"(전역) 또는 "opcg.EFFECT_*"(커스텀) 문자열
+		-- 이나 숫자. 기간은 표준 duration 어휘를 그대로 쓴다.
+		local code = opcg.ResolveNativeEffectCode(action.code)
+		assert(code, "unknown native effect code: " .. tostring(action.code))
+		cards = choose_selector(action.selector, context)
+		for _, card in ipairs(cards) do
+			modify_stat(context.card, card, code, action.value or 1, action.duration or "THIS_TURN")
+		end
+		context.last_action_succeeded = #cards > 0
+		context.last_action_effected = #cards > 0
+		return remember_targets(context, cards)
 	elseif op == "DRAW_PER_COUNT" then
 		-- EB04-011 우로코: 자신의 필터 일치 캐릭터 1장당 amount_per장 드로우.
 		-- then_discard_drawn=true면 그 후 뽑은 수만큼 패를 버린다(원문 결합형).
@@ -1945,7 +1959,7 @@ local function action_shape_supported(action, card)
 	end
 	if (action.op == "MODIFY_POWER" or action.op == "MODIFY_COST"
 			or action.op == "MODIFY_COUNTER" or action.op == "GAIN_KEYWORD"
-			or action.op == "GAIN_ATTRIBUTE")
+			or action.op == "GAIN_ATTRIBUTE" or action.op == "NATIVE_EFFECT")
 			and action.duration ~= "WHILE_CONDITION"
 		and action.duration ~= "RULE"
 		and not effect_reset(action.duration) then return false end

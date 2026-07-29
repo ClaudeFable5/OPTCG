@@ -160,6 +160,7 @@ local known_action = {
     GAIN_ATTRIBUTE=true,
     REVEAL_LIFE_TOP_FOR_POWER=true,
     DRAW_PER_COUNT=true,
+    NATIVE_EFFECT=true,
     DRAW_TO_HAND_COUNT=true,
     TRASH_HAND_TO_COUNT=true,
     REDRAW_HAND=true,
