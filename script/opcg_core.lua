@@ -1870,6 +1870,22 @@ function C.ExecuteAction(op, action, context)
 					reveal_cards_to(other(player), { card })
 					remove_cards({ card }, REASON_EFFECT, "TRASH")
 				end
+				if opcg.IsEvent(card) then
+					-- 효과로 발동한 이벤트도 정규 발동 대접(OP15-046 사보 → OP15-002 루시 E2):
+					-- 이력 기록과 발동 방송을 register_event_play와 같은 묶음으로 쏜다
+					if opcg.RecordEventActivated then opcg.RecordEventActivated(player, card) end
+					if opcg.contract_ops and opcg.contract_ops.emit then
+						local act = { card=card, player=player,
+							turn_id=Duel.GetTurnCount and Duel.GetTurnCount() or 0,
+							event_target=card, event_targets={card}, event_cards={card},
+							event_count=1, event_player=player, effect_play=true }
+						opcg.contract_ops.emit("ON_YOUR_EVENT_ACTIVATED", act, player)
+						opcg.contract_ops.emit("ON_OPPONENT_EVENT_ACTIVATED", act, 1 - player)
+						opcg.contract_ops.emit("ON_OPPONENT_EVENT_OR_TRIGGER_ACTIVATED", act, 1 - player)
+						opcg.contract_ops.emit("ON_OPPONENT_BLOCKER_OR_EVENT_ACTIVATED", act, 1 - player)
+						opcg.contract_ops.emit("ON_OPPONENT_HIGH_COST_OR_EFFECT_PLAY", act, 1 - player)
+					end
+				end
 				local done = C.DispatchTiming(card, timing, nil)
 				effected = effected or #(done or {}) > 0
 			end

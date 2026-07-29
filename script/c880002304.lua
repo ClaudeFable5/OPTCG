@@ -32,7 +32,7 @@ function s.initial_effect(c)
         costs={},
         effect_id=[[E1]],
         once_per_turn=false,
-        source_text=[[【어택 시】/【상대의 어택 시】자신의 패에서 이벤트나 스테이지 카드를 원하는 만큼 버릴 수 있다. 버린 카드 1장당, 이 리더는 이번 배틀 동안 파워 +1000.]],
+        source_text=[[【어택 시】/【상대의 어택 시】자신의 패에서 원하는 수의 이벤트나 스테이지 카드를 버릴 수 있다. 버린 카드 1장당, 이번 배틀 동안, 이 리더의 파워 +1000.]],
         timings={
           [[WHEN_ATTACKING_OR_ATTACKED]],
         },
@@ -55,7 +55,7 @@ function s.initial_effect(c)
         costs={},
         effect_id=[[E2]],
         once_per_turn=true,
-        source_text=[[【기동: 메인】【턴 1회】이번 턴 동안 자신이 원래 코스트 3 이상인 이벤트를 발동했을 경우, 카드를 1장 뽑는다.]],
+        source_text=[[【기동: 메인】【턴 1회】이번 턴 동안, 자신이 원래 코스트가 3 이상인 이벤트를 발동했을 경우, 카드를 1장 뽑는다.]],
         timings={
           [[ACTIVATE_MAIN]],
         },
