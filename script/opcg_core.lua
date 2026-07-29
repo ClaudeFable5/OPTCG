@@ -67,7 +67,7 @@ local ACTION = {
 	TRANSFER_ATTACHED_DON=true, MODIFY_COST=true, MODIFY_COUNTER=true,
 	GAIN_KEYWORD=true, GAIN_ATTRIBUTE=true, REVEAL_LIFE_TOP_FOR_POWER=true,
 	DRAW_PER_COUNT=true,
-	GIVE_OPPONENT_DON=true, TRASH_HAND_FOR_POWER=true,
+	GIVE_OPPONENT_DON=true,
 	OPPONENT_MAY_RETURN_ACTIVE_DON_OR=true, DON_DECK_SIZE=true,
 	DEFER_DECKOUT_TO_TURN_END=true, MODIFY_POWER_PER_OWN_DON=true,
 	SEARCH_DECK_TOP=true, PLAY_FROM_DECK_TOP=true,
@@ -994,27 +994,6 @@ function C.PayCost(op, cost, context)
 			end
 		end
 		context.last_action_succeeded = true
-		return {}
-	elseif op == "TRASH_HAND_FOR_POWER" then
-		-- OP15-002 루시 E1: 패에서 필터 카드 임의 매수(0..N) 버리고 장당
-		-- amount만큼 리더 파워를 duration 동안 올린다.
-		local hand = zone_group(player, LOCATION_HAND, action.filter, context)
-		local available = hand and hand:GetCount() or 0
-		local picked = 0
-		if available > 0 then
-			local sel = hand:Select(player, 0, available, nil)
-			if sel:GetCount() > 0 then Duel.HintSelection(sel, true) end
-			picked = Duel.SendtoGrave(sel, REASON_COST + REASON_DISCARD)
-		end
-		if picked > 0 then
-			local lead = opcg.GetLeader(player)
-			if lead then
-				modify_stat(context.card, lead, EFFECT_UPDATE_ATTACK,
-					(action.amount or 1000) * picked, action.duration or "THIS_BATTLE")
-			end
-		end
-		context.last_action_succeeded = true
-		context.last_action_effected = picked > 0
 		return {}
 	elseif op == "MODIFY_POWER_PER_OWN_DON" then
 		-- OP15-008 크리크 E2: 셀렉터 전 대상 각각, '그 카드에 부착된 둥!! 수 ×

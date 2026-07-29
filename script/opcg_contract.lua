@@ -73,7 +73,6 @@ local known_action = {
     ADD_DON=true,
     GIVE_DON=true,
     GIVE_OPPONENT_DON=true,
-    TRASH_HAND_FOR_POWER=true,
     OPPONENT_MAY_RETURN_ACTIVE_DON_OR=true,
     DON_DECK_SIZE=true,
     DEFER_DECKOUT_TO_TURN_END=true,
