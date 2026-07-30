@@ -1095,34 +1095,45 @@ function X.register_continuous(card, effect, action, condition)
 				card=card, player=card:GetControler(),
 			})
 		end
-		local native = Effect.CreateEffect(card)
-		native:SetCode(EFFECT_UPDATE_LEVEL)
-		native:SetCondition(combined)
 		local amount = action.amount or 0
+		-- 코스트 채널 이중 발신: EFFECT_UPDATE_LEVEL은 몬스터 프레임(캐릭터/
+		-- 리더) 전용이다 — 비몬스터(이벤트/스테이지)는 코어 get_level이 효과
+		-- 조회 전에 구조적으로 0을 반환(card.cpp:997)해 감소가 증발한다
+		-- (OP15-021 자기감소, 크로커다일 880000190 이벤트 아우라). 그래서
+		-- 전용 코드(EFFECT_MODIFY_HAND_COST)를 쌍둥이로 함께 상주시키고,
+		-- opcg.GetCost의 비몬스터 폴백이 그 채널을 합산한다(몬스터는
+		-- GetLevel이 이미 반영하므로 그쪽에서 이중 적용 없음).
+		local function register_channel(code, value)
+			local native = Effect.CreateEffect(card)
+			native:SetCode(code)
+			native:SetCondition(combined)
+			native:SetValue(value)
+			if selector.kind == "SELF" then
+				native:SetType(EFFECT_TYPE_SINGLE)
+				native:SetProperty(EFFECT_FLAG_SINGLE_RANGE)
+				native:SetRange(LOCATION_HAND)
+			else
+				local predicate = filter_for(action.filter, {card=card, player=card:GetControler()})
+				native:SetType(EFFECT_TYPE_FIELD)
+				native:SetRange(source_range(card))
+				native:SetTargetRange(LOCATION_HAND, 0)
+				native:SetTarget(function(_, target) return predicate(target) end)
+			end
+			card:RegisterEffect(native)
+		end
 		if amount < 0 then
 			-- 마이너스 레벨 불허(유저 재정 2026-07-18) — opcg_core modify_stat과
 			-- 동일한 소스 클램프(현재 코스트 밑으로 감소 불가, uint32 랩 방어).
-			native:SetValue(function(e, c)
+			register_channel(EFFECT_UPDATE_LEVEL, function(e, c)
 				local cur = c:GetLevel()
 				if cur < 0 or cur >= 0x80000000 then cur = 0 end
 				if cur + amount < 0 then return -cur end
 				return amount
 			end)
 		else
-			native:SetValue(amount)
+			register_channel(EFFECT_UPDATE_LEVEL, amount)
 		end
-		if selector.kind == "SELF" then
-			native:SetType(EFFECT_TYPE_SINGLE)
-			native:SetProperty(EFFECT_FLAG_SINGLE_RANGE)
-			native:SetRange(LOCATION_HAND)
-		else
-			local predicate = filter_for(action.filter, {card=card, player=card:GetControler()})
-			native:SetType(EFFECT_TYPE_FIELD)
-			native:SetRange(source_range(card))
-			native:SetTargetRange(LOCATION_HAND, 0)
-			native:SetTarget(function(_, target) return predicate(target) end)
-		end
-		card:RegisterEffect(native)
+		register_channel(opcg.EFFECT_MODIFY_HAND_COST, amount)
 		return true
 	end
 	if op == "REPLACE_LIFE_TO_HAND" then

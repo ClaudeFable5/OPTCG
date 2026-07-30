@@ -350,6 +350,19 @@ function opcg.GetCost(c)
 	if cost == 0 and c.IsType and not c:IsType(TYPE_MONSTER)
 		and c.GetOriginalLevel then
 		cost = c:GetOriginalLevel()
+		-- [OPCG] 비몬스터 프레임은 UPDATE_LEVEL이 코어에서 무효(card.cpp:997
+		-- 이 효과 조회 전에 0 반환)라 "패의 이 카드 코스트 -N"(OP15-021 등)이
+		-- 증발한다 — 상주 등록부(contract_ops MODIFY_HAND_COST)가 쌍둥이로
+		-- 발신하는 전용 채널을 여기서 합산한다. 조건(트래시 매수 등)·범위
+		-- (패 한정) 판정은 IsHasEffect가 효과 시스템 규칙대로 수행. 카드당
+		-- 1건 판독(현 코퍼스에 중첩 사례 없음).
+		if opcg.EFFECT_MODIFY_HAND_COST and c.IsHasEffect then
+			local e = c:IsHasEffect(opcg.EFFECT_MODIFY_HAND_COST)
+			if e then
+				local v = e.GetValue and e:GetValue()
+				if type(v) == "number" then cost = cost + v end
+			end
+		end
 	end
 	if cost < 0 then cost = 0 end
 	return cost
