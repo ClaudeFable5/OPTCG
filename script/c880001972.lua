@@ -21,6 +21,16 @@ function s.initial_effect(c)
           {
             count=1,
             op=[[CHOOSE]],
+            option_conditions={
+              {},
+              {
+                {
+                  count=1,
+                  op=[[LIFE_GTE]],
+                  player=[[YOU]],
+                },
+              },
+            },
             options={
               {},
               {
