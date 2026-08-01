@@ -7,21 +7,30 @@ function s.initial_effect(c)
     compile_status=[[AUTO]],
     effects={
       {
-        actions={},
-        conditions={
+        actions={
           {
-            count=99,
-            op=[[CHARACTER_COUNT_GTE]],
-            player=[[YOU]],
-            reason=[[GAIN_RUSH_FILTER_NO_ON_PLAY_EFFECT]],
+            duration=[[THIS_TURN]],
+            keyword=[[RUSH]],
+            op=[[GAIN_KEYWORD]],
+            selector={
+              count=1,
+              filter={
+                cost_lte=8,
+                no_on_play_effect=true,
+              },
+              kind=[[CHARACTER]],
+              mode=[[UP_TO]],
+              owner=[[YOU]],
+            },
           },
         },
+        conditions={},
         costs={},
         effect_id=[[E1]],
-        once_per_turn=false,
-        source_text=[[【기동: 메인】【턴 1회】자신의 코스트 8 이하인 【등장 시】 효과를 가지지 않은 캐릭터 1장까지는, 이번 턴 동안, 【속공】을 얻는다.]],
+        once_per_turn=true,
+        source_text=[[【기동: 메인】【턴 1회】자신의 코스트 8 이하인 【등장 시】 효과를 가지지 않은 캐릭터 1장까지는, 이번 턴 동안, 【속공】을 얻는다.(이 카드는 등장한 턴에 어택할 수 있다.)]],
         timings={
-          [[CONTINUOUS]],
+          [[ACTIVATE_MAIN]],
         },
       },
     },

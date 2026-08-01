@@ -21,7 +21,7 @@ function s.initial_effect(c)
         once_per_turn=false,
         source_text=[[【등장 시】카드를 2장 뽑고, 자신의 패 2장을 원하는 순서대로 바꿔 넣고, 덱 위나 아래에 놓는다. 그 후, 자신의 리더에게 레스트 상태인 두웅!! 1장까지를 부여한다.]],
         timings={
-          [[CONTINUOUS]],
+          [[ON_PLAY]],
         },
       },
     },

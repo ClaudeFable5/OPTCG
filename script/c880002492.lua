@@ -21,7 +21,7 @@ function s.initial_effect(c)
         once_per_turn=false,
         source_text=[[【등장 시】자신의 모든 패를 원하는 순서대로 덱 맨 아래로 되돌릴 수 있다. 이 경우, 되돌린 수만큼 카드를 뽑는다.]],
         timings={
-          [[CONTINUOUS]],
+          [[ON_PLAY]],
         },
       },
     },

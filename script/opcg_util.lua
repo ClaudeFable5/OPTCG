@@ -224,6 +224,20 @@ function opcg.HasAttackEffect(c)
 	end
 	return false
 end
+-- 「【등장 시】 효과를 가지지 않은」(PRB01-001류) 판독기: OP09-081 티치의
+-- 등장 시 무효화가 쓰는 것과 같은 등록부(definition)를 읽어 라벨 보유만
+-- 본다. 기준 = ON_PLAY 타이밍(다른 *_PLAYED 계열은 남의 등장을 듣는
+-- 청취 타이밍이지 그 카드의 【등장 시】 라벨이 아니다).
+function opcg.HasOnPlayEffect(c)
+	local d = definition(c)
+	if not d then return false end
+	for _, effect in ipairs(d.effects or {}) do
+		for _, timing in ipairs(effect.timings or {}) do
+			if timing == "ON_PLAY" then return true end
+		end
+	end
+	return false
+end
 function opcg.HasKeyword(c, keyword)
 	local effect_code = opcg.KEYWORD_EFFECT[keyword]
 	if effect_code and c.IsHasEffect and c:IsHasEffect(effect_code) then return true end
@@ -490,6 +504,7 @@ local function scalar_filter(c, key, value, context)
 	if key == "vanilla" then return opcg.IsVanilla(c) == value end
 	if key == "has_trigger" then return opcg.HasLifeTrigger(c) == value end
 	if key == "no_attack_effect" then return (not opcg.HasAttackEffect(c)) == value end
+	if key == "no_on_play_effect" then return (not opcg.HasOnPlayEffect(c)) == value end
 	if key == "exclude_self" then return not value or c ~= context.card end
 	if key == "cost_lte_life_total" then
 		return opcg.GetCost(c) <= opcg.LifeCount(0) + opcg.LifeCount(1)
@@ -549,7 +564,7 @@ function opcg.CompileFilter(filter, context)
 		-- 누락되면 keys_ok=false → CompileFilter가 nil → shape 미지원 판정으로
 		-- 그 필터를 쓴 효과 전체가 발동 봉쇄됐다(EB03-001 비비 no_attack_effect
 		-- 유저 제보). 아래는 scalar_filter 구현과 대조해 채운 잔여분.
-		no_attack_effect=true,
+		no_attack_effect=true, no_on_play_effect=true,
 	}
 	local function keys_ok(value)
 		for key, nested in pairs(value or {}) do
