@@ -1,0 +1,2 @@
+-- AUTO-GENERATED PRINTING ALIAS: P-016_P1 -> 880002020
+Duel.LoadScript("c880002020.lua", false)
