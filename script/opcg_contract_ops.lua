@@ -708,34 +708,48 @@ function X.execute(op, action, context)
 			return from_group(group:Select(c, 0, group:GetCount(), nil))
 		end, "KO")
 	elseif op == "REST_CARD_OR_DON" or op == "SET_ACTIVE_CARD_OR_DON" then
-		local maximum = action.count or 1
-		if action.mode == "UP_TO" then
-			local available_don = op == "REST_CARD_OR_DON" and opcg.ActiveDon(player) or opcg.RestedDon(player)
-			local available_cards = action.card_selector and (action.card_selector.count or 1) or 0
-			maximum = math.min(maximum, available_don + available_cards)
+		local resting = op == "REST_CARD_OR_DON"
+		-- [OPCG] "캐릭터 또는 두웅!! 합계 N장"(OP12-037류) 재설계(유저 제보
+		-- "상대 둥이 선택 후보로 아예 안 뜸"): 종전엔 장수 문답 → 캐릭터만
+		-- 선택 → 잔여를 둥 자동 처리라 둥을 직접 집을 수 없었다. 이제 캐릭터
+		-- 후보와 코스트 에리어 둥을 **한 선택창에 같이** 올려 섞어 고르게
+		-- 한다. 고른 둥은 낱장 상태 전환(액티브 방향 금지 제약은 헬퍼가
+		-- 자체 존중), 캐릭터는 기존 헬퍼. 카드 셀렉터가 없는 둥 전용 문형은
+		-- 종전대로 자동 처리(전부 등가라 고르는 의미가 없다).
+		if not action.card_selector then
+			local amount = choose_number_up_to(chooser, action.count or 1, action.mode)
+			local moved_don = 0
+			if amount > 0 then
+				if resting then moved_don = opcg.RestDon(player, amount)
+				else moved_don = opcg.SetDonActive(player, amount) end
+			end
+			context.last_action_succeeded = moved_don > 0 or action.mode == "UP_TO"
+			return {}
 		end
-		local amount = choose_number_up_to(chooser, maximum, action.mode)
-		if amount == 0 then context.last_action_succeeded = action.mode == "UP_TO" return {} end
-		local card_action = {
-			selector=action.card_selector, player=action.player,
-			duration=action.duration,
-		}
-		if card_action.selector then
-			card_action.selector = {}
-			for key, value in pairs(action.card_selector) do card_action.selector[key] = value end
-			card_action.selector.count = math.min(card_action.selector.count or amount, amount)
+		local pool = Group.CreateGroup()
+		local chars = opcg.GetCandidateGroup and opcg.GetCandidateGroup(action.card_selector, context)
+		if chars then pool:Merge(chars) end
+		if opcg.DonStateGroup then
+			pool:Merge(opcg.DonStateGroup(player, not resting))
 		end
-		local cards = {}
-		if card_action.selector then cards = choose(card_action.selector, context) end
-		for _, card in ipairs(cards) do
-			if op == "REST_CARD_OR_DON" then opcg.SetRested(card, context) else opcg.SetActive(card) end
+		local maximum = math.min(action.count or 1, pool:GetCount())
+		local minimum = action.mode == "UP_TO" and 0 or maximum
+		local picked = {}
+		if maximum > 0 then
+			local selected = pool:Select(chooser, minimum, maximum, nil)
+			for card in aux.Next(selected) do picked[#picked + 1] = card end
 		end
-		local remaining = math.max(0, amount - #cards)
-		local moved_don
-		if op == "REST_CARD_OR_DON" then moved_don = opcg.RestDon(player, remaining)
-		else moved_don = opcg.SetDonActive(player, remaining) end
-		context.last_action_succeeded = #cards + moved_don > 0 or action.mode == "UP_TO"
-		return cards
+		local moved = 0
+		for _, card in ipairs(picked) do
+			if opcg.IsDon and opcg.IsDon(card) then
+				if opcg.SetDonRestedCard(card, resting, player) then moved = moved + 1 end
+			else
+				if resting then opcg.SetRested(card, context) else opcg.SetActive(card) end
+				moved = moved + 1
+			end
+		end
+		context.last_action_succeeded = moved > 0 or action.mode == "UP_TO"
+		return picked
 	elseif op == "PLAY_DISTINCT_FROM_TRASH" then
 		local group = Duel.GetMatchingGroup(filter_for(action.filter, context), player, LOCATION_GRAVE, 0, nil)
 		local played, names = {}, {}

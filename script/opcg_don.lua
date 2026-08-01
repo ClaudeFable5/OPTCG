@@ -300,6 +300,22 @@ function opcg.SetDonActive(player, amount, context)
 	set_group_rested(selected, false)
 	return selected:GetCount()
 end
+-- [OPCG] 낱장 지정 상태 전환(선택형 효과용 — OP12-037 "캐릭터 또는 두웅!!
+-- 합계 N장" 재설계): 액티브 방향의 금지 제약은 set_rested가 자체 존중한다.
+function opcg.SetDonRestedCard(card, rested, player)
+	if not is_don(card) then return false end
+	return set_rested(card, rested and true or false, player) ~= false
+end
+-- 코스트 에리어에서 상태별 둥 무리(rested=true → 레스트만 / false → 액티브만)
+function opcg.DonStateGroup(player, rested)
+	local source = overlay_group(opcg.GetDonCostHost(player))
+	if not source then return Group.CreateGroup() end
+	return source:Filter(function(card)
+		if not is_don(card) then return false end
+		if rested then return filter_rested(card) end
+		return filter_active(card)
+	end, nil)
+end
 
 -- Cost area -> leader/character. State restricts which cost-area DON may move.
 function opcg.GiveDon(player, target, amount, state)
