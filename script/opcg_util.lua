@@ -161,6 +161,28 @@ function opcg.GetName(c)
 end
 function opcg.HasName(c, name)
 	if opcg.GetName(c) == name then return true end
+	-- 「룰상 ~로도 취급한다」는 존 불문(총합룰: 카드명 취급은 모든 영역 상시).
+	-- 종전엔 필드 진입 때 붙는 상주 효과에만 의존해 패/덱/트래시에서 별명이
+	-- 증발했다(EB04-038 유저 제보). 무조건 상주 별명은 등록부(definition)에서
+	-- 직접 판독한다 - 조건부 별명은 아래 기존 효과 경로가 그대로 담당.
+	local d = definition(c)
+	if d then
+		for _, effect in ipairs(d.effects or {}) do
+			local resident = false
+			for _, t in ipairs(effect.timings or {}) do
+				if t == "RULE" or t == "CONTINUOUS" then resident = true break end
+			end
+			if resident and #(effect.conditions or {}) == 0 then
+				for _, action in ipairs(effect.actions or {}) do
+					if action.op == "ADD_NAME_ALIAS" and action.name == name
+						and #(action.conditions or {}) == 0
+						and (not action.selector or action.selector.kind == "SELF") then
+						return true
+					end
+				end
+			end
+		end
+	end
 	if not c or not opcg.EFFECT_NAME_ALIAS or not c.GetCardEffect then return false end
 	for _, effect in ipairs({c:GetCardEffect(opcg.EFFECT_NAME_ALIAS)}) do
 		local value = opcg.GetEffectValue(effect)
