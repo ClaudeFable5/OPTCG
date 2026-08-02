@@ -338,12 +338,18 @@ function B.install()
 		local attacker = Duel.GetAttacker()
 		local target = Duel.GetAttackTarget()
 		if not attacker or not target then return end
+		local live = live_for(attacker)
+		-- 어택 시 복합 문면(어택 시/상대의 어택 시 = WHEN_ATTACKING_OR_ATTACKED)도
+		-- 블록 선언 전에 완주해야 한다(총합룰 어택 순서; 유저 재정 2026-08-02:
+		-- 선언 → 턴P 어택시 → 비턴P 어택시 → 블로커). 종전엔 블로커 선택 뒤에
+		-- 발화해 루시(OP15-002)류 펌프가 블록 결정보다 늦게 떴다.
+		-- 나열 = attacker(턴P) 먼저, 원 대상(비턴P) 다음.
+		dispatch({attacker, target}, "WHEN_ATTACKING_OR_ATTACKED", live.context)
 		-- 어택시 창 마감 펌프: 선행 임의효과 거절로 표류 중인 [상대의 어택 시]
 		-- 계열 잔여 후보를 블록 프롬프트 전에 완주시킨다(타이밍 통일).
 		if opcg.effect_queue and opcg.effect_queue.pump_window then
 			opcg.effect_queue.pump_window()
 		end
-		local live = live_for(attacker)
 		local blocker = select_blocker(live.defending_player, blocker_candidates(live))
 		if blocker then
 			live.blocker = blocker
@@ -359,8 +365,8 @@ function B.install()
 			dispatch(field_cards(live.attacking_player),
 				"ON_OPPONENT_BLOCKER_OR_EVENT_ACTIVATED", live.context)
 		end
+		-- '배틀 할 때'(WHEN_BATTLING)만 블록 후: 배틀 상대 확정 시점 문면.
 		local current = Duel.GetAttackTarget() or target
-		dispatch({attacker, current}, "WHEN_ATTACKING_OR_ATTACKED", live.context)
 		dispatch({attacker, current}, "WHEN_BATTLING", live.context)
 	end)
 	Duel.RegisterEffect(block, 0)
