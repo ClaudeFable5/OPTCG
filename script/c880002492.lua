@@ -7,15 +7,19 @@ function s.initial_effect(c)
     compile_status=[[AUTO]],
     effects={
       {
-        actions={},
-        conditions={
+        actions={
           {
-            count=99,
-            op=[[CHARACTER_COUNT_GTE]],
+            count=[[ALL]],
+            draw_per_returned=true,
+            op=[[RETURN_HAND_TO_DECK]],
+            order=[[CHOOSE]],
             player=[[YOU]],
-            reason=[[RETURN_ALL_HAND_THEN_DRAW_PER_RETURNED]],
+            positions={
+              [[DECK_BOTTOM]],
+            },
           },
         },
+        conditions={},
         costs={},
         effect_id=[[E1]],
         once_per_turn=false,

@@ -1844,11 +1844,22 @@ function C.ExecuteAction(op, action, context)
 		end
 	elseif op == "RETURN_HAND_TO_DECK" then
 		local minimum = action.mode == "UP_TO" and 0 or (action.count or 1)
+		local limit = action.count or 1
+		if action.count == "ALL" then
+			-- 전량 문형(P-046 야마토): 패 전부가 한 묶음 — 임의성은 발동 승낙 쪽이 담당
+			local hand = Duel.GetFieldGroupCount(player, LOCATION_HAND, 0)
+			minimum, limit = hand, hand
+		end
 		-- 패는 비공개 정보 — 고르는 쪽은 패 주인(TRASH_HAND와 동일 관례)
 		cards = assert(select_zone(player, LOCATION_HAND, action.filter, minimum,
-			action.count or 1, action.chooser == "OPPONENT" and other(chooser) or player, context))
+			limit, action.chooser == "OPPONENT" and other(chooser) or player, context))
 		remove_cards_to_chosen_deck(cards, REASON_EFFECT, action, chooser, player)
 		if action.shuffle then Duel.ShuffleDeck(player) end
+		if action.draw_per_returned and #cards > 0 then
+			-- 유희왕 요술망치(c85852291) 골격 이식: 되돌린 수만큼 뽑는다
+			Duel.BreakEffect()
+			Duel.Draw(player, #cards, REASON_EFFECT)
+		end
 	elseif op == "RETURN_OWN_CARD_TO_DECK_BOTTOM" or op == "REST_OWN_CARD" then
 		cards = choose_selector(action.selector, context)
 		if op == "REST_OWN_CARD" then for _, card in ipairs(cards) do opcg.SetRested(card, context) end

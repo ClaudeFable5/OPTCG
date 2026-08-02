@@ -7,19 +7,40 @@ function s.initial_effect(c)
     compile_status=[[AUTO]],
     effects={
       {
-        actions={},
-        conditions={
+        actions={
           {
-            count=99,
-            op=[[CHARACTER_COUNT_GTE]],
+            count=2,
+            op=[[DRAW]],
             player=[[YOU]],
-            reason=[[DRAW_THEN_PLACE_HAND_TOP_OR_BOTTOM]],
+          },
+          {
+            count=2,
+            op=[[RETURN_HAND_TO_DECK]],
+            order=[[CHOOSE]],
+            player=[[YOU]],
+            positions={
+              [[DECK_TOP]],
+              [[DECK_BOTTOM]],
+            },
+          },
+          {
+            count=1,
+            mode=[[UP_TO]],
+            op=[[GIVE_DON]],
+            selector={
+              count=1,
+              kind=[[LEADER]],
+              mode=[[UP_TO]],
+              owner=[[YOU]],
+            },
+            state=[[RESTED]],
           },
         },
+        conditions={},
         costs={},
         effect_id=[[E1]],
         once_per_turn=false,
-        source_text=[[【등장 시】카드를 2장 뽑고, 자신의 패 2장을 원하는 순서대로 바꿔 넣고, 덱 위나 아래에 놓는다. 그 후, 자신의 리더에게 레스트 상태인 두웅!! 1장까지를 부여한다.]],
+        source_text=[[【등장 시】카드를 2장 뽑고, 자신의 패 2장을 원하는 순서대로 덱 맨 위나 아래로 되돌린다. 그 후, 자신의 리더에게 레스트 상태인 두웅!! 1장까지를 부여한다.]],
         timings={
           [[ON_PLAY]],
         },
