@@ -432,6 +432,14 @@ function C.CheckCondition(op, condition, context)
 	local n = condition.count or 0
 	if op == "YOUR_TURN" then return Duel.GetTurnPlayer() == controller(context) end
 	if op == "OPPONENT_TURN" then return Duel.GetTurnPlayer() ~= controller(context) end
+	if op == "OPPONENT_LIFE_LEFT_THIS_TURN" then
+		-- P-120 상디: "상대의 라이프가 벗어난 턴" - 카르가라(OP12-099)의 감소
+		-- 깔때기(opcg.life.mark_left)가 찍은 턴 도장을 대조한다. 수단 무한정
+		-- (데미지·효과·코스트 전부)이 원문의 '벗어나 있는'과 일치.
+		local who = 1 - controller(context)
+		local marks = opcg._life_left_turn
+		return marks ~= nil and marks[who] == (Duel.GetTurnCount and Duel.GetTurnCount() or -1)
+	end
 
 	local value = comparison_count(condition, context)
 	if value ~= nil then

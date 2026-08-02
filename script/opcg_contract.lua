@@ -218,7 +218,7 @@ local known_condition = {
     LIFE_EQ=true,
     ONLY_CHARACTERS_MATCH=true,
     YOUR_TURN=true,
-    OPPONENT_TURN=true,
+    OPPONENT_TURN=true, OPPONENT_LIFE_LEFT_THIS_TURN=true,
     OTHER_CHARACTER_NAME_ABSENT=true,
     FIELD_DON_LT_OPPONENT=true,
     SELF_POWER_GTE=true,

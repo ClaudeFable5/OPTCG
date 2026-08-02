@@ -222,6 +222,10 @@ function L.damage_leader(player, amount, context)
 		opcg.effect_queue.drain_direct({}, "LIFE_TRIGGER", context)
 	end
 
+	-- "이번 턴 라이프가 벗어남" 턴 도장(P-120 상디류 조건): 디스패치 생략
+	-- 문맥(skip_decrease_dispatch)이어도 라이프가 떠난 사실은 남는다.
+	if result.processed > 0 and L.mark_left then L.mark_left(player) end
+
 	-- Life went down: dispatch the decrease timings HERE so effect damage
 	-- (DEAL_DAMAGE etc.) fires them too, not just the battle machine.
 	if result.processed > 0 and not context.skip_decrease_dispatch
@@ -256,8 +260,17 @@ end
 -- 회수/트래시/덱 되돌림/라이프 등장도 매수가 줄면 성립한다. 데미지 경로는
 -- damage_leader 꼬리가 직접 쏘고, 비데미지 경로(코어/컨트랙트 실행부)는 전부
 -- 여기로 모은다. 리스너 조건(자신 턴/라이프 0장 등)은 IR conditions가 거른다.
+-- "이번 턴에 그 플레이어의 라이프가 벗어났다" 턴 도장(P-120 상디류 조건용).
+-- 감소 깔때기 두 곳(damage_leader 꼬리 + 이 함수)에 찍는다 - 턴 번호
+-- 비교라 별도 리셋이 필요 없다.
+function L.mark_left(player)
+	opcg._life_left_turn = opcg._life_left_turn or {}
+	opcg._life_left_turn[player] = Duel.GetTurnCount and Duel.GetTurnCount() or 0
+end
+
 function L.notify_decreased(player, context, count)
 	if not count or count <= 0 then return end
+	L.mark_left(player)
 	if not (opcg.contract_ops and opcg.contract_ops.emit) then return end
 	-- X.emit 경유: 비배틀 문맥이면 engine 경로(코어 발동), 배틀/중첩 해결
 	-- 문맥이면 direct 큐 - 문맥 게이트는 emit이 일원화해서 판단한다.

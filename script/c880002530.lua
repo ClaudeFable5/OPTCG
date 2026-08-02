@@ -7,15 +7,27 @@ function s.initial_effect(c)
     compile_status=[[AUTO]],
     effects={
       {
-        actions={},
-        conditions={
+        actions={
           {
-            count=99,
-            op=[[CHARACTER_COUNT_GTE]],
+            amount=-2,
+            conditions={
+              {
+                op=[[OPPONENT_LIFE_LEFT_THIS_TURN]],
+                player=[[YOU]],
+              },
+            },
+            duration=[[WHILE_CONDITION]],
+            op=[[MODIFY_HAND_COST]],
             player=[[YOU]],
-            reason=[[HAND_COST_WHEN_OPPONENT_LIFE_LEFT_TURN]],
+            selector={
+              count=1,
+              kind=[[SELF]],
+              mode=[[UP_TO]],
+              owner=[[YOU]],
+            },
           },
         },
+        conditions={},
         costs={},
         effect_id=[[E1]],
         once_per_turn=false,
