@@ -249,7 +249,7 @@ local function run_counter_step(live)
 		if not target then return end
 		local candidates = {}
 		for _, card in ipairs(array(Duel.GetFieldGroup(live.defending_player, LOCATION_HAND, 0))) do
-			local counter_value = opcg.GetCounter(card) or 0
+			local counter_value = opcg.EffectiveCounter(card, live.defending_player)
 			local event_counter = opcg.IsEvent(card)
 				and opcg.CanRestDon(live.defending_player, opcg.GetCost(card))
 				and opcg.effect_queue and opcg.effect_queue.has_timing
@@ -266,7 +266,7 @@ local function run_counter_step(live)
 		local chars = Group.CreateGroup()
 		local total = 0
 		for _, card in ipairs(picked) do
-			local value = math.max(0, opcg.GetCounter(card) or 0)
+			local value = opcg.EffectiveCounter(card, live.defending_player)
 			if value > 0 then
 				chars:AddCard(card)
 				total = total + value
@@ -281,7 +281,7 @@ local function run_counter_step(live)
 		-- 소모했을 수 있으니 장마다 지불 가능성을 재확인한다.
 		local resolved_event = false
 		for _, card in ipairs(picked) do
-			if (opcg.GetCounter(card) or 0) <= 0 and opcg.IsEvent(card)
+			if opcg.EffectiveCounter(card, live.defending_player) <= 0 and opcg.IsEvent(card)
 				and opcg.CanRestDon(live.defending_player, opcg.GetCost(card)) then
 				resolve_event_counter(card, live)
 				resolved_event = true

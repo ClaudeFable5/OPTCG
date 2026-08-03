@@ -435,8 +435,54 @@ function opcg.ConsumePlayDiscounts(c, player)
 	end
 end
 function opcg.GetCounter(c)
-	if c.GetDefense then return c:GetDefense() end
+	-- 카운터무는 cdb def=-2 - 생값 비교(counter_eq=0)가 영원히 빗나가던
+	-- 원흉이라 0으로 정규화한다(EB01-001 유저 제보 2026-08-03).
+	if c.GetDefense then return math.max(0, c:GetDefense()) end
 	return 0
+end
+
+-- EB01-001 오뎅류 「~는 카운터 +1000을 가진다」(룰상 상주): 부여식 상주
+-- 효과는 필드 밖(패)에 닿지 않아 카운터 스텝에서 증발했다. EB04-038 별명
+-- 수리와 같은 교리로 등록부(definition)를 직접 판독해 카운터 스텝이
+-- 가산한다. 부여자가 효과 무효(IsDisabled)면 꺼진다.
+function opcg.CounterGrant(card, player)
+	local total = 0
+	if not (Duel and Duel.GetMatchingGroup) then return 0 end
+	local group = Duel.GetMatchingGroup(function(c)
+		return opcg.IsLeader(c) or opcg.IsCharacter(c) or opcg.IsStage(c)
+	end, player, LOCATION_MZONE + LOCATION_FZONE, 0, nil)
+	for granter in aux.Next(group) do
+		if not (granter.IsDisabled and granter:IsDisabled()) then
+			local d = definition(granter)
+			for _, effect in ipairs((d and d.effects) or {}) do
+				local resident = false
+				for _, t in ipairs(effect.timings or {}) do
+					if t == "RULE" or t == "CONTINUOUS" then resident = true break end
+				end
+				if resident and #(effect.conditions or {}) == 0 then
+					for _, action in ipairs(effect.actions or {}) do
+						if action.op == "MODIFY_COUNTER" and (action.amount or 0) > 0 then
+							local sel = action.selector or {}
+							local owner_ok = sel.owner == nil or sel.owner == "ANY"
+								or (sel.owner == "YOU" and granter:GetControler() == player)
+								or (sel.owner == "OPPONENT" and granter:GetControler() ~= player)
+							local kind = opcg.KindPredicate(sel.kind or "CHARACTER")
+							local filt = opcg.CompileFilter(sel.filter, { card = granter, player = player })
+							if owner_ok and kind and kind(card) and filt and filt(card) then
+								total = total + (action.amount or 0)
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	return total
+end
+
+-- 카운터 스텝 전용 실효 카운터: 카드 자체 수치 + 상주 취급 가산.
+function opcg.EffectiveCounter(card, player)
+	return (opcg.GetCounter(card) or 0) + opcg.CounterGrant(card, player)
 end
 function opcg.GetColors(c)
 	local m = meta(c)
