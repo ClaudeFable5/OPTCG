@@ -277,6 +277,14 @@ local function emit_played(card, player, context)
 	end
 end
 local function place_character_card(card, player, rested, context)
+	-- 「캐릭터 카드를 등장시킬 수 없다」(EB03-024 비비류)는 수단 불문 —
+	-- 기동 등장 proc(rules 관문)만 막고 효과 등장(이 관문)은 뚫리던 구멍
+	-- (유저 제보 2026-08-03: 효과 경유 등장이 제약 무시). 모든 효과 등장이
+	-- 이 관문을 지나므로 여기서 일원 봉쇄한다.
+	if opcg.contract_ops and opcg.contract_ops.player_has
+		and opcg.contract_ops.player_has(player, opcg.EFFECT_CANNOT_PLAY, card, context) then
+		return false
+	end
 	-- [OPCG] 지속 '레스트로 등장'(EFFECT_PLAY_RESTED — 예: OP09-022 리무
 	-- "자신의 캐릭터 카드는 레스트 상태로 등장한다")은 효과 등장에도 적용.
 	-- contract_ops.play(일반 등장)와 동일한 강제 검사 — 이게 빠져 있어서
