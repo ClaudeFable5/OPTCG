@@ -1,0 +1,2 @@
+-- MANUAL PRINTING ALIAS: OP13-080_P2 -> 880001652 (2026-08-05 복원)
+Duel.LoadScript("c880001652.lua", false)
