@@ -1,0 +1,2 @@
+-- MANUAL PRINTING ALIAS: ST30-003_P1 -> 880002543
+Duel.LoadScript("c880002543.lua", false)
