@@ -290,7 +290,7 @@ function R.register_game_start()
 			if not opcg.IsCharacter(c) then return false end
 			local tp = c:GetControler()
 			if opcg.contract_ops and opcg.contract_ops.player_has
-				and opcg.contract_ops.player_has(tp, opcg.EFFECT_CANNOT_PLAY, c) then return false end
+				and opcg.contract_ops.player_has(tp, opcg.EFFECT_CANNOT_PLAY, c, nil, "PLAY") then return false end
 			local cost = opcg.EffectivePlayCost and opcg.EffectivePlayCost(c, tp) or opcg.GetCost(c)
 			if not opcg.CanRestDon(tp, cost) then return false end
 			if Duel.GetLocationCount(tp, LOCATION_MZONE) > 0 then return true end

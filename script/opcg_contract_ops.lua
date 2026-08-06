@@ -225,11 +225,14 @@ local function conditions_match(conditions, context)
 	return true
 end
 
-function X.player_has(player, code, target, context)
+function X.player_has(player, code, target, context, reason)
+	-- reason: 관문 식별자("PLAY"=기동 일반 등장 / "EFFECT"=효과 등장 관문).
+	-- reason=EFFECT 제약(OP12-036 조로류)이 일반 등장을 놓아주기 위해 값
+	-- 함수 4번째 인자로 흘린다. 무표시 호출은 nil로 전달된다.
 	if not Duel.IsPlayerAffectedByEffect then return false end
 	for _, effect in ipairs({Duel.IsPlayerAffectedByEffect(player, code)}) do
 		local value = opcg.GetEffectValue(effect)
-		if type(value) ~= "function" or value(effect, target, context) then return true end
+		if type(value) ~= "function" or value(effect, target, context, reason) then return true end
 	end
 	return false
 end
@@ -258,6 +261,22 @@ local function player_effect(source, player, code, value, duration)
 	attach_reset(effect, duration, source)
 	Duel.RegisterEffect(effect, source:GetControler())
 	return effect
+end
+
+local function cannot_play_value(action, source, predicate)
+	-- CANNOT_PLAY의 DSL 존중(2026-08-07 유저 제보, OP12-036 조로 "패의 이
+	-- 카드는 효과로 등장할 수 없다"): selector SELF면 자기 자신만 막고,
+	-- reason=EFFECT면 기동 일반 등장(관문 reason "PLAY")은 놓아준다 —
+	-- 무표시 경로는 안전하게 차단 쪽으로 떨어진다.
+	local self_only = action.selector and action.selector.kind == "SELF"
+	local effect_only = action.reason == "EFFECT"
+	return function(_, target, _, play_reason)
+		if target == nil then return false end
+		if self_only and target ~= source then return false end
+		if not predicate(target) then return false end
+		if effect_only and play_reason == "PLAY" then return false end
+		return true
+	end
 end
 
 local function ko_protection(action, context)
@@ -840,7 +859,7 @@ function X.execute(op, action, context)
 	elseif op == "CANNOT_PLAY" then
 		local predicate = filter_for(action.filter, context)
 		player_effect(context.card, player, opcg.EFFECT_CANNOT_PLAY,
-			function(_, card) return card ~= nil and predicate(card) end, action.duration)
+			cannot_play_value(action, context.card, predicate), action.duration)
 		context.last_action_succeeded = true
 		return {}
 	elseif op == "CANNOT_SET_DON_ACTIVE" then
@@ -1177,9 +1196,30 @@ function X.register_continuous(card, effect, action, condition)
 		return continuous_player_effect(card, action, EFFECT_CANNOT_DRAW, 1, condition)
 	end
 	if op == "CANNOT_PLAY" then
-		local predicate = filter_for(action.filter, {card=card, player=card:GetControler()})
-		return continuous_player_effect(card, action, opcg.EFFECT_CANNOT_PLAY,
-			function(_, target) return target ~= nil and predicate(target) end, condition)
+		-- OP12-036 조로 수리(2026-08-07 유저 제보: 효과 등장이 그대로 통과):
+		-- 종전 등록은 (1) 필드 상주 한정이라 zone=HAND("패의 이 카드는")가
+		-- 죽어 있었고 (2) SELF 셀렉터 무시로 걸리면 자기 통제권 전체를 막을
+		-- 뻔했으며 (3) reason=EFFECT 무시로 일반 등장까지 걸릴 뻔했다.
+		-- 셋 다 DSL대로 존중한다. zone=HAND면 패 상주 효과로 직접 등록
+		-- (continuous_player_effect는 필드 상주 고정).
+		local context = {card=card, player=card:GetControler()}
+		local predicate = filter_for(action.filter, context)
+		local value = cannot_play_value(action, card, predicate)
+		if action.zone == "HAND" then
+			local player = opcg.ResolvePlayer(action.player or "YOU", context)
+			local native = Effect.CreateEffect(card)
+			native:SetType(EFFECT_TYPE_FIELD)
+			native:SetProperty(EFFECT_FLAG_PLAYER_TARGET)
+			native:SetCode(opcg.EFFECT_CANNOT_PLAY)
+			native:SetRange(LOCATION_HAND)
+			native:SetTargetRange(player == card:GetControler() and 1 or 0,
+				player == card:GetControler() and 0 or 1)
+			native:SetCondition(condition)
+			opcg.SetEffectValue(native, value)
+			card:RegisterEffect(native)
+			return true
+		end
+		return continuous_player_effect(card, action, opcg.EFFECT_CANNOT_PLAY, value, condition)
 	end
 	if op == "CANNOT_SET_DON_ACTIVE" then
 		return continuous_player_effect(card, action, opcg.EFFECT_CANNOT_SET_DON_ACTIVE,

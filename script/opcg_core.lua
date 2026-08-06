@@ -206,9 +206,17 @@ local function zone_group(player, location, filter, context)
 	if not predicate then return nil end
 	return Duel.GetMatchingGroup(predicate, player, location, 0, nil)
 end
-local function select_zone(player, location, filter, minimum, maximum, chooser, context)
+local function select_zone(player, location, filter, minimum, maximum, chooser, context, extra_filter)
 	local group = zone_group(player, location, filter, context)
 	if not group then return nil, "UNSUPPORTED_FILTER" end
+	if extra_filter then
+		-- 등장 불가 카드(OP12-036 조로류)를 후보에서 제외하느라 EXACT
+		-- 최소치가 깨지면 가능한 만큼으로 낮춘다 — 종전엔 골라도 최종
+		-- 관문에서 불발이라 선택만 낭비됐다.
+		local filtered = group:Filter(extra_filter, nil)
+		if filtered:GetCount() < minimum then minimum = filtered:GetCount() end
+		group = filtered
+	end
 	if group:GetCount() < minimum then return nil, "NOT_ENOUGH_CARDS" end
 	maximum = math.min(maximum, group:GetCount())
 	if maximum == 0 then return {} end
@@ -282,7 +290,7 @@ local function place_character_card(card, player, rested, context)
 	-- (유저 제보 2026-08-03: 효과 경유 등장이 제약 무시). 모든 효과 등장이
 	-- 이 관문을 지나므로 여기서 일원 봉쇄한다.
 	if opcg.contract_ops and opcg.contract_ops.player_has
-		and opcg.contract_ops.player_has(player, opcg.EFFECT_CANNOT_PLAY, card, context) then
+		and opcg.contract_ops.player_has(player, opcg.EFFECT_CANNOT_PLAY, card, context, "EFFECT") then
 		return false
 	end
 	-- [OPCG] 지속 '레스트로 등장'(EFFECT_PLAY_RESTED — 예: OP09-022 리무
@@ -1223,7 +1231,13 @@ local function play_from_zone(action, location, context)
 	local chooser = controller(context)
 	local minimum = action.mode == "EXACT" and (action.count or 1) or 0
 	local maximum = action.count or 1
-	local cards, reason = select_zone(player, location, action.filter, minimum, maximum, chooser, context)
+	-- 효과로 등장할 수 없는 카드(OP12-036 조로: 패 상주 제약)는 후보에서
+	-- 제외 — 패 상주 효과라 패 밖의 사본은 자연히 안 걸린다.
+	local cards, reason = select_zone(player, location, action.filter, minimum, maximum, chooser, context,
+		function(candidate)
+			return not (opcg.contract_ops and opcg.contract_ops.player_has
+				and opcg.contract_ops.player_has(player, opcg.EFFECT_CANNOT_PLAY, candidate, context, "EFFECT"))
+		end)
 	if cards == nil then error(reason) end
 	local played = {}
 	for _, card in ipairs(cards) do
