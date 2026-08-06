@@ -2543,6 +2543,23 @@ opcg.card_meta = {
 	[880002538]={name="상디",base_card_no="PRB01-001",card_type="LEADER",colors=1,traits={["밀짚모자 일당"]=true},attributes={["STRIKE"]=true}},
 	[880002539]={name="쥬라큘 미호크",base_card_no="P-081",card_type="CHARACTER",colors=4,traits={["크로스 길드"]=true},attributes={["SLASH"]=true}},
 	[880002540]={name="크로커다일",base_card_no="P-082",card_type="CHARACTER",colors=4,traits={["크로스 길드"]=true,["전 바로크 워크스"]=true},attributes={["SPECIAL"]=true}},
+	[880002541]={name="루피 & 에이스",base_card_no="ST30-001",card_type="LEADER",colors=3,traits={["임펠 다운"]=true,["흰 수염 해적단"]=true,["밀짚모자 일당"]=true},attributes={["STRIKE"]=true,["SPECIAL"]=true}},
+	[880002542]={name="이나즈마",base_card_no="ST30-002",card_type="CHARACTER",colors=1,traits={["임펠 다운"]=true,["혁명군"]=true},attributes={["SLASH"]=true}},
+	[880002543]={name="에드워드 뉴게이트",base_card_no="ST30-003",card_type="CHARACTER",colors=1,traits={["사황"]=true,["흰 수염 해적단"]=true},attributes={["SPECIAL"]=true}},
+	[880002544]={name="엠포리오 이반코프",base_card_no="ST30-004",card_type="CHARACTER",colors=1,traits={["임펠 다운"]=true,["혁명군"]=true},attributes={["SPECIAL"]=true}},
+	[880002545]={name="조즈",base_card_no="ST30-005",card_type="CHARACTER",colors=1,traits={["흰 수염 해적단"]=true},attributes={["STRIKE"]=true}},
+	[880002546]={name="징베",base_card_no="ST30-006",card_type="CHARACTER",colors=1,traits={["어인족"]=true,["임펠 다운"]=true,["태양 해적단"]=true},attributes={["STRIKE"]=true}},
+	[880002547]={name="포트거스 D. 에이스",base_card_no="ST30-007",card_type="CHARACTER",colors=1,traits={["흰 수염 해적단"]=true},attributes={["SPECIAL"]=true}},
+	[880002548]={name="마르코",base_card_no="ST30-008",card_type="CHARACTER",colors=1,traits={["흰 수염 해적단"]=true},attributes={["SPECIAL"]=true}},
+	[880002549]={name="리틀 오즈 Jr.",base_card_no="ST30-009",card_type="CHARACTER",colors=1,traits={["거인족"]=true,["흰 수염 해적단 산하"]=true},attributes={["STRIKE"]=true}},
+	[880002550]={name="크로커다일",base_card_no="ST30-010",card_type="CHARACTER",colors=2,traits={["임펠 다운"]=true,["전 바로크 워크스"]=true},attributes={["SPECIAL"]=true}},
+	[880002551]={name="버기",base_card_no="ST30-011",card_type="CHARACTER",colors=2,traits={["임펠 다운"]=true,["버기 해적단"]=true},attributes={["SLASH"]=true}},
+	[880002552]={name="몽키 D. 루피",base_card_no="ST30-012",card_type="CHARACTER",colors=2,traits={["임펠 다운"]=true,["밀짚모자 일당"]=true},attributes={["STRIKE"]=true}},
+	[880002553]={name="Mr.2 봉쿠레(벤담)",base_card_no="ST30-013",card_type="CHARACTER",colors=2,traits={["임펠 다운"]=true,["전 바로크 워크스"]=true},attributes={["STRIKE"]=true}},
+	[880002554]={name="Mr.3 (갤디노)",base_card_no="ST30-014",card_type="CHARACTER",colors=2,traits={["임펠 다운"]=true,["전 바로크 워크스"]=true},attributes={["SPECIAL"]=true}},
+	[880002555]={name="이 시대의 이름을 '흰수염'이라 한다!!",base_card_no="ST30-015",card_type="EVENT",colors=1,traits={["흰 수염 해적단"]=true},attributes={}},
+	[880002556]={name="아직 싸울 수 있냐 루피!? 당연하지!!!",base_card_no="ST30-016",card_type="EVENT",colors=1,traits={["흰 수염 해적단"]=true,["밀짚모자 일당"]=true},attributes={}},
+	[880002557]={name="그리고 큰일나 버리는 거야!!",base_card_no="ST30-017",card_type="EVENT",colors=1,traits={["흰 수염 해적단"]=true},attributes={}},
 }
 
 function opcg.GetCardMetaByCode(code)
