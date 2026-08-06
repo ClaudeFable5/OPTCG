@@ -1577,6 +1577,15 @@ function C.ExecuteAction(op, action, context)
 			merged.chooser = action.chooser
 			selector = merged
 		end
+		-- KO 대상 선택 안내문(2026-08-06 유저 하달, OP08-118발 전 KO 공통):
+		-- 게임 상단에 "KO할 캐릭터를 골라주세요"를 통일 표기. 문구가
+		-- "캐릭터"라 캐릭터 셀렉터에만 붙인다(STAGE KO 5종은 제외).
+		if op == "KO" and selector ~= nil and selector.kind == "CHARACTER" and selector.hint == nil then
+			local merged = {}
+			for key, value in pairs(selector) do merged[key] = value end
+			merged.hint = opcg.HINT_SELECT_KO
+			selector = merged
+		end
 		cards = choose_selector(selector, context)
 		if op == "REST" then for _, card in ipairs(cards) do opcg.SetRested(card, context) end
 		elseif op == "SET_ACTIVE" then for _, card in ipairs(cards) do opcg.SetActive(card) end

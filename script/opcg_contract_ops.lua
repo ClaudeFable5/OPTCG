@@ -539,12 +539,31 @@ function X.execute(op, action, context)
 		end
 		return {}
 	elseif op == "MODIFY_POWER_SPLIT" then
-		local cards = choose(action.selector, context)
-		for index, card in ipairs(cards) do
-			local amount = index <= (action.primary_count or 1) and action.primary_amount or action.secondary_amount
-			modify(context.card, card, EFFECT_UPDATE_ATTACK, amount or 0, action.duration)
+		-- 순차 처리(2026-08-06 유저 하달, OP08-118): 2장을 한 창에서 고르는
+		-- 대신 첫 장을 골라 -3000을 바로 적용하고, 남은 후보에서 둘째 장을
+		-- 골라 -2000을 적용한다. 첫 선택을 취소하면 이후 단계도 중단
+		-- ("1장을 -3000하고, 나머지는 -2000" — 나머지는 첫 장이 있어야 존재).
+		-- 단계별 상단 안내문은 금액별 !system 스트링(SELECT_HINT_BY_AMOUNT).
+		local selector = action.selector or {}
+		local picker = selector.chooser == "OPPONENT" and (1 - chooser) or chooser
+		local minimum = selector.mode == "EXACT" and 1 or 0
+		local picked = {}
+		for index = 1, selector.count or 2 do
+			local amount = (index <= (action.primary_count or 1)
+				and action.primary_amount or action.secondary_amount) or 0
+			local candidates = assert(opcg.GetCandidateGroup(selector, context), "unsupported OPCG selector")
+			for _, previous in ipairs(picked) do candidates:RemoveCard(previous) end
+			if candidates:GetCount() == 0 then break end
+			local hint = opcg.SELECT_HINT_BY_AMOUNT[amount]
+			if hint then Duel.Hint(HINT_SELECTMSG, picker, hint) end
+			local selected = candidates:Select(picker, minimum, 1, nil)
+			local card = selected:GetFirst()
+			if not card then break end
+			Duel.HintSelection(selected, true)
+			modify(context.card, card, EFFECT_UPDATE_ATTACK, amount, action.duration)
+			picked[#picked + 1] = card
 		end
-		return cards
+		return remember(context, picked)
 	elseif op == "PLAY_FROM_DECK" then
 		return action_play_from_deck(action, context)
 	elseif op == "LOOK_DECK_TOP" then

@@ -686,6 +686,15 @@ function opcg.GetCandidateGroup(selector, context)
 		target_player, loc_self, loc_opp, nil)
 end
 
+-- 게임 상단 선택 안내문(HINT_SELECTMSG): 문구는 저장소 루트 strings.conf의
+-- !system 항목. ID는 0x100000 미만이어야 클라이언트 GetDesc가 code==0으로
+-- 판정해 시스템 스트링을 찾는다(공식 ID는 ~12125, 880010대는 빈 영역).
+opcg.HINT_SELECT_KO = 880012
+opcg.SELECT_HINT_BY_AMOUNT = {
+	[-3000] = 880010,
+	[-2000] = 880011,
+}
+
 function opcg.SelectCards(selector, context)
 	selector = selector or {}
 	context = context or {}
@@ -718,6 +727,7 @@ function opcg.SelectCards(selector, context)
 				return opcg.GetPower(card) <= remaining
 			end, nil)
 			if affordable:GetCount() == 0 then break end
+			if selector.hint then Duel.Hint(HINT_SELECTMSG, chooser, selector.hint) end
 			local picked = affordable:Select(chooser, 0, 1, nil)
 			local card = picked:GetFirst()
 			if not card then break end
@@ -729,6 +739,7 @@ function opcg.SelectCards(selector, context)
 		if #selected < minimum then return nil, "NOT_ENOUGH_TARGETS" end
 		return selected
 	end
+	if selector.hint then Duel.Hint(HINT_SELECTMSG, chooser, selector.hint) end
 	local selected = candidates:Select(chooser, minimum, maximum, nil)
 	-- 효과 대상 가시성(2026-07-27): 고른 카드를 양측에 공지 — 현대 EDOPro
 	-- 표준 관용구(트리슈라: Select 직후 Duel.HintSelection(g, true) =
