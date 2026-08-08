@@ -195,10 +195,15 @@ end
 
 -- 이벤트 한 장의 기대 타점. 평가 규약(과소 방향 보수 — 프리뷰는 모자란
 -- 게 거짓말보다 낫고, 실수치는 해결이 맞춘다):
---   · COUNTER 타이밍 효과의 최상위 MODIFY_POWER만, 자기편 대상·양수 한정
+--   · COUNTER 타이밍 효과의 고정 MODIFY_POWER만, 자기편 대상·양수 한정
 --     (조준 가정: 방어측 — 고정 +3000짜리들도 대상 선택형이라 이미 현행
---     암묵 전제다). 상대 감산·IF 후속·PER_* 동적 수량은 0 취급.
---   · effect 조건 = can_resolve(비대화형), action 조건 = 어댑터 직판정.
+--     암묵 전제다). 상대 감산·PER_* 동적 수량은 0 취급.
+--   · IF 후속은 조건이 정적으로 판정돼 참일 때만 중첩 고정 가산을 계상
+--     (2026-08-08 유저 제보, OP12-098 잔털 처리권: "그 후 … +2000"이 통째로
+--     0 취급이라 8코 혁명군이 깔려 있어도 마젠타가 +2000만 보였다).
+--     판정 에러·실패·동적 수량은 종전대로 0 — 보수 규약은 그대로다.
+--   · effect 조건 = can_resolve(비대화형), action/IF 조건 = 어댑터 직판정
+--     (조건별 pcall 격리: 미지원 op가 한 장 전체 기대치를 죽이지 않게).
 --   · 표시 전용이므로 pcall 격리 — 평가기가 배틀을 죽이는 일은 없다.
 local function event_counter_expectation(card, player, live)
 	local ok, total = pcall(function()
@@ -206,6 +211,29 @@ local function event_counter_expectation(card, player, live)
 		local definition = opcg.runtime.get_definition(card)
 		if not definition then return 0 end
 		local adapter = opcg.runtime.adapter
+		local function conditions_pass(conditions, context)
+			for _, condition in ipairs(conditions or {}) do
+				local okc, res = pcall(function()
+					return adapter and adapter:check_condition(condition, context)
+				end)
+				if not (okc and res) then return false end
+			end
+			return true
+		end
+		local function sum_actions(actions, context)
+			local sum = 0
+			for _, action in ipairs(actions or {}) do
+				if action.op == "MODIFY_POWER"
+					and type(action.amount) == "number" and action.amount > 0
+					and (not action.selector or action.selector.owner ~= "OPPONENT")
+					and conditions_pass(action.conditions, context) then
+					sum = sum + action.amount
+				elseif action.op == "IF" and conditions_pass(action.conditions, context) then
+					sum = sum + sum_actions(action.actions, context)
+				end
+			end
+			return sum
+		end
 		local sum = 0
 		for _, effect in ipairs(definition.effects or {}) do
 			local timed = false
@@ -217,20 +245,7 @@ local function event_counter_expectation(card, player, live)
 					battle = live, battle_attacker = live.attacker,
 					battle_target = live.original_target }
 				if opcg.runtime.can_resolve(card, effect.effect_id, context) then
-					for _, action in ipairs(effect.actions or {}) do
-						if action.op == "MODIFY_POWER"
-							and type(action.amount) == "number" and action.amount > 0
-							and (not action.selector or action.selector.owner ~= "OPPONENT") then
-							local passed = true
-							for _, condition in ipairs(action.conditions or {}) do
-								if not (adapter and adapter:check_condition(condition, context)) then
-									passed = false
-									break
-								end
-							end
-							if passed then sum = sum + action.amount end
-						end
-					end
+					sum = sum + sum_actions(effect.actions, context)
 				end
 			end
 		end
