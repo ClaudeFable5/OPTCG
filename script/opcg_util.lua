@@ -479,9 +479,14 @@ function opcg.CounterGrant(card, player)
 							local owner_ok = sel.owner == nil or sel.owner == "ANY"
 								or (sel.owner == "YOU" and granter:GetControler() == player)
 								or (sel.owner == "OPPONENT" and granter:GetControler() ~= player)
+							-- [OP16-118] zone=HAND 부여("자신의 패의 ~ 카드는
+							-- 카운터+2000이 된다"): 명시 존이 있으면 존중.
+							local zone_ok = sel.zone == nil
+								or (sel.zone == "HAND" and card:IsLocation(LOCATION_HAND))
+								or (sel.zone == "FIELD" and card:IsLocation(LOCATION_MZONE))
 							local kind = opcg.KindPredicate(sel.kind or "CHARACTER")
 							local filt = opcg.CompileFilter(sel.filter, { card = granter, player = player })
-							if owner_ok and kind and kind(card) and filt and filt(card) then
+							if owner_ok and zone_ok and kind and kind(card) and filt and filt(card) then
 								total = total + (action.amount or 0)
 							end
 						end

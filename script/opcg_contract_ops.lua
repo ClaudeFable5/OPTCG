@@ -1621,6 +1621,17 @@ function X.after_remove(cards, reason, destination, context)
 					event, source_player)
 			end
 		end
+		if destroyed and opcg.IsCharacter(card) then
+			-- [OP16-100] 캐릭터 KO 턴 이력(전투/효과 불문): 소유자별 턴
+			-- 도장 — CHARACTER_KOED_THIS_TURN 조건이 소비한다.
+			local turn = Duel.GetTurnCount and Duel.GetTurnCount() or 0
+			local log = opcg._koed_this_turn
+			if not log or log.turn ~= turn then
+				log = { turn = turn }
+				opcg._koed_this_turn = log
+			end
+			log[owner] = true
+		end
 		if destroyed and opcg.IsCharacter(card) and opcg.GetBasePower(card) >= 6000 then
 			X.emit("ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO", event, owner)
 		end

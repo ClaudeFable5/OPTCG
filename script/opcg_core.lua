@@ -16,6 +16,7 @@ local CONDITION = {
 	LEADER_HAS_TRAIT=true, LEADER_HAS_TRAIT_ANY=true, LEADER_TRAIT_CONTAINS=true,
 	LEADER_NAME_IS=true, LEADER_NAME_IS_ANY=true, LEADER_IS_MULTICOLOR=true,
 	LEADER_POWER_LTE=true, EVENT_ACTIVATED_THIS_TURN=true,
+	CHARACTER_KOED_THIS_TURN=true, EVENT_PLAYED_FROM_TRASH=true,
 	FIELD_DON_LTE=true, PERSONAL_TURN_GTE=true,
 	ALL_OWN_CHARACTERS_HAVE_TRAIT=true, OPPONENT_GIVEN_DON_EXISTS=true,
 	LEADER_HAS_ATTRIBUTE=true, LEADER_HAS_COLOR=true, LEADER_STATE_IS=true,
@@ -416,12 +417,23 @@ local function character_count(player, condition, context)
 	-- 종전엔 자기 쪽만 훑어 상대의 코스트 0 캐릭터를 못 봤다(OP14-090 유저 제보:
 	-- 조건 성립인데 등장 턴 캐릭터 어택 허가가 안 켜짐).
 	local opponent_side = condition.player == "ANY" and LOCATION_MZONE or 0
-	return Duel.GetMatchingGroupCount(function(card)
+	local matches = function(card)
 		return opcg.IsCharacter(card)
 			and (condition.state == nil or (condition.state == "ACTIVE" and opcg.IsActive(card))
 				or (condition.state == "RESTED" and opcg.IsRested(card)))
 			and predicate(card)
-	end, player, LOCATION_MZONE, opponent_side, nil)
+	end
+	if condition.distinct_names then
+		-- [OP16-038] "카드명이 다른 ~ 캐릭터가 N장 있는 경우": 이름 기준
+		-- 중복 제거 후 센다(별쇄는 GetName이 정본명으로 정규화).
+		local group = Duel.GetMatchingGroup(matches, player, LOCATION_MZONE, opponent_side, nil)
+		local names = {}
+		for card in aux.Next(group) do names[opcg.GetName(card)] = true end
+		local total = 0
+		for _ in pairs(names) do total = total + 1 end
+		return total
+	end
+	return Duel.GetMatchingGroupCount(matches, player, LOCATION_MZONE, opponent_side, nil)
 end
 local function comparison_count(condition, context)
 	local op = condition.op
@@ -468,6 +480,22 @@ function C.CheckCondition(op, condition, context)
 	if op == "CHARACTER_EXISTS" then
 		local count = character_count(player, condition, context)
 		return count ~= nil and count > 0
+	end
+	if op == "CHARACTER_KOED_THIS_TURN" then
+		-- [OP16-100] "이번 턴, 상대 캐릭터가 KO되어 있는 경우": 전투/효과
+		-- 불문 캐릭터 KO 턴 이력(contract_ops.after_remove가 도장). player
+		-- 기본값은 OPPONENT — 무주어 원문이 "상대 캐릭터"라서다.
+		local target = opcg.ResolvePlayer(condition.player or "OPPONENT", context)
+		local log = opcg._koed_this_turn
+		return log ~= nil and log.turn == (Duel.GetTurnCount and Duel.GetTurnCount() or 0)
+			and log[target] == true
+	end
+	if op == "EVENT_PLAYED_FROM_TRASH" then
+		-- [OP16-079] "트래시에서 캐릭터가 등장했을 때" 청취 조건: 등장
+		-- 이벤트의 카드가 직전 위치 트래시였는지로 판별(별도 배관 불요).
+		local card = context and (context.played_card or context.event_target)
+		return card ~= nil and card.GetPreviousLocation ~= nil
+			and card:GetPreviousLocation() == LOCATION_GRAVE
 	end
 	if op == "LEADER_OR_CHARACTER_EXISTS" then
 		local predicate = filter_for(condition.filter, context)
@@ -1233,12 +1261,37 @@ local function play_from_zone(action, location, context)
 	local maximum = action.count or 1
 	-- 효과로 등장할 수 없는 카드(OP12-036 조로: 패 상주 제약)는 후보에서
 	-- 제외 — 패 상주 효과라 패 밖의 사본은 자연히 안 걸린다.
-	local cards, reason = select_zone(player, location, action.filter, minimum, maximum, chooser, context,
-		function(candidate)
-			return not (opcg.contract_ops and opcg.contract_ops.player_has
-				and opcg.contract_ops.player_has(player, opcg.EFFECT_CANNOT_PLAY, candidate, context, "EFFECT"))
-		end)
-	if cards == nil then error(reason) end
+	local playable = function(candidate)
+		return not (opcg.contract_ops and opcg.contract_ops.player_has
+			and opcg.contract_ops.player_has(player, opcg.EFFECT_CANNOT_PLAY, candidate, context, "EFFECT"))
+	end
+	local cards
+	if action.distinct_names then
+		-- [OP16-060] "카드명이 다른 ~ N장까지 등장": 한 창 다중 선택으론
+		-- 상호 이름 배제를 걸 수 없어 축차 선택 — 집을 때마다 그 이름을
+		-- 후보에서 뺀다. EXACT여도 후보가 마르면 가능한 만큼.
+		cards = {}
+		local names = {}
+		for _ = 1, maximum do
+			local group = zone_group(player, location, action.filter, context)
+			if not group then error("UNSUPPORTED_FILTER") end
+			local candidates = group:Filter(function(candidate)
+				return playable(candidate) and not names[opcg.GetName(candidate)]
+			end, nil)
+			for _, previous in ipairs(cards) do candidates:RemoveCard(previous) end
+			if candidates:GetCount() == 0 then break end
+			local need = #cards < minimum and 1 or 0
+			local selected = candidates:Select(chooser, need, 1, nil)
+			local card = selected:GetFirst()
+			if not card then break end
+			names[opcg.GetName(card)] = true
+			cards[#cards + 1] = card
+		end
+	else
+		local reason
+		cards, reason = select_zone(player, location, action.filter, minimum, maximum, chooser, context, playable)
+		if cards == nil then error(reason) end
+	end
 	local played = {}
 	for _, card in ipairs(cards) do
 		if play_card(card, player, chooser, action.rested == true, context) then played[#played + 1] = card end
