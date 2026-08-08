@@ -1,0 +1,66 @@
+-- MANUAL: OP16-036 / Mr.2 봉쿠레(벤담) (2026-08-09 OP16 결전의 시각 이식)
+-- JP 공홈 series 550116 기준, ST30 이식 방식 준수.
+local s,id=GetID()
+function s.initial_effect(c)
+  opcg.RegisterCard(c,{
+    base_card_no=[[OP16-036]],
+    compile_status=[[MANUAL]],
+    effects={
+      {
+        actions={
+          {
+            op=[[REST]],
+            selector={
+              count=1,
+              filter={
+                cost_lte=4,
+              },
+              kind=[[CHARACTER]],
+              mode=[[UP_TO]],
+              owner=[[OPPONENT]],
+            },
+          },
+        },
+        conditions={},
+        costs={},
+        effect_id=[[E1]],
+        once_per_turn=false,
+        source_text=[[【등장 시】 상대의 코스트 4 이하인 캐릭터 1장까지를 레스트로 한다.]],
+        timings={
+          [[ON_PLAY]],
+        },
+      },
+      {
+        actions={
+          {
+            duration=[[THIS_TURN]],
+            op=[[SET_BASE_POWER_FROM_TARGET]],
+            selector={
+              count=1,
+              kind=[[SELF]],
+              mode=[[ALL]],
+              owner=[[YOU]],
+            },
+            source_selector={
+              count=1,
+              kind=[[LEADER]],
+              mode=[[ALL]],
+              owner=[[OPPONENT]],
+            },
+          },
+        },
+        conditions={},
+        costs={},
+        effect_id=[[E2]],
+        once_per_turn=false,
+        source_text=[[【어택 시】 이 캐릭터의 원래 파워는 이번 턴 동안 상대의 리더와 같은 파워가 된다.]],
+        timings={
+          [[WHEN_ATTACKING]],
+        },
+      },
+    },
+    keywords={},
+    rules_id=[[OP16-036]],
+    schema_version=1,
+  })
+end
