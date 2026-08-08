@@ -916,17 +916,34 @@ function X.execute(op, action, context)
 		context.last_action_succeeded = true
 		return {}
 	elseif op == "CANNOT_SET_ACTIVE_CARD_OR_DON" then
-		local cards = action.card_selector and choose(action.card_selector, context) or {}
-		for _, card in ipairs(cards) do
-			single_effect(context.card, card, opcg.EFFECT_CANNOT_SET_ACTIVE, 1, action.duration)
+		-- OP07-026 보니 수리(유저 제보 2026-08-09 "상대 둥 못 얼림"): 종전엔
+		-- 캐릭터 창을 먼저 열고 그걸 취소해야만 둥 창이 뒤따르는 2단 흐름이라
+		-- 상대 둥을 사실상 집을 수 없었다 — OP12-037류(REST_CARD_OR_DON)가
+		-- 앓다 고친 그 병증의 잔존 사례. 같은 처방: 캐릭터 후보와 코스트
+		-- 에리어 둥을 한 선택창에 섞어 올린다. 둥 풀은 GetFieldDonGroup(부여
+		-- 둥 포함)이 아니라 DonStateGroup(코스트 에리어 한정) — 부여 둥은
+		-- 리프레시에 액티브가 아니라 반납이라 "레스트 상태인 둥!!"이 아니다.
+		-- 동결 집행 자체는 온전(SetActive/set_rested가 개별 효과 존중 확인).
+		local pool = Group.CreateGroup()
+		local chars = action.card_selector and opcg.GetCandidateGroup
+			and opcg.GetCandidateGroup(action.card_selector, context)
+		if chars then pool:Merge(chars) end
+		if opcg.DonStateGroup then
+			pool:Merge(opcg.DonStateGroup(player, (action.don_state or "RESTED") == "RESTED"))
 		end
-		if #cards < (action.count or 1) then
-			local group = opcg.GetFieldDonGroup(player, action.don_state or "RESTED")
-			local selected = group:GetCount() > 0 and group:Select(chooser, 0, 1, nil)
-				or Group.CreateGroup()
-			for don in aux.Next(selected) do
-				single_effect(context.card, don, opcg.EFFECT_CANNOT_SET_DON_ACTIVE, 1, action.duration)
-				cards[#cards + 1] = don
+		local maximum = math.min(action.count or 1, pool:GetCount())
+		local minimum = action.mode == "EXACT" and maximum or 0
+		local cards = {}
+		if maximum > 0 then
+			local selected = pool:Select(chooser, minimum, maximum, nil)
+			if selected:GetCount() > 0 then Duel.HintSelection(selected, true) end
+			for card in aux.Next(selected) do
+				if opcg.IsLeader(card) or opcg.IsCharacter(card) or opcg.IsStage(card) then
+					single_effect(context.card, card, opcg.EFFECT_CANNOT_SET_ACTIVE, 1, action.duration)
+				else
+					single_effect(context.card, card, opcg.EFFECT_CANNOT_SET_DON_ACTIVE, 1, action.duration)
+				end
+				cards[#cards + 1] = card
 			end
 		end
 		context.last_action_succeeded = #cards > 0 or action.mode == "UP_TO"
