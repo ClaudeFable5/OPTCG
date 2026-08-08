@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS "datas" ("id" INTEGER,"ot" INTEGER,"alias" INTEGER,"s
  "type" INTEGER,"atk" INTEGER,"def" INTEGER,"level" INTEGER,"race" INTEGER,
  "attribute" INTEGER,"category" INTEGER, PRIMARY KEY("id"));
 == row counts (datas, texts) ==
-4016
-4016
+4138
+4138
 == datas samples: ST30 leader/char/event + printing + ST10 leader + OP07 char ==
 id|ot|alias|setcode|type|atk|def|level|race|attribute|category
 880000880|0|0|8519734|33|6000|1000|5|2|2|8
@@ -19,10 +19,10 @@ id|ot|alias|setcode|type|atk|def|level|race|attribute|category
 881001645|0|880002541|171809767536|33|6000|-2|4|1|3|0
 == datas samples: one per race (kind) among recent ids ==
 id|ot|alias|setcode|type|atk|def|level|race|attribute|category
-880002431|0|0|37|524290|-2|-2|7|4|1|0
-880002541|0|0|171809767536|33|6000|-2|4|1|3|0
-880002554|0|0|7995504|33|3000|2000|2|2|2|0
-880002557|0|0|169|65538|-2|-2|1|3|1|0
+880002635|0|0|157|524290|-2|-2|1|4|8|0
+880002637|0|0|1114215|33|5000|-2|4|1|48|0
+880002674|0|0|1114215|65538|-2|-2|2|3|32|0
+880002676|0|0|1114215|33|10000|-2|8|2|32|0
 == texts samples ==
 id|name|desc_head|str1|str2|str3
 879999999|OPCG DON Cost Host|Hidden OPCG host card.|블로커를 발동합니까?|카운터를 발동합니까?|블로커로 발동할 캐릭터를 선택해 주세요.
@@ -41,8 +41,8 @@ id|name|desc_head|str1|str2|str3
 
 패러렐 P1 · L|||
 == id ranges ==
-max base|880002557
-max printing|881001661
+max base|880002676
+max printing|881001664
 == alias sample (printing rows) ==
 id|alias|ot|setcode|type|level|race|attribute|atk|def
 881001643|880002539|0|135|33|4|2|4|5000|1000
