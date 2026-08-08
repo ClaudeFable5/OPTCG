@@ -1,0 +1,53 @@
+== schema ==
+CREATE TABLE IF NOT EXISTS "texts" ("id" INTEGER,"name" TEXT,"desc" TEXT,
+ "str1" TEXT,"str2" TEXT,"str3" TEXT,"str4" TEXT,"str5" TEXT,"str6" TEXT,
+ "str7" TEXT,"str8" TEXT,"str9" TEXT,"str10" TEXT,"str11" TEXT,"str12" TEXT,
+ "str13" TEXT,"str14" TEXT,"str15" TEXT,"str16" TEXT, PRIMARY KEY("id"));
+CREATE TABLE IF NOT EXISTS "datas" ("id" INTEGER,"ot" INTEGER,"alias" INTEGER,"setcode" INTEGER,
+ "type" INTEGER,"atk" INTEGER,"def" INTEGER,"level" INTEGER,"race" INTEGER,
+ "attribute" INTEGER,"category" INTEGER, PRIMARY KEY("id"));
+== row counts (datas, texts) ==
+4016
+4016
+== datas samples: ST30 leader/char/event + printing + ST10 leader + OP07 char ==
+id|ot|alias|setcode|type|atk|def|level|race|attribute|category
+880000880|0|0|8519734|33|6000|1000|5|2|2|8
+880002101|0|0|155|33|5000|-2|4|1|9|8
+880002541|0|0|171809767536|33|6000|-2|4|1|3|0
+880002542|0|0|10616944|33|2000|1000|1|2|1|0
+880002555|0|0|169|65538|-2|-2|1|3|1|0
+881001645|0|880002541|171809767536|33|6000|-2|4|1|3|0
+== datas samples: one per race (kind) among recent ids ==
+id|ot|alias|setcode|type|atk|def|level|race|attribute|category
+880002431|0|0|37|524290|-2|-2|7|4|1|0
+880002541|0|0|171809767536|33|6000|-2|4|1|3|0
+880002554|0|0|7995504|33|3000|2000|2|2|2|0
+880002557|0|0|169|65538|-2|-2|1|3|1|0
+== texts samples ==
+id|name|desc_head|str1|str2|str3
+879999999|OPCG DON Cost Host|Hidden OPCG host card.|블로커를 발동합니까?|카운터를 발동합니까?|블로커로 발동할 캐릭터를 선택해 주세요.
+880002541|루피 & 에이스|[ST30-001]
+
+자신의 원래 파워 7000 이상인 캐릭터가 있을 경우, 이 리더의 파워 -2000.
+【상대의 턴 동안】 자신의 「포트거스 D. 에이스」와 「몽키 D. 루피」 전부는 파워 +3000.|||
+880002555|이 시대의 이름을 '흰수염'이라 한다!!|[ST30-015]
+
+【카운터】 자신의 원래 파워 6000인 캐릭터가 2장 이상 있을 경우, 자신의 리더나 캐릭터 1장까지는 이번 배틀 동안 파워 +4000.
+【트리거】 상대의 파워 6000 이하인 캐릭터 1장까지를 KO한다.|||
+881001645|루피 & 에이스|[ST30-001_P1]
+
+자신의 원래 파워 7000 이상인 캐릭터가 있을 경우, 이 리더의 파워 -2000.
+【상대의 턴 동안】 자신의 「포트거스 D. 에이스」와 「몽키 D. 루피」 전부는 파워 +3000.
+
+패러렐 P1 · L|||
+== id ranges ==
+max base|880002557
+max printing|881001661
+== alias sample (printing rows) ==
+id|alias|ot|setcode|type|level|race|attribute|atk|def
+881001643|880002539|0|135|33|4|2|4|5000|1000
+881001644|880002540|0|7995527|33|5|2|4|7000|-2
+881001645|880002541|0|171809767536|33|4|1|3|6000|-2
+881001646|880002542|0|10616944|33|1|2|1|2000|1000
+881001647|880002543|0|11075646|33|8|2|1|6000|1000
+881001648|880002544|0|10616944|33|1|2|1|2000|1000
