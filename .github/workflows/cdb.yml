@@ -1,0 +1,61 @@
+name: cdb
+# cards-opcg.cdb 저장소측 갱신 파이프라인(로컬에 sqlite 도구가 없는 작업 환경 대체):
+#  1) dist/cdb_patches/pending/*.sql 이 있으면 cdb에 적용하고 applied/로 이동
+#  2) 항상 스키마·표본·id 범위를 dist/cdb_patches/schema_dump.txt 로 덤프
+#  3) 변경분을 [cdb-bot] 커밋으로 되민다(자기 재트리거는 메시지 가드로 차단)
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dist/cdb_patches/**'
+      - '.github/workflows/cdb.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: cdb
+  cancel-in-progress: false
+jobs:
+  cdb:
+    if: "!contains(github.event.head_commit.message, '[cdb-bot]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply pending patches
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mkdir -p dist/cdb_patches/applied
+          for f in dist/cdb_patches/pending/*.sql; do
+            echo "== applying $f"
+            sqlite3 cards-opcg.cdb < "$f"
+            git mv "$f" "dist/cdb_patches/applied/$(basename "$f")"
+          done
+          test "$(sqlite3 cards-opcg.cdb 'PRAGMA integrity_check;')" = "ok"
+      - name: Dump schema and samples
+        run: |
+          set -euo pipefail
+          {
+            echo "== schema =="
+            sqlite3 cards-opcg.cdb ".schema"
+            echo "== row counts (datas, texts) =="
+            sqlite3 cards-opcg.cdb "SELECT count(*) FROM datas; SELECT count(*) FROM texts;"
+            echo "== datas samples: ST30 leader/char/event + printing + ST10 leader + OP07 char =="
+            sqlite3 -header cards-opcg.cdb "SELECT * FROM datas WHERE id IN (880002541,880002542,880002555,881001645,880002101,880000880);"
+            echo "== datas samples: one per race (kind) among recent ids =="
+            sqlite3 -header cards-opcg.cdb "SELECT * FROM datas WHERE id IN (SELECT max(id) FROM datas WHERE id BETWEEN 880000000 AND 880999999 GROUP BY race);"
+            echo "== texts samples =="
+            sqlite3 -header cards-opcg.cdb "SELECT id,name,substr(desc,1,160) AS desc_head,str1,str2,str3 FROM texts WHERE id IN (880002541,880002555,881001645,879999999);"
+            echo "== id ranges =="
+            sqlite3 cards-opcg.cdb "SELECT 'max base', max(id) FROM datas WHERE id BETWEEN 880000000 AND 880999999;"
+            sqlite3 cards-opcg.cdb "SELECT 'max printing', max(id) FROM datas WHERE id BETWEEN 881000000 AND 881999999;"
+            echo "== alias sample (printing rows) =="
+            sqlite3 -header cards-opcg.cdb "SELECT id,alias,ot,setcode,type,level,race,attribute,atk,def FROM datas WHERE id BETWEEN 881001640 AND 881001661 LIMIT 6;"
+          } > dist/cdb_patches/schema_dump.txt
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name "cdb-bot"
+          git config user.email "cdb-bot@users.noreply.github.com"
+          git add -A dist/cdb_patches cards-opcg.cdb
+          git diff --cached --quiet || { git commit -m "[cdb-bot] cdb 패치 적용/스키마 덤프 갱신"; git push; }
