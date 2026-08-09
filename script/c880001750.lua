@@ -1,5 +1,6 @@
+-- 판본 통일(2026-08-09): c880001751(정본)과 동일 내용 - 같은 카드번호는 같은 카드 취급
 -- AUTO-GENERATED: ST03-004 / 겟코 모리아
--- rules_id=ST03-004 script_id=880001750 fingerprint=719cd78a80b8c3d3e720ec037508d416b579c2c2263cda23c565e81ad0662c3d
+-- rules_id=ST03-004@42a6b1da26a8 script_id=880001751 fingerprint=42a6b1da26a82ef451b6f8e903a2f3df7df1be49b1f35c776ed69703d2b1d8da
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -29,14 +30,14 @@ function s.initial_effect(c)
         costs={},
         effect_id=[[E1]],
         once_per_turn=false,
-        source_text=[[【등장 시】자신 트래시에서 「겟코 모리아」이외의 코스트 4 이하인 《왕의 부하 칠무해》 또는 《스릴러 바크 해적단》특징을 가진 캐릭터 카드를 1장까지 패에 더한다.]],
+        source_text=[[【등장 시】자신의 트래시에서 「겟코 모리아」 이외의 코스트 4 이하인 《왕의 부하 칠무해》 또는 《스릴러 바크 해적단》 특징을 가진 캐릭터 카드를 1장까지 패에 더한다.]],
         timings={
           [[ON_PLAY]],
         },
       },
     },
     keywords={},
-    rules_id=[[ST03-004]],
+    rules_id=[[ST03-004@42a6b1da26a8]],
     schema_version=1,
   })
 end

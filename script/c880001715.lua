@@ -1,5 +1,6 @@
+-- 판본 통일(2026-08-09): c880001716(정본)과 동일 내용 - 같은 카드번호는 같은 카드 취급
 -- AUTO-GENERATED: ST01-005 / 징베
--- rules_id=ST01-005 script_id=880001715 fingerprint=b187e033e3746848299e46389b831fe6d83b69aa55952389c6d9fbe323b31c9f
+-- rules_id=ST01-005@07aee46cf469 script_id=880001716 fingerprint=07aee46cf46967deb4502a82bbceb226962f290dac3ba4eab1f5f349521ad95e
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -28,14 +29,14 @@ function s.initial_effect(c)
         don_attached=1,
         effect_id=[[E1]],
         once_per_turn=false,
-        source_text=[[【두웅!!x1】【어택 시】이번 턴 동안, 이 캐릭터 이외의 자신의 리더 또는 캐릭터 1장까지의 파워 +1000.]],
+        source_text=[[【두웅!!×1】【어택 시】이번 턴 동안, 이 캐릭터 이외의 자신 리더 또는 캐릭터 1장까지의 파워 +1000.]],
         timings={
           [[WHEN_ATTACKING]],
         },
       },
     },
     keywords={},
-    rules_id=[[ST01-005]],
+    rules_id=[[ST01-005@07aee46cf469]],
     schema_version=1,
   })
 end

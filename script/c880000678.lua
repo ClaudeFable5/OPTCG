@@ -1,5 +1,6 @@
+-- 판본 통일(2026-08-09): c880000679(정본)과 동일 내용 - 같은 카드번호는 같은 카드 취급
 -- AUTO-GENERATED: OP05-066 / 징베
--- rules_id=OP05-066 script_id=880000678 fingerprint=0a825e91ea617b33d68b2862af21573016714159e334909dee7f4b855afb725e
+-- rules_id=OP05-066@08e1d74c50be script_id=880000679 fingerprint=08e1d74c50be29cdb9d8d3d42524f167e6d003ad65e483267bcfd3869287382b
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -30,7 +31,7 @@ function s.initial_effect(c)
         costs={},
         effect_id=[[E2]],
         once_per_turn=false,
-        source_text=[[【상대의 턴 동안】자신 필드에 두웅!!이 10장인 경우, 이 캐릭터의 파워 +1000.]],
+        source_text=[[【상대의 턴 동안】자신 필드의 두웅!!이 10장인 경우, 이 캐릭터의 파워 +1000.]],
         timings={
           [[CONTINUOUS_OPPONENT_TURN]],
         },
@@ -39,7 +40,7 @@ function s.initial_effect(c)
     keywords={
       [[BLOCKER]],
     },
-    rules_id=[[OP05-066]],
+    rules_id=[[OP05-066@08e1d74c50be]],
     schema_version=1,
   })
 end

@@ -1,5 +1,6 @@
+-- 판본 통일(2026-08-09): c880000090(정본)과 동일 내용 - 같은 카드번호는 같은 카드 취급
 -- AUTO-GENERATED: EB02-028 / 포트거스 D. 에이스
--- rules_id=EB02-028 script_id=880000089 fingerprint=cc97d504e6a832d1e812bd7510257669a5453a49f762cfcc70eb206a2b16b910
+-- rules_id=EB02-028@49052d405bf2 script_id=880000090 fingerprint=49052d405bf233f441339c8d26336e69ec5d3465aaa60d13a33610904da7633e
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -52,7 +53,7 @@ function s.initial_effect(c)
       },
     },
     keywords={},
-    rules_id=[[EB02-028]],
+    rules_id=[[EB02-028@49052d405bf2]],
     schema_version=1,
   })
 end

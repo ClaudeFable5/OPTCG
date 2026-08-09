@@ -1,5 +1,6 @@
+-- 판본 통일(2026-08-09): c880000873(정본)과 동일 내용 - 같은 카드번호는 같은 카드 취급
 -- AUTO-GENERATED: OP07-019 / 쥬얼리 보니
--- rules_id=OP07-019 script_id=880000872 fingerprint=517e38c613ed5e441b5208f06625041942b0415e996b6887661b09df329f07bb
+-- rules_id=OP07-019@112bd586c4e2 script_id=880000873 fingerprint=112bd586c4e2dd4c06fe7a0ee768d933fd22739cf4a2355156663cd40d7b4a86
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -27,14 +28,14 @@ function s.initial_effect(c)
         },
         effect_id=[[E1]],
         once_per_turn=true,
-        source_text=[[【상대의 어택 시】【턴 1회】1(코스트 에리어의 두웅!!을 지정된 수만큼 레스트할 수 있다): 상대의 리더 또는 캐릭터를 1장까지 레스트로 한다.]],
+        source_text=[[【상대의 어택 시】【턴 1회】 자신의 두웅!! 1장을 레스트할 수 있다: 상대의 리더 또는 캐릭터 1장까지를 레스트로 한다.]],
         timings={
           [[ON_OPPONENT_ATTACK]],
         },
       },
     },
     keywords={},
-    rules_id=[[OP07-019]],
+    rules_id=[[OP07-019@112bd586c4e2]],
     schema_version=1,
   })
 end

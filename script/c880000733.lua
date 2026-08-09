@@ -1,5 +1,6 @@
+-- 판본 통일(2026-08-09): c880000734(정본)과 동일 내용 - 같은 카드번호는 같은 카드 취급
 -- AUTO-GENERATED: OP05-119 / 몽키 D. 루피
--- rules_id=OP05-119@30b2b4548a05 script_id=880000733 fingerprint=30b2b4548a0523f33d89bc24538481e6fb9f1cca31ba947e97783588d5f1ca1e
+-- rules_id=OP05-119@5511eaa5c5fe script_id=880000734 fingerprint=5511eaa5c5fe1978316c610a379dae8722d1b207ae90ea8d4f2b5c73d478e6c1
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -60,14 +61,14 @@ function s.initial_effect(c)
         },
         effect_id=[[E2]],
         once_per_turn=true,
-        source_text=[[【기동: 메인】【턴 1회】1(코스트 에리어의 두웅!!을 지정된 수만큼 레스트할 수 있다): 두웅!! 덱에서 두웅!!을 1장까지 액티브로 추가한다.]],
+        source_text=[[【기동: 메인】【턴 1회】자신의 두웅!! 1장을 레스트할 수 있다: 두웅!! 덱에서 두웅!!을 1장까지 액티브로 추가한다.]],
         timings={
           [[ACTIVATE_MAIN]],
         },
       },
     },
     keywords={},
-    rules_id=[[OP05-119@30b2b4548a05]],
+    rules_id=[[OP05-119@5511eaa5c5fe]],
     schema_version=1,
   })
 end

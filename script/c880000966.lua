@@ -1,5 +1,6 @@
+-- 판본 통일(2026-08-09): c880000967(정본)과 동일 내용 - 같은 카드번호는 같은 카드 취급
 -- AUTO-GENERATED: OP07-111 / 릴리스
--- rules_id=OP07-111 script_id=880000966 fingerprint=5b64cf956b1b7a9dadf6a4d4b921fecf5db87c4ac7ec2612a5f8db4b008e38bf
+-- rules_id=OP07-111@cbeccb513068 script_id=880000967 fingerprint=cbeccb513068f8499c2281a7bbfd620bb77ac7e8ca5856d5ea8b669b931a8555
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -57,7 +58,7 @@ function s.initial_effect(c)
       },
     },
     keywords={},
-    rules_id=[[OP07-111]],
+    rules_id=[[OP07-111@cbeccb513068]],
     schema_version=1,
   })
 end

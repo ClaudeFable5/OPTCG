@@ -1,5 +1,6 @@
+-- 판본 통일(2026-08-09): c880000515(정본)과 동일 내용 - 같은 카드번호는 같은 카드 취급
 -- AUTO-GENERATED: OP04-024 / 슈거
--- rules_id=OP04-024 script_id=880000514 fingerprint=c45e8c088de613e6fa8857ac29cdc97076f1564cb5fea1ce21fcdf90e7207704
+-- rules_id=OP04-024@8bb1c86f4bf5 script_id=880000515 fingerprint=8bb1c86f4bf57facf1706ecc3bdba34f822efdfc3c2e4f1f50a9e046672d8770
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -41,7 +42,7 @@ function s.initial_effect(c)
         costs={},
         effect_id=[[E1]],
         once_per_turn=true,
-        source_text=[[【상대의 턴 동안】【턴 1회】상대가 캐릭터를 등장시켰을 때, 자신의 리더가 《돈키호테 해적단》 특징을 가진 경우, 상대의 캐릭터를 1장까지 레스트로 한다. 그 후, 이 캐릭터를 레스트한다.]],
+        source_text=[[【상대의 턴 동안】【턴 1회】상대가 캐릭터를 등장시켰을 때, 자신의 리더가 《돈키호테 해적단》 특징을 가진 경우, 상대의 캐릭터를 1장까지 레스트로 한다. 그 후, 이 캐릭터를 레스트 한다.]],
         timings={
           [[ON_OPPONENT_CHARACTER_PLAYED]],
         },
@@ -72,7 +73,7 @@ function s.initial_effect(c)
       },
     },
     keywords={},
-    rules_id=[[OP04-024]],
+    rules_id=[[OP04-024@8bb1c86f4bf5]],
     schema_version=1,
   })
 end

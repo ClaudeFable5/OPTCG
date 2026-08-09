@@ -1,5 +1,6 @@
+-- 판본 통일(2026-08-09): c880000285(정본)과 동일 내용 - 같은 카드번호는 같은 카드 취급
 -- AUTO-GENERATED: OP02-040 / 브룩
--- rules_id=OP02-040 script_id=880000284 fingerprint=56c3cdd92044f8d6ad647b072f8b27d92d4ab474825e2455239df7189d67de1f
+-- rules_id=OP02-040@29a3a48c028c script_id=880000285 fingerprint=29a3a48c028ca66690b97c63e87900c0e328bc0d4fc2170e4123598bc7b810ed
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -28,14 +29,14 @@ function s.initial_effect(c)
         costs={},
         effect_id=[[E1]],
         once_per_turn=false,
-        source_text=[[【등장 시】자신의 패에서 코스트 3 이하인 《FILM》 또는 《밀짚모자 일당》 특징을 가진 캐릭터 카드를 1장까지 등장시킨다.]],
+        source_text=[[【등장 시】자신의 패에서 코스트 3 이하인 《FILM》 또는 《밀짚모자 일당》 특징을 가진 캐릭터를 1장까지 등장시킨다.]],
         timings={
           [[ON_PLAY]],
         },
       },
     },
     keywords={},
-    rules_id=[[OP02-040]],
+    rules_id=[[OP02-040@29a3a48c028c]],
     schema_version=1,
   })
 end

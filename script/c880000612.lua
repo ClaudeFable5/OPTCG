@@ -1,5 +1,6 @@
+-- 판본 통일(2026-08-09): c880000613(정본)과 동일 내용 - 같은 카드번호는 같은 카드 취급
 -- AUTO-GENERATED: OP05-001 / 사보
--- rules_id=OP05-001 script_id=880000612 fingerprint=223dfd1f75f766933b2c545097c86676edbe05f9d2c7f4164b6f5b7ff9653182
+-- rules_id=OP05-001@c6eac6baff78 script_id=880000613 fingerprint=c6eac6baff78c66c0fc581cb24ab0bccba07bb2cfcdd5f9088ba608777efbd7b
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -42,14 +43,14 @@ function s.initial_effect(c)
         don_attached=1,
         effect_id=[[E1]],
         once_per_turn=true,
-        source_text=[[【두웅!!×1】【상대의 턴 동안】【턴 1회】자신의 파워 5000 이상인 캐릭터가 KO 당했을 때, 이번 턴 동안, 그 캐릭터는 KO 당하는 대신 파워 -1000 할 수 있다.]],
+        source_text=[[【두웅!!×1】【상대의 턴 동안】【턴 1회】자신의 파워 5000 이상인 캐릭터가 KO 당할 경우, 이번 턴 동안, 그 캐릭터는 KO 당하는 대신 파워 -1000 할 수 있다.]],
         timings={
           [[CONTINUOUS_OPPONENT_TURN]],
         },
       },
     },
     keywords={},
-    rules_id=[[OP05-001]],
+    rules_id=[[OP05-001@c6eac6baff78]],
     schema_version=1,
   })
 end

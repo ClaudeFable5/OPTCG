@@ -537,7 +537,7 @@ opcg.card_meta = {
 	[880000532]={name="아피스",base_card_no="OP04-041",card_type="CHARACTER",colors=4,traits={["이스트 블루"]=true},attributes={["WISDOM"]=true}},
 	[880000533]={name="잇폰마츠",base_card_no="OP04-042",card_type="CHARACTER",colors=4,traits={["이스트 블루"]=true},attributes={["WISDOM"]=true}},
 	[880000534]={name="울티",base_card_no="OP04-043",card_type="CHARACTER",colors=4,traits={["백수 해적단"]=true},attributes={["STRIKE"]=true}},
-	[880000536]={name="카이도",base_card_no="OP04-044",card_type="CHARACTER",colors=4,traits={["백수 해적단"]=true,["사황"]=true},attributes={["SPECIAL"]=true}},
+	[880000536]={name="카이도",base_card_no="OP04-044",card_type="CHARACTER",colors=4,traits={["백수 해적단"]=true,["사황"]=true},attributes={["STRIKE"]=true}},
 	[880000535]={name="카이도",base_card_no="OP04-044",card_type="CHARACTER",colors=4,traits={["백수 해적단"]=true,["사황"]=true},attributes={["STRIKE"]=true}},
 	[880000537]={name="킹",base_card_no="OP04-045",card_type="CHARACTER",colors=4,traits={["백수 해적단"]=true},attributes={["SLASH"]=true}},
 	[880000538]={name="퀸",base_card_no="OP04-046",card_type="CHARACTER",colors=4,traits={["백수 해적단"]=true},attributes={["STRIKE"]=true}},

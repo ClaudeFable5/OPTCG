@@ -1,5 +1,6 @@
+-- 판본 통일(2026-08-09): c880000057(정본)과 동일 내용 - 같은 카드번호는 같은 카드 취급
 -- AUTO-GENERATED: EB01-057 / 시라호시
--- rules_id=EB01-057 script_id=880000056 fingerprint=aed978ac008d3170c44a1bae5c1fa4b96c988d7066d2038103b521e944598197
+-- rules_id=EB01-057@c66a4bc33636 script_id=880000057 fingerprint=c66a4bc33636f19c1396289a4b99a0639d0f0b72becde54602f1ce4ba4801374
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -28,7 +29,7 @@ function s.initial_effect(c)
     keywords={
       [[BLOCKER]],
     },
-    rules_id=[[EB01-057]],
+    rules_id=[[EB01-057@c66a4bc33636]],
     schema_version=1,
   })
 end

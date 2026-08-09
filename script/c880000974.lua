@@ -1,5 +1,6 @@
+-- 판본 통일(2026-08-09): c880000975(정본)과 동일 내용 - 같은 카드번호는 같은 카드 취급
 -- AUTO-GENERATED: OP07-118 / 사보
--- rules_id=OP07-118 script_id=880000974 fingerprint=513cf2360db2323fb6cacf08ebf06cb718db901f692be3b658d5dd9f489bbc93
+-- rules_id=OP07-118@995b4d7451fe script_id=880000975 fingerprint=995b4d7451fe3b2e23aac67bdd5e8468ebdfd3a272c490a39d868166e4237a41
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -42,14 +43,14 @@ function s.initial_effect(c)
         },
         effect_id=[[E1]],
         once_per_turn=false,
-        source_text=[[【등장 시】자신의 패 1장을 버릴 수 있다: 상대의 코스트 5 이하인 캐릭터 1장까지와 코스트 3 이하인 캐릭터 1장까지를 KO 시킨다.]],
+        source_text=[[【등장 시】자신의 패 1장을 버릴 수 있다: 상대의 코스트 5 이하인 캐릭터 1장까지와 코스트 3 이하인 캐릭터를 1장까지 KO 시킨다.]],
         timings={
           [[ON_PLAY]],
         },
       },
     },
     keywords={},
-    rules_id=[[OP07-118]],
+    rules_id=[[OP07-118@995b4d7451fe]],
     schema_version=1,
   })
 end

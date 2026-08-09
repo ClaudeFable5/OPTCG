@@ -1,5 +1,6 @@
+-- 판본 통일(2026-08-09): c880001131(정본)과 동일 내용 - 같은 카드번호는 같은 카드 취급
 -- AUTO-GENERATED: OP09-035 / 포트거스 D. 에이스
--- rules_id=OP09-035 script_id=880001130 fingerprint=bc3fa43bec4f906e1d28580295273738993049acaeacce3e2c609323924fc515
+-- rules_id=OP09-035@917e3eae2af6 script_id=880001131 fingerprint=917e3eae2af63bdab18b9a82a6d6672d923a77693166140b1d4dae09e655fc0d
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -32,14 +33,14 @@ function s.initial_effect(c)
         costs={},
         effect_id=[[E1]],
         once_per_turn=false,
-        source_text=[[【등장 시】자신의 레스트 상태인 캐릭터가 2장 이상인 경우, 상대의 코스트 5 이하인 캐릭터를 1장까지 레시트로 한다.]],
+        source_text=[[【등장 시】자신의 레스트 상태인 캐릭터가 2장 이상인 경우, 상대의 코스트 5 이하인 캐릭터를 1장까지 레스트로 한다.]],
         timings={
           [[ON_PLAY]],
         },
       },
     },
     keywords={},
-    rules_id=[[OP09-035]],
+    rules_id=[[OP09-035@917e3eae2af6]],
     schema_version=1,
   })
 end

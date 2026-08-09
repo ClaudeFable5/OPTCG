@@ -1,5 +1,6 @@
+-- 판본 통일(2026-08-09): c880000536(정본)과 동일 내용 - 같은 카드번호는 같은 카드 취급
 -- AUTO-GENERATED: OP04-044 / 카이도
--- rules_id=OP04-044 script_id=880000535 fingerprint=d2eb80611c1631c6f27974fe72ffaf321427ef69a5c6575509888575a75cb7fe
+-- rules_id=OP04-044@47e5f3369458 script_id=880000536 fingerprint=47e5f3369458a1fc3810237871a6bb82e2da7d2cf6bf65b90dae0e058ee76e08
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -44,7 +45,7 @@ function s.initial_effect(c)
       },
     },
     keywords={},
-    rules_id=[[OP04-044]],
+    rules_id=[[OP04-044@47e5f3369458]],
     schema_version=1,
   })
 end

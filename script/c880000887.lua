@@ -1,5 +1,6 @@
+-- 판본 통일(2026-08-09): c880000888(정본)과 동일 내용 - 같은 카드번호는 같은 카드 취급
 -- AUTO-GENERATED: OP07-033 / 몽키 D. 루피
--- rules_id=OP07-033 script_id=880000887 fingerprint=6d3831ac9d17f45512cd880112e260203932654ff7f1dbc232f1b7b1ee3de81c
+-- rules_id=OP07-033@890c12bf0f22 script_id=880000888 fingerprint=890c12bf0f22cf0b7c40cc79bc0b3e09961b2ba31d5aaf19ba17e03e385d8012
 local s,id=GetID()
 function s.initial_effect(c)
   opcg.RegisterCard(c,{
@@ -34,14 +35,14 @@ function s.initial_effect(c)
         costs={},
         effect_id=[[E1]],
         once_per_turn=false,
-        source_text=[[자신의 캐릭터가 3장 이상인 경우, 자신의 「몽키 D. 루피」 이외의 코스트 3 이하인 캐릭터는 상대의 효과로는 KO 당하지 않는다.]],
+        source_text=[[자신의 캐릭터가 3장 이상인 경우,]],
         timings={
           [[CONTINUOUS]],
         },
       },
     },
     keywords={},
-    rules_id=[[OP07-033]],
+    rules_id=[[OP07-033@890c12bf0f22]],
     schema_version=1,
   })
 end
