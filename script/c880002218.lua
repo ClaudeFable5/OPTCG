@@ -11,6 +11,7 @@ function s.initial_effect(c)
           {
             duration=[[WHILE_CONDITION]],
             op=[[SET_BASE_POWER_FROM_TARGET]],
+            reference=[[BASE]],
             selector={
               count=1,
               kind=[[SELF]],

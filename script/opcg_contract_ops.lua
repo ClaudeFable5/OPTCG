@@ -533,7 +533,14 @@ function X.execute(op, action, context)
 		return cards
 	elseif op == "SET_BASE_POWER_FROM_TARGET" then
 		local sources = choose(action.source_selector, context)
-		local value = sources[1] and opcg.GetBasePower(sources[1]) or 0
+		-- 참조값 = 대상의 '현재' 파워(유저 재정 2026-08-09, EB01-061 제보:
+		-- "~와 같은 파워"는 변동 포함 해결 시점 수치). "원래 파워와 같은
+		-- 파워"를 명기한 카드(OP14-053 비스타)만 reference=BASE로 원래 파워.
+		local value = 0
+		if sources[1] then
+			value = action.reference == "BASE" and opcg.GetBasePower(sources[1])
+				or opcg.GetPower(sources[1])
+		end
 		local targets = choose(action.selector, context)
 		for _, card in ipairs(targets) do modify(context.card, card, EFFECT_SET_BASE_ATTACK, value, action.duration) end
 		return targets
