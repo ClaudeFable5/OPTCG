@@ -131,13 +131,20 @@ function L.damage_leader(player, amount, context)
 		blocked=false,
 	}
 
+	-- [2026-08-09 유저 재정] 패배 판정은 '데미지 이벤트' 단위 — 이벤트 시작
+	-- 시점에 라이프가 0일 때만 패배(공식 룰). 더블어택 등 다중 데미지가 남은
+	-- 라이프를 초과해도 초과분은 무시되고 게임은 계속된다(라이프 1에서
+	-- 더블어택 히트 = 라이프 1장만 까이고 생존).
+	if amount > 0 and L.top(player, { bridge=bridge }) == nil then
+		result.defeated = true
+		result.loss_at = 1
+		bridge.win(1 - player, L.WIN_REASON)
+	end
 	for damage_index = 1, amount do
+		if result.defeated then break end
 		local card = L.top(player, { bridge=bridge })
 		if not card then
-			result.defeated = true
-			result.loss_at = damage_index
-			bridge.win(1 - player, L.WIN_REASON)
-			break
+			break -- 이벤트 도중 라이프 소진: 초과 데미지 무시(패배 아님)
 		end
 
 		local item = { card=card, damage_index=damage_index }
