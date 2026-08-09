@@ -1,8 +1,8 @@
 [
     {
-        "name":  "OPCGPro-update-r31.1.zip",
-        "url":  "https://raw.githubusercontent.com/ClaudeFable5/OPTCG/main/release/OPCGPro-update-r31.1.zip",
-        "md5":  "df2c67a985395fe40379ba60f035e1eb",
-        "rev":  32
+        "name":  "OPCGPro-update-r33.zip",
+        "url":  "https://raw.githubusercontent.com/ClaudeFable5/OPTCG/main/release/OPCGPro-update-r33.zip",
+        "md5":  "3098ef536de7f0b55ccbe98658685156",
+        "rev":  33
     }
 ]
