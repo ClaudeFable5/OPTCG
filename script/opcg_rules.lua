@@ -222,7 +222,11 @@ function R.register_game_start()
 		setup:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
 		setup:SetCode(EVENT_OPCG_POST_DRAW_SETUP)
 		setup:SetOperation(function()
-			for _, player in ipairs({ 0, 1 }) do
+			-- [2026-08-10 유저 재정] 멀리건은 좌석 순서가 아니라 '선공부터'
+			-- (공식 룰). 라이프 배치도 같은 순서로 맞춘다.
+			local first = Duel.GetTurnPlayer()
+			local turn_order = { first, 1 - first }
+			for _, player in ipairs(turn_order) do
 				if Duel.SelectYesNo(player, aux.Stringid(REDRAW_PROMPT_CARD, 0)) then
 					local hand = Duel.GetFieldGroup(player, LOCATION_HAND, 0)
 					Duel.SendtoDeck(hand, nil, SEQ_DECKSHUFFLE, REASON_RULE)
@@ -230,7 +234,7 @@ function R.register_game_start()
 					Duel.Draw(player, 5, REASON_RULE)
 				end
 			end
-			for _, player in ipairs({ 0, 1 }) do
+			for _, player in ipairs(turn_order) do
 				local leader = opcg.GetLeader(player)
 				local life = leader and leader:GetLevel() or 0
 				for _ = 1, life do
