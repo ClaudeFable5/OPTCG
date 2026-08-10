@@ -7,6 +7,10 @@ opcg.DON_CARD_ID = 879999997
 opcg.DON_DECK_HOST_ID = 879999998
 opcg.DON_COST_HOST_ID = 879999999
 opcg.FLAG_DON_RESTED = 0x7f4f0001
+-- [2026-08-10 OP07-026 재수리] 둥 동결은 플래그 이펙트로 나른다: 둥은
+-- 오버레이 카드라 SINGLE 이펙트가 코어 집계(GetCardEffect)에 안 잡혀
+-- HasMatchingEffect가 영영 false — 레스트 상태와 같은 원시(플래그)만 유효.
+opcg.FLAG_DON_FREEZE = 0x7f4f0002
 opcg.DON_MAX = 10
 -- 룰상 둥!! 덱 크기 변경(OP15-058 에넬 리더 = 6장): 리더의 상주 효과
 -- (EFFECT_DON_DECK_SIZE, 값 = 크기)를 조회. 효과 기반이라 무효화도 자연 반영.
@@ -55,6 +59,9 @@ local function first_n(group, n, predicate)
 end
 local function cannot_set_active(card, player, context)
 	if not opcg.EFFECT_CANNOT_SET_DON_ACTIVE then return false end
+	-- 낱장 동결의 정본 = 플래그(오버레이 유효). 아래 둘은 플레이어 단위
+	-- 금지·구 데이터 호환 경로로 남긴다.
+	if card.GetFlagEffect and card:GetFlagEffect(opcg.FLAG_DON_FREEZE) ~= 0 then return true end
 	if opcg.HasMatchingEffect(card, opcg.EFFECT_CANNOT_SET_DON_ACTIVE) then return true end
 	return opcg.contract_ops and opcg.contract_ops.player_has
 		and opcg.contract_ops.player_has(player, opcg.EFFECT_CANNOT_SET_DON_ACTIVE, card, context)

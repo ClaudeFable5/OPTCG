@@ -107,6 +107,14 @@ local function attach_reset(effect, duration, source)
 		X.schedule("THIS_BATTLE_END", source, function() effect:Reset() end)
 	end
 end
+-- [2026-08-10 OP07-026 재수리] 둥(오버레이) 낱장 동결 전용: SINGLE 이펙트는
+-- 오버레이 카드에서 코어 집계에 안 잡히므로 플래그로 나른다(레스트 상태와
+-- 같은 원시). 리셋 수식은 single_effect와 동일 규약.
+local function freeze_don_flag(card, duration, source)
+	local reset, count = reset_for(duration, source)
+	card:RegisterFlagEffect(opcg.FLAG_DON_FREEZE,
+		(reset or 0) + RESET_EVENT + RESETS_STANDARD, 0, count or 1)
+end
 local function single_effect(source, target, code, value, duration)
 	local effect = Effect.CreateEffect(source)
 	effect:SetType(EFFECT_TYPE_SINGLE)
@@ -877,7 +885,7 @@ function X.execute(op, action, context)
 			local selected = maximum > 0 and group:Select(chooser, minimum, maximum, nil)
 				or Group.CreateGroup()
 			for card in aux.Next(selected) do
-				single_effect(context.card, card, opcg.EFFECT_CANNOT_SET_DON_ACTIVE, 1, action.duration)
+				freeze_don_flag(card, action.duration, context.card)
 			end
 		else
 			player_effect(context.card, player, opcg.EFFECT_CANNOT_SET_DON_ACTIVE,
@@ -948,7 +956,7 @@ function X.execute(op, action, context)
 				if opcg.IsLeader(card) or opcg.IsCharacter(card) or opcg.IsStage(card) then
 					single_effect(context.card, card, opcg.EFFECT_CANNOT_SET_ACTIVE, 1, action.duration)
 				else
-					single_effect(context.card, card, opcg.EFFECT_CANNOT_SET_DON_ACTIVE, 1, action.duration)
+					freeze_don_flag(card, action.duration, context.card)
 				end
 				cards[#cards + 1] = card
 			end
