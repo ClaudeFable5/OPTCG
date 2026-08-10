@@ -1627,7 +1627,10 @@ function X.after_remove(cards, reason, destination, context)
 			if source_player ~= nil and source_player ~= owner then
 				X.emit("ON_OWN_TRAIT_CHARACTER_LEFT_BY_OPPONENT_EFFECT", event, owner)
 				X.emit("ON_OWN_TRAIT_CHARACTER_KO_OR_LEFT_BY_OPPONENT_EFFECT", event, owner)
-				if destroyed then X.emit("ON_KO_BY_OPPONENT_EFFECT", event, owner, {card}) end
+				-- [2026-08-10 룰 재정] 무효된 채 KO되면 본인의 KO 계열 타이밍 봉인
+				if destroyed and card:GetFlagEffect(opcg.FLAG_NEGATED_KO) == 0 then
+					X.emit("ON_KO_BY_OPPONENT_EFFECT", event, owner, {card})
+				end
 			else
 				X.emit("ON_OWN_TRAIT_CHARACTER_LEFT_BY_EFFECT", event, owner)
 			end

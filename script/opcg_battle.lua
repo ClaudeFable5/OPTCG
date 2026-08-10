@@ -617,6 +617,8 @@ function B.install()
 			and target:IsLocation(LOCATION_MZONE)
 			and attacker and attacker:GetAttack() >= target:GetAttack() then
 			opcg.ReturnAttachedDon(target)
+			-- [2026-08-10 룰 재정] 무효 상태로 KO → 【KO 시】 봉인 스탬프
+			if opcg.StampNegatedKO then opcg.StampNegatedKO(target) end
 			local moved = Duel.Destroy(target, REASON_BATTLE)
 			if moved > 0 then
 				Duel.RaiseSingleEvent(target, EVENT_DESTROYED, nil,
@@ -629,7 +631,10 @@ function B.install()
 		if target and live.final_target_is_character
 			and target:IsLocation(LOCATION_GRAVE) and target:IsReason(REASON_BATTLE) then
 			dispatch({attacker}, "ON_BATTLE_KO", context)
-			dispatch({target}, "ON_SELF_KO", context)
+			-- [2026-08-10 룰 재정] 무효된 채 KO된 캐릭터는 자기 KO 타이밍도 봉인
+			if target:GetFlagEffect(opcg.FLAG_NEGATED_KO) == 0 then
+				dispatch({target}, "ON_SELF_KO", context)
+			end
 			-- KO 계열 공통 정제 문맥: event_target에 KO된 캐릭터를 박은 사본.
 			-- live.context를 그대로 주면 ①리더 히트가 남긴 damage가 '데미지
 			-- 받음' 분기를 오발시키고 ②EVENT_TARGET_* 조건(행콕 OP14-041 등)이

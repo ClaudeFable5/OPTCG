@@ -2263,7 +2263,7 @@ opcg.card_meta = {
 	[880002258]={name="Mr.4(베이브)",base_card_no="OP14-093",card_type="CHARACTER",colors=16,traits={["바로크 워크스"]=true},attributes={["STRIKE"]=true}},
 	[880002259]={name="Mr.5(젬)",base_card_no="OP14-094",card_type="CHARACTER",colors=16,traits={["바로크 워크스"]=true},attributes={["SPECIAL"]=true}},
 	[880002260]={name="Mr.9",base_card_no="OP14-095",card_type="CHARACTER",colors=16,traits={["바로크 워크스"]=true},attributes={["STRIKE"]=true}},
-	[880002261]={name="그라운드 데스",base_card_no="OP14-096",card_type="EVENT",colors=16,traits={["왕의 부하 칠무해"]=true,["바로크 워크스"]=true},attributes={}},
+	[880002261]={name="침식 윤회",base_card_no="OP14-096",card_type="EVENT",colors=16,traits={["왕의 부하 칠무해"]=true,["바로크 워크스"]=true},attributes={}},
 	[880002262]={name="어서 나를 해적왕으로 만들어라!!!",base_card_no="OP14-097",card_type="EVENT",colors=16,traits={["왕의 부하 칠무해"]=true,["스릴러 바크 해적단"]=true},attributes={}},
 	[880002263]={name="초승달 사구",base_card_no="OP14-098",card_type="EVENT",colors=16,traits={["임펠 다운"]=true,["전 바로크 워크스"]=true},attributes={}},
 	[880002264]={name="불만인가?",base_card_no="OP14-099",card_type="EVENT",colors=16,traits={["왕의 부하 칠무해"]=true,["바로크 워크스"]=true},attributes={}},

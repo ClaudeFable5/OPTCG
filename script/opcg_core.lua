@@ -271,6 +271,8 @@ local function remove_cards(cards, reason, destination)
 		-- a K.O. is a real destroy: immunity (INDESTRUCTABLE), EVENT_DESTROYED
 		-- and the native replacement machinery all hang off Duel.Destroy —
 		-- SendtoGrave used to bypass every one of them
+		-- [2026-08-10 룰 재정] 무효 상태로 KO → 【KO 시】 봉인 스탬프
+		if opcg.StampNegatedKO then opcg.StampNegatedKO(cards) end
 		moved = Duel.Destroy(group, reason & ~REASON_DESTROY)
 	else moved = Duel.SendtoGrave(group, reason) end
 	if opcg.contract_ops and opcg.contract_ops.after_remove then
@@ -2436,6 +2438,9 @@ function C.BindCard(card, definition)
 						local handler = e:GetHandler()
 						return handler:IsReason(REASON_DESTROY)
 							and handler:IsPreviousLocation(LOCATION_MZONE)
+							-- [2026-08-10 룰 재정] 무효된 채 KO된 캐릭터의 【KO 시】는
+							-- 발동 불가(공식 메커니즘) — KO 관문의 스탬프 판독.
+							and handler:GetFlagEffect(opcg.FLAG_NEGATED_KO) == 0
 					end)
 				end
 				if timing == "ON_OPPONENT_ATTACK" and opcg.effect_queue then

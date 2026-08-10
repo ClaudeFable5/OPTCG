@@ -11,6 +11,22 @@ opcg.FLAG_DON_RESTED = 0x7f4f0001
 -- 오버레이 카드라 SINGLE 이펙트가 코어 집계(GetCardEffect)에 안 잡혀
 -- HasMatchingEffect가 영영 false — 레스트 상태와 같은 원시(플래그)만 유효.
 opcg.FLAG_DON_FREEZE = 0x7f4f0002
+-- [2026-08-10 룰 재정] "효과가 무효된 캐릭터가 무효된 채로 KO되면 【KO 시】
+-- 효과를 쓸 수 없다"(공식 메커니즘). 무효(EFFECT_DISABLE)는 SINGLE이라
+-- 필드를 떠나는 순간 리셋 — KO 관문이 파괴 직전 IsDisabled()를 읽어 이
+-- 플래그를 찍고, 트래시의 ON_KO/ON_SELF_KO 게이트가 판독한다.
+-- 리셋: 턴 종료·손/덱/필드 복귀 시(트래시行·필드 이탈에는 살아남는다).
+opcg.FLAG_NEGATED_KO = 0x7f4f0003
+function opcg.StampNegatedKO(cards)
+	if cards and cards.IsDisabled then cards = { cards } end
+	for _, card in ipairs(cards or {}) do
+		if card and card.IsDisabled and card:IsDisabled() then
+			card:RegisterFlagEffect(opcg.FLAG_NEGATED_KO,
+				RESET_EVENT + RESET_TOFIELD + RESET_TOHAND + RESET_TODECK
+					+ RESET_PHASE + PHASE_END, 0, 1)
+		end
+	end
+end
 opcg.DON_MAX = 10
 -- 룰상 둥!! 덱 크기 변경(OP15-058 에넬 리더 = 6장): 리더의 상주 효과
 -- (EFFECT_DON_DECK_SIZE, 값 = 크기)를 조회. 효과 기반이라 무효화도 자연 반영.
