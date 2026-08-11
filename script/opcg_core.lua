@@ -260,9 +260,10 @@ local function remove_cards(cards, reason, destination)
 			opcg.contract_ops.current_context)
 	end
 	local group = array_group(cards)
-	for _, card in ipairs(cards or {}) do
-		if opcg.IsLeader(card) or opcg.IsCharacter(card) then opcg.ReturnAttachedDon(card) end
-	end
+	-- [2026-08-10 유저 재정] 이동 '시도 전' 선제 둥 반환 폐지: 내성(파괴 불가
+	-- 등)으로 잔존한 카드의 둥까지 떨어뜨렸다. 실제로 떠난 숙주의 둥은 코어
+	-- 오버레이 처분으로 트래시에 떨어지고, EVENT_TO_GRAVE 워처(RescueLooseDon)가
+	-- 착지 즉시 코스트 에리어로 레스트 귀환시킨다(공식 10-2-3 사후 집행).
 	local moved
 	if destination == "HAND" then moved = Duel.SendtoHand(group, nil, reason)
 	elseif destination == "DECK_TOP" then moved = Duel.SendtoDeck(group, nil, SEQ_DECKTOP, reason)

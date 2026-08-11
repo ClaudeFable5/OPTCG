@@ -145,9 +145,8 @@ local function trash(cards, reason)
 		cards = X.before_remove(cards, reason, "TRASH", X.current_context)
 	end
 	local group = to_group(cards)
-	for _, card in ipairs(cards) do
-		if opcg.IsLeader(card) or opcg.IsCharacter(card) then opcg.ReturnAttachedDon(card) end
-	end
+	-- [2026-08-10 유저 재정] 선제 둥 반환 폐지(내성 잔존 시 둥 유지) —
+	-- 실제 이탈분은 EVENT_TO_GRAVE 워처가 코스트로 레스트 귀환시킨다.
 	local moved = Duel.SendtoGrave(group, reason)
 	if X.after_remove then X.after_remove(cards, reason, "TRASH", X.current_context) end
 	return moved
