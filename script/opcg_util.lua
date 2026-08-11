@@ -738,6 +738,18 @@ function opcg.SelectCards(selector, context)
 	local maximum = math.min(wanted, available)
 	if available < minimum then return nil, "NOT_ENOUGH_TARGETS" end
 	if maximum == 0 then return {} end
+	-- [2026-08-10 유저 하달] 리더 전용 카운터(OP13-097류 "자신의 리더의 파워
+	-- +N"): 후보가 자기 리더 하나뿐인 선택창은 무의미한 클릭 — 카운터
+	-- 타이밍에서는 지정 없이 즉시 적용한다. HintSelection은 남겨 적용 대상
+	-- 하이라이트만 양측에 공지. (리더 또는 캐릭터 선택형은 kind가 달라 종전대로,
+	-- 카운터 밖 리더 지정은 무르기 여지를 보존하러 종전대로.)
+	if selector.kind == "LEADER" and context.timing == "COUNTER"
+		and selector.chooser ~= "OPPONENT" and available == 1 then
+		Duel.HintSelection(candidates, true)
+		local out = {}
+		for card in aux.Next(candidates) do out[#out + 1] = card end
+		return out
+	end
 	local power_limit = selector.filter and selector.filter.power_sum_lte
 	if power_limit then
 		local selected, remaining = {}, power_limit
