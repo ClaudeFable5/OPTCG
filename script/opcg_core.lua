@@ -1499,12 +1499,15 @@ local function add_life_from_hand(action, context, location)
 	return remember_targets(context, added)
 end
 local function add_selected_to_life(action, context)
-	local player = context_player(action.player, context)
 	local chooser = controller(context)
 	local cards = choose_selector(action.selector, context)
 	local added = {}
 	for _, card in ipairs(cards) do
-		if send_to_life(card, player, choose_life_position(action, chooser), action.faceup == true, REASON_EFFECT) then
+		-- [2026-08-12 유저 재정, OP03-123류] 라이프에 올라가는 카드는 효과
+		-- 사용자가 아니라 '그 카드의 주인' 라이프로 간다 — 상대 캐릭터를
+		-- 올리면 상대 라이프가 는다. (자기 카드를 올리는 효과는 주인=자신이라
+		-- 종전과 동일.)
+		if send_to_life(card, card:GetOwner(), choose_life_position(action, chooser), action.faceup == true, REASON_EFFECT) then
 			added[#added + 1] = card
 		end
 	end
