@@ -434,6 +434,13 @@ local function action_life_reorder(action, context)
 	end
 	-- the LOOK part: the chooser privately sees the cards before reordering
 	Duel.ConfirmCards(chooser, to_group(selected))
+	-- [2026-08-12 유저 제보 OP03-099] "라이프로 되돌린다" = 뒷면 복귀. 봤던
+	-- 카드가 앞면(선행 효과로 공개돼 있던 것)이면 뒷면(수비)으로 되돌린다.
+	for _, card in ipairs(selected) do
+		if card:IsPosition(POS_FACEUP) then
+			Duel.ChangePosition(card, POS_FACEDOWN_DEFENSE)
+		end
+	end
 	if action.destinations then
 		local bottom_dest, top_dest = {}, {}
 		for _, card in ipairs(selected) do
