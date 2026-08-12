@@ -115,10 +115,33 @@ local function freeze_don_flag(card, duration, source)
 	card:RegisterFlagEffect(opcg.FLAG_DON_FREEZE,
 		(reset or 0) + RESET_EVENT + RESETS_STANDARD, 0, count or 1)
 end
+-- [2026-08-12 유저 요청, OP08-023류] 효과로 부여된 상태를 카드 호버 툴팁에
+-- 표기한다. 코어 무수정: EFFECT_FLAG_CLIENT_HINT가 붙은 효과는 부여 시점에
+-- CHINT_DESC_ADD, 리셋(기간 만료) 시점에 REMOVE를 자동 발신하고, 클라는
+-- 호버 툴팁에 *줄로 그린다(event_handler의 desc_hints). 문자열은 저장소
+-- strings.conf의 !system 880020대(0x100000 미만 = 시스템 스트링 규약).
+local STATUS_HINT_DESC = {
+	[EFFECT_CANNOT_ATTACK]=880020,
+	[opcg.EFFECT_CANNOT_ATTACK_LEADER]=880021,
+	[opcg.EFFECT_CANNOT_SET_ACTIVE]=880022,
+	[opcg.EFFECT_CANNOT_BE_RESTED]=880023,
+	[opcg.EFFECT_CANNOT_LEAVE_FIELD]=880024,
+	[opcg.EFFECT_PREVENT_BLOCKER_ACTIVATION]=880025,
+	[EFFECT_CANNOT_SELECT_BATTLE_TARGET]=880026,
+	[EFFECT_INDESTRUCTABLE]=880027,
+	[EFFECT_INDESTRUCTABLE_EFFECT]=880028,
+	[EFFECT_INDESTRUCTABLE_BATTLE]=880029,
+	[EFFECT_DISABLE]=880030,
+}
 local function single_effect(source, target, code, value, duration)
 	local effect = Effect.CreateEffect(source)
 	effect:SetType(EFFECT_TYPE_SINGLE)
 	effect:SetCode(code)
+	local hint = STATUS_HINT_DESC[code]
+	if hint then
+		effect:SetDescription(hint)
+		effect:SetProperty(EFFECT_FLAG_CLIENT_HINT)
+	end
 	opcg.SetEffectValue(effect, value)
 	attach_reset(effect, duration, source)
 	target:RegisterEffect(effect)

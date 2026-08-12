@@ -619,6 +619,20 @@ local function timing_matches(effect, timing)
 	return false
 end
 
+-- [2026-08-12 OP14-041 보아 행콕] 턴 소속(YOUR_TURN/OPPONENT_TURN) 조건만은
+-- 인큐 전에 거른다: 인큐→해결 사이 같은 처리창 안에서 턴 주인은 바뀔 수 없어
+-- "모든 효과 처리 직후 판정" 재정(OP07-038)과 충돌하지 않고, 자기 턴에 상대턴
+-- 한정 효과가 대기열 표시·발동 흐름에 깜빡이는 노이즈를 제거한다.
+local function turn_scope_allows(effect, card)
+	local turn_player = Duel and Duel.GetTurnPlayer and Duel.GetTurnPlayer()
+	if turn_player == nil then return true end
+	for _, condition in ipairs(effect.conditions or {}) do
+		if condition.op == "YOUR_TURN" and turn_player ~= card:GetControler() then return false end
+		if condition.op == "OPPONENT_TURN" and turn_player == card:GetControler() then return false end
+	end
+	return true
+end
+
 local function each_card(cards, callback)
 	if not cards then return end
 	if cards.GetFirst then
@@ -764,7 +778,9 @@ function Q.enqueue_timing(cards, timing, context, options)
 				-- 탈락시키지 않는다(예: 바운스 직후 순간 패 6장 → 탈락하던 것).
 				-- 해결 경로가 can_resolve를 재검증하므로(직결 resolve_direct_item,
 				-- 엔진 timing_resolver 네이티브 조건) 무자격 항목은 거기서 진다.
-				if true then
+				-- 예외: 턴 소속 조건은 처리창 안에서 불변이라 미리 걸러도
+				-- 재정과 충돌하지 않는다(OP14-041 자기 턴 깜빡임 제거).
+				if turn_scope_allows(effect, card) then
 					local resolver = options.engine
 						and timing_resolver(card, effect, timing) or nil
 					if resolver then
