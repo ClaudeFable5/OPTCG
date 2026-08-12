@@ -555,7 +555,13 @@ function C.CheckCondition(op, condition, context)
 		return false
 	end
 	if op == "LEADER_NAME_IS" then return lead ~= nil and opcg.GetName(lead) == condition.name end
-	if op == "LEADER_NAME_IS_ANY" then return lead ~= nil and contains(condition.names, opcg.GetName(lead)) end
+	if op == "LEADER_NAME_IS_ANY" then
+		-- allow_multicolor: 「이름 X 또는 다색」 조건(OP13-051 보아 행콕 등) —
+		-- 종전엔 이 플래그가 조용히 무시돼 다색 리더에서 불발(유저 제보 2026-08-12).
+		if lead == nil then return false end
+		if condition.allow_multicolor and popcount(opcg.GetColors(lead)) > 1 then return true end
+		return contains(condition.names, opcg.GetName(lead))
+	end
 	if op == "LEADER_IS_MULTICOLOR" then return lead ~= nil and popcount(opcg.GetColors(lead)) > 1 end
 	if op == "LEADER_HAS_ATTRIBUTE" then return lead ~= nil and opcg.HasAttribute(lead, condition.attribute) end
 	if op == "LEADER_HAS_COLOR" then return lead ~= nil and opcg.HasColor(lead, condition.color) end
