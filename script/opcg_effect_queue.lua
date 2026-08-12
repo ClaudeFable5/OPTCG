@@ -759,7 +759,12 @@ function Q.enqueue_timing(cards, timing, context, options)
 				item_context.card = card
 				item_context.player = card:GetControler()
 				item_context.timing = timing
-				if opcg.runtime.can_resolve(card, effect.effect_id, item_context) then
+				-- [2026-08-12 유저 재정, OP07-038] 조건(패 매수 등) 판정 시점은
+				-- '모든 효과 처리가 끝난 직후' — 인큐 시점의 중간 상태로 미리
+				-- 탈락시키지 않는다(예: 바운스 직후 순간 패 6장 → 탈락하던 것).
+				-- 해결 경로가 can_resolve를 재검증하므로(직결 resolve_direct_item,
+				-- 엔진 timing_resolver 네이티브 조건) 무자격 항목은 거기서 진다.
+				if true then
 					local resolver = options.engine
 						and timing_resolver(card, effect, timing) or nil
 					if resolver then

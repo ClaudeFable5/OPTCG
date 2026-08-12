@@ -114,8 +114,26 @@ function opcg.GetDonCostHost(player)
 	return nil
 end
 
+-- [2026-08-12 유저 제보 OP14-051] 【두웅!!×N】+【KO 시】류: 효과 해결 시점엔
+-- 카드가 트래시라 부착 둥이 0 — 요구치 게이트(runtime/continuous)가 전부
+-- 불발이었다. 필드를 떠나는 관문에서 부착 수를 스냅샷해 두고, 필드 밖
+-- 카드 조회는 그 스냅샷을 읽는다(재등장하면 다음 이탈 때 덮어씀).
+opcg._don_at_leave = setmetatable({}, { __mode = "k" })
+function opcg.RecordDonAtLeave(cards)
+	if cards and cards.IsCharacter then cards = { cards } end
+	for _, card in ipairs(cards or {}) do
+		if card and card.IsLocation and card:IsLocation(LOCATION_MZONE) then
+			local group = overlay_group(card)
+			opcg._don_at_leave[card] = group and group:FilterCount(filter_don, nil) or 0
+		end
+	end
+end
 function opcg.GetAttachedDon(card)
 	if not card then return 0 end
+	if card.IsLocation and not card:IsLocation(LOCATION_MZONE) then
+		local snapshot = opcg._don_at_leave[card]
+		if snapshot ~= nil then return snapshot end
+	end
 	local group = overlay_group(card)
 	return group and group:FilterCount(filter_don, nil) or 0
 end

@@ -618,6 +618,7 @@ function B.install()
 			and attacker and attacker:GetAttack() >= target:GetAttack() then
 			-- [2026-08-10 유저 재정] 선제 둥 반환 폐지 — 내성으로 파괴가 불발되면
 			-- 둥이 그대로 남아야 한다. 실제 KO분은 EVENT_TO_GRAVE 워처가 귀환 처리.
+			if opcg.RecordDonAtLeave then opcg.RecordDonAtLeave(target) end -- 【두웅!!×N】 KO시 게이트용 스냅샷
 			-- [2026-08-10 룰 재정] 무효 상태로 KO → 【KO 시】 봉인 스탬프
 			if opcg.StampNegatedKO then opcg.StampNegatedKO(target) end
 			local moved = Duel.Destroy(target, REASON_BATTLE)

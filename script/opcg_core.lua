@@ -260,6 +260,8 @@ local function remove_cards(cards, reason, destination)
 			opcg.contract_ops.current_context)
 	end
 	local group = array_group(cards)
+	-- [2026-08-12] 이탈 직전 부착 둥 스냅샷(【두웅!!×N】 KO시류 게이트용)
+	if opcg.RecordDonAtLeave then opcg.RecordDonAtLeave(cards) end
 	-- [2026-08-10 유저 재정] 이동 '시도 전' 선제 둥 반환 폐지: 내성(파괴 불가
 	-- 등)으로 잔존한 카드의 둥까지 떨어뜨렸다. 실제로 떠난 숙주의 둥은 코어
 	-- 오버레이 처분으로 트래시에 떨어지고, EVENT_TO_GRAVE 워처(RescueLooseDon)가
