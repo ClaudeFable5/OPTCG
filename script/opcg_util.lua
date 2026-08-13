@@ -318,7 +318,13 @@ function opcg.IsInHand(c)  return c:IsLocation(LOCATION_HAND) end
 
 function opcg.IsActive(c) return c:IsPosition(POS_FACEUP_ATTACK) end
 function opcg.IsRested(c) return c:IsPosition(POS_FACEUP_DEFENSE) end
-function opcg.SetActive(c) if opcg.HasMatchingEffect(c, opcg.EFFECT_CANNOT_SET_ACTIVE) then return false end return Duel.ChangePosition(c, POS_FACEUP_ATTACK) end
+-- CANNOT_SET_ACTIVE(리프레시 동결)는 리프레시 자동 액티브만 막는다. 카드
+-- 효과의 "액티브로 한다"는 by_effect=true로 통과한다(2026-08-12 유저 재정:
+-- "리프레시에 액티브 되지 않는" 상태여도 카드 효과로는 액티브 가능).
+function opcg.SetActive(c, by_effect)
+	if not by_effect and opcg.HasMatchingEffect(c, opcg.EFFECT_CANNOT_SET_ACTIVE) then return false end
+	return Duel.ChangePosition(c, POS_FACEUP_ATTACK)
+end
 -- cause: "ATTACK"(공격 선언) / "BLOCK"(블로커 발동) / "COST"(비용 지불) /
 -- "EFFECT"(효과, 기본값). "레스트로 할 수 없다"(전면형)는 원인 불문 전부 막고,
 -- reason=OPPONENT_EFFECT("상대의 효과로 레스트 되지 않는다")는 상대 효과만 막는다

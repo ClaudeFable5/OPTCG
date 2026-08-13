@@ -1669,7 +1669,7 @@ function C.ExecuteAction(op, action, context)
 		end
 		cards = choose_selector(selector, context)
 		if op == "REST" then for _, card in ipairs(cards) do opcg.SetRested(card, context) end
-		elseif op == "SET_ACTIVE" then for _, card in ipairs(cards) do opcg.SetActive(card) end
+		elseif op == "SET_ACTIVE" then for _, card in ipairs(cards) do opcg.SetActive(card, true) end
 		elseif op == "KO" then remove_cards(cards, REASON_EFFECT + REASON_DESTROY, "TRASH")
 		elseif op == "TRASH" then
 			if action.schedule then

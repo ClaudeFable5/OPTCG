@@ -84,7 +84,9 @@ local function cannot_set_active(card, player, context)
 end
 local function set_rested(card, rested, player)
 	player = player or card:GetControler()
-	if not rested and cannot_set_active(card, player) then return false end
+	-- 동결(cannot_set_active) 존중은 리프레시 경로(RefreshDon)가 선별한다.
+	-- 효과 경로는 전부 통과(2026-08-12 유저 재정: 동결은 리프레시 자동
+	-- 액티브만 금지하고 카드 효과의 액티브는 막지 않는다).
 	if Card and Card.SetOPCGState then
 		card:SetOPCGState(rested and 1 or 0)
 	end
@@ -335,14 +337,12 @@ end
 function opcg.SetDonActive(player, amount, context)
 	local source = overlay_group(opcg.GetDonCostHost(player))
 	if not source then return 0 end
-	local selected = first_n(source, amount or 0, function(card)
-		return filter_rested(card) and not cannot_set_active(card, player, context)
-	end)
+	local selected = first_n(source, amount or 0, filter_rested)
 	set_group_rested(selected, false)
 	return selected:GetCount()
 end
 -- [OPCG] 낱장 지정 상태 전환(선택형 효과용 — OP12-037 "캐릭터 또는 두웅!!
--- 합계 N장" 재설계): 액티브 방향의 금지 제약은 set_rested가 자체 존중한다.
+-- 합계 N장" 재설계): 효과 경로라 동결 제약을 받지 않는다(집행은 RefreshDon).
 function opcg.SetDonRestedCard(card, rested, player)
 	if not is_don(card) then return false end
 	return set_rested(card, rested and true or false, player) ~= false
@@ -496,6 +496,13 @@ function opcg.RefreshDon(player)
 		returned = returned + move_overlay(destination, selected)
 	end
 	local cost_group = overlay_group(destination)
+	-- 동결된 둥은 리프레시 자동 액티브에서 제외 - 여기가 동결의 유일한
+	-- 집행 지점이다(효과 경로는 set_rested를 그대로 통과).
+	if cost_group then
+		cost_group = cost_group:Filter(function(card)
+			return not cannot_set_active(card, player)
+		end, nil)
+	end
 	set_group_rested(cost_group, false)
 	return returned
 end

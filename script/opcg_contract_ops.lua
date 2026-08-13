@@ -796,9 +796,10 @@ function X.execute(op, action, context)
 		-- "상대 둥이 선택 후보로 아예 안 뜸"): 종전엔 장수 문답 → 캐릭터만
 		-- 선택 → 잔여를 둥 자동 처리라 둥을 직접 집을 수 없었다. 이제 캐릭터
 		-- 후보와 코스트 에리어 둥을 **한 선택창에 같이** 올려 섞어 고르게
-		-- 한다. 고른 둥은 낱장 상태 전환(액티브 방향 금지 제약은 헬퍼가
-		-- 자체 존중), 캐릭터는 기존 헬퍼. 카드 셀렉터가 없는 둥 전용 문형은
-		-- 종전대로 자동 처리(전부 등가라 고르는 의미가 없다).
+		-- 한다. 고른 둥은 낱장 상태 전환, 캐릭터는 기존 헬퍼. 동결(리프레시
+		-- 액티브 금지)은 효과 경로를 막지 않는다(2026-08-12 유저 재정 - 집행은
+		-- RefreshDon 한 곳). 카드 셀렉터가 없는 둥 전용 문형은 종전대로 자동
+		-- 처리(전부 등가라 고르는 의미가 없다).
 		if not action.card_selector then
 			local amount = choose_number_up_to(chooser, action.count or 1, action.mode)
 			local moved_don = 0
@@ -827,7 +828,7 @@ function X.execute(op, action, context)
 			if opcg.IsDon and opcg.IsDon(card) then
 				if opcg.SetDonRestedCard(card, resting, player) then moved = moved + 1 end
 			else
-				if resting then opcg.SetRested(card, context) else opcg.SetActive(card) end
+				if resting then opcg.SetRested(card, context) else opcg.SetActive(card, true) end
 				moved = moved + 1
 			end
 		end
