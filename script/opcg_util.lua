@@ -744,6 +744,16 @@ function opcg.SelectCards(selector, context)
 	local maximum = math.min(wanted, available)
 	if available < minimum then return nil, "NOT_ENOUGH_TARGETS" end
 	if maximum == 0 then return {} end
+	if selector.mode == "ALL" then
+		-- [2026-08-14 유저 하달, OP13-082 오로성] "모든 ~를"류 전량 지정은
+		-- 선택창을 열지 않고 전원 자동 지정한다. 종전의 최소 0 선택창은
+		-- 무의미한 클릭일 뿐 아니라 일부만 담는 룰 위반 여지까지 있었다.
+		-- HintSelection으로 적용 대상만 양측에 공지한다.
+		Duel.HintSelection(candidates, true)
+		local out = {}
+		for card in aux.Next(candidates) do out[#out + 1] = card end
+		return out
+	end
 	-- [2026-08-10 유저 하달] 리더 전용 카운터(OP13-097류 "자신의 리더의 파워
 	-- +N"): 후보가 자기 리더 하나뿐인 선택창은 무의미한 클릭 — 카운터
 	-- 타이밍에서는 지정 없이 즉시 적용한다. HintSelection은 남겨 적용 대상

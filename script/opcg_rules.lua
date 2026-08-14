@@ -205,7 +205,12 @@ function R.register_game_start()
 				-- stock system strings 100/101 ("Go first"/"Go second") —
 				-- built into every client's strings.conf, immune to cdb state
 				local go_first = Duel.SelectOption(winner, 100, 101) == 0
-				Duel.SetTurnPlayer(go_first and winner or 1 - winner)
+				local first = go_first and winner or 1 - winner
+				Duel.SetTurnPlayer(first)
+				-- [2026-08-14 유저 요청] 선후공 확정 신호(HINT 216): 네이티브
+				-- isFirst는 스크립트 RPS 아래서 버리는 값이라, rev37 클라의
+				-- 멀리건 선공/후공 배너는 이 힌트를 받아야만 표시된다.
+				Duel.Hint(216, first, 1)
 			end
 			for _, player in ipairs({ 0, 1 }) do
 				if startup_done[player] and not game_start_done[player] then
@@ -461,7 +466,14 @@ function R.register_game_start()
 		active_untargetable:SetTarget(function(_, c)
 			return opcg.IsCharacter(c) and not opcg.IsRested(c)
 		end)
-		active_untargetable:SetValue(1)
+		active_untargetable:SetValue(function(_, attacker)
+			-- [2026-08-14 유저 제보] EB03-008류 "액티브 상태인 캐릭터도 어택할
+			-- 수 있다"(EFFECT_ALLOW_ATTACK_ACTIVE_CHARACTER, 14종) 전면 불능
+			-- 수리: 어택커가 허가 효과를 지니면 이 전역 금지를 통과시킨다.
+			-- (코어 3973행이 value에 어택커를 넘긴다 - ko_immunity와 같은 문법)
+			return not (attacker and attacker.IsHasEffect
+				and attacker:IsHasEffect(opcg.EFFECT_ALLOW_ATTACK_ACTIVE_CHARACTER))
+		end)
 		Duel.RegisterEffect(active_untargetable, 0)
 		-- (3c) 리더 피격 판정과 (3d) 배틀 경계 배수는 opcg_battle.lua의
 		-- EVENT_BATTLED / EVENT_DAMAGE_STEP_END 훅으로 이관(확장 포함:
