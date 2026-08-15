@@ -299,7 +299,28 @@ function Q.flush()
 		Q._asked = nil
 		if #Q._items == 0 then return false end
 	end
-	if Q._inflight ~= nil then return false end
+	if Q._inflight ~= nil then
+		-- [2026-08-15] raise된 아이템이 코어 후보에서 빠져(무효·조건 상실·OPT 소진)
+		-- 소비되지 않고 inflight로 남으면 큐가 마비된다. 지금 can_resolve가
+		-- 거짓이면 그 발동 기회는 끝난 것 - 소각하고 다음으로 진행.
+		local index, item = find_index(Q._inflight, nil)
+		if item then
+			local ctx = item.context or {}
+			ctx.player = ctx.player or item.player
+			ctx.timing = ctx.timing or item.timing
+			if not opcg.runtime.can_resolve(item.card, item.effect.effect_id, ctx) then
+				table.remove(Q._items, index)
+				sync_queue_display()
+				Q._inflight = nil
+				Q._asked = nil
+				if #Q._items == 0 then return false end
+			else
+				return false
+			end
+		else
+			Q._inflight = nil
+		end
+	end
 	local generation, player = eligible_bucket()
 	if generation == nil then return false end
 	Q._flushing = true
@@ -368,9 +389,24 @@ function Q.after_chain()
 	-- "아니오"면 오퍼레이션이 안 돌아 소비가 없다. 룰대로 소각(임의 발동 포기
 	-- = 그 타이밍에서 소멸, 재질문 금지). 강제(F) 잔존은 창 불발 자가치유로
 	-- 종전대로 재발신 대상에 남긴다 — 강제에는 포기가 없다.
+	-- [2026-08-15 OP14-056 와다츠미 2장 리플레이] 단, 강제 잔존이라도 지금
+	-- can_resolve가 거짓(이미 무효·조건 불충족·턴1회 소진)이면 재발신해도 코어
+	-- 후보에서 다시 빠져 소비가 영영 없다 - 그것을 매 CHAIN_END마다 되풀이하던
+	-- 것이 "꼬임"(리플레이 t7: 무효된 와다츠미 E2가 4회 재발신). 룰상 발동
+	-- 조건을 잃은 강제 효과는 그 타이밍에서 불발이므로 소각한다.
 	local kept = {}
 	for _, item in ipairs(Q._items) do
+		local drop = false
 		if item.raised and item.optional then
+			drop = true
+		elseif item.raised then
+			local ctx = item.context or {}
+			ctx.player = ctx.player or item.player
+			ctx.timing = ctx.timing or item.timing
+			local ok = opcg.runtime.can_resolve(item.card, item.effect.effect_id, ctx)
+			if not ok then drop = true end
+		end
+		if drop then
 			if Q._inflight == item.serial then Q._inflight = nil end
 			if Q._asked == item.serial then Q._asked = nil end
 		else
@@ -404,6 +440,23 @@ function Q.install()
 	watcher:SetCode(EVENT_CHAIN_END)
 	watcher:SetOperation(function() Q.after_chain() end)
 	Duel.RegisterEffect(watcher, 0)
+	-- [2026-08-15 와다츠미 2장 리플레이] 턴 경계 청소: 발동 타이밍을 놓친(코어
+	-- 후보에서 빠져 소비되지 않은) 엔진 아이템이 다음 턴까지 큐에 잔존해
+	-- CHAIN_END마다 재발신되던 오염을 끊는다. 총합룰상 유발효과의 발동 기회는
+	-- 그 타이밍의 처리창 안이므로 턴을 넘긴 잔존은 무조건 소각이 정답.
+	local sweeper = Effect.GlobalEffect()
+	sweeper:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
+	sweeper:SetCode(EVENT_TURN_END)
+	sweeper:SetOperation(function()
+		if #Q._items > 0 or #Q._direct_items > 0 then
+			Q._items = {}
+			Q._direct_items = {}
+			Q._inflight = nil
+			Q._asked = nil
+			sync_queue_display()
+		end
+	end)
+	Duel.RegisterEffect(sweeper, 0)
 	return true
 end
 
