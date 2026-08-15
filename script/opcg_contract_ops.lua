@@ -581,8 +581,19 @@ function X.execute(op, action, context)
 	elseif op == "NEGATE_EFFECTS" then
 		local cards = choose(action.selector, context)
 		for _, card in ipairs(cards) do
-			single_effect(context.card, card, EFFECT_DISABLE, 1, action.duration)
-			single_effect(context.card, card, EFFECT_DISABLE_EFFECT, 1, action.duration)
+			local e1 = single_effect(context.card, card, EFFECT_DISABLE, 1, action.duration)
+			local e2 = single_effect(context.card, card, EFFECT_DISABLE_EFFECT, 1, action.duration)
+			-- [2026-08-15 와다츠미 2장 리플레이 20:11 실측] 자기 자신을 무효화하는
+			-- 효과(소유자==핸들러)는 코어 is_available 규칙상 "무효 카드의 효과"로
+			-- 함께 꺼져 STATUS_DISABLED가 켜졌다 풀렸다 플래핑한다(리플레이: 두
+			-- 장이 번갈아 st=1025/1024, 최종 한 장만 무효). 유희왕 자기-무효
+			-- 관례대로 CANNOT_DISABLE 플래그로 이 DISABLE 효과 자체는 무효 상태
+			-- 에서도 살아있게 한다(대상이 남이면 무관하나 무해).
+			if card == context.card then
+				-- SetProperty는 덮어쓰기라 기존 플래그(CLIENT_HINT 등)를 OR로 보존
+				local p1, q1 = e1:GetProperty() e1:SetProperty((p1 or 0) | EFFECT_FLAG_CANNOT_DISABLE, q1 or 0)
+				local p2, q2 = e2:GetProperty() e2:SetProperty((p2 or 0) | EFFECT_FLAG_CANNOT_DISABLE, q2 or 0)
+			end
 		end
 		return cards
 	elseif op == "ADD_NAME_ALIAS" then
