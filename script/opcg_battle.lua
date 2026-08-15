@@ -187,11 +187,22 @@ end
 -- 미지 타입을 아예 중계하지 않으므로(각각 duelclient/generic_duel 실측)
 -- 신구 혼재에서 우아하게 강등된다 — 마젠타는 def합 폴백으로 동작.
 B.HINT_COUNTER_EXPECT = 214
+-- [2026-08-15 유저 제안] 카운터 처리 종료 스플래시: 확정된 총 상승분을 양측에
+-- 잠깐(클라 rev38가 ~1초) 표시한다. 확정 시점엔 카운터가 공개된 정보라 214와
+-- 달리 브로드캐스트가 안전하다. 구exe는 미지 힌트라 조용히 무시.
+B.HINT_COUNTER_FINAL = 218
 
 function Duel.SetCounterPreviewExpectation(player, value)
 	if not Duel.Hint then return end
 	Duel.Hint(B.HINT_COUNTER_EXPECT, player, math.max(0, math.floor(value or 0)))
 end
+
+local function emit_counter_final(live)
+	if not Duel.Hint then return end
+	local total = math.floor(live and live.counter_power or 0)
+	if total > 0 then Duel.Hint(B.HINT_COUNTER_FINAL, live.defending_player, total) end
+end
+B.emit_counter_final = emit_counter_final
 
 -- 이벤트 한 장의 기대 타점. 평가 규약(과소 방향 보수 — 프리뷰는 모자란
 -- 게 거짓말보다 낫고, 실수치는 해결이 맞춘다):
@@ -394,6 +405,7 @@ local function run_counter_step(live)
 		local target = Duel.GetAttackTarget()
 		if not target then
 			Duel.SetCounterPreviewExpectation(live.defending_player, 0)
+			emit_counter_final(live)
 			return
 		end
 		local candidates = {}
@@ -412,6 +424,7 @@ local function run_counter_step(live)
 		local picked = select_counters(live.defending_player, candidates, live)
 		if #picked == 0 then
 			Duel.SetCounterPreviewExpectation(live.defending_player, 0)
+			emit_counter_final(live)
 			return
 		end
 		-- [2026-08-06 개편] 해결 = 클릭 순서 그대로(총합룰 "한 장씩 사용").
@@ -458,7 +471,10 @@ local function run_counter_step(live)
 		Duel.SetCounterPreviewExpectation(live.defending_player, 0)
 		-- 이벤트가 상태를 바꿨으면 창을 다시 연다(추가 사용 기회);
 		-- 수치 카운터만 썼다면 전 후보가 이미 한 창에 나왔으니 종료.
-		if not resolved_event then return end
+		if not resolved_event then
+			emit_counter_final(live)
+			return
+		end
 	end
 end
 
