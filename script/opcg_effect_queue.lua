@@ -623,12 +623,28 @@ end
 -- 인큐 전에 거른다: 인큐→해결 사이 같은 처리창 안에서 턴 주인은 바뀔 수 없어
 -- "모든 효과 처리 직후 판정" 재정(OP07-038)과 충돌하지 않고, 자기 턴에 상대턴
 -- 한정 효과가 대기열 표시·발동 흐름에 깜빡이는 노이즈를 제거한다.
-local function turn_scope_allows(effect, card)
+-- [2026-08-15 OP05-098 에넬] 라이프 변동 타이밍의 라이프 상태 조건도 인큐 전에
+-- 판정한다: 라이프가 변할 때마다 타이밍이 재발화하므로 '변동 직후 상태'가 곧
+-- 판정 상태다("0장이 되었을 때"의 그 피격은 자기 발화를 새로 받는다) - 조건
+-- 미달인 매 피격마다 깜빡이던 노이즈 제거. 비-라이프 타이밍의 라이프 조건은
+-- OP07-038 재정대로 해결 시점 판정을 유지한다.
+local ENQUEUE_LIFE_TIMINGS = {
+	ON_YOUR_LIFE_DECREASED=true, ON_OPPONENT_LIFE_DECREASED=true,
+}
+local ENQUEUE_LIFE_CONDITIONS = { LIFE_EQ=true, LIFE_LTE=true, LIFE_GTE=true }
+local function enqueue_scope_allows(effect, card, timing)
 	local turn_player = Duel and Duel.GetTurnPlayer and Duel.GetTurnPlayer()
-	if turn_player == nil then return true end
 	for _, condition in ipairs(effect.conditions or {}) do
-		if condition.op == "YOUR_TURN" and turn_player ~= card:GetControler() then return false end
-		if condition.op == "OPPONENT_TURN" and turn_player == card:GetControler() then return false end
+		if turn_player ~= nil then
+			if condition.op == "YOUR_TURN" and turn_player ~= card:GetControler() then return false end
+			if condition.op == "OPPONENT_TURN" and turn_player == card:GetControler() then return false end
+		end
+		if ENQUEUE_LIFE_TIMINGS[timing] and ENQUEUE_LIFE_CONDITIONS[condition.op]
+			and OPCGCore and OPCGCore.CheckCondition then
+			local ok = OPCGCore.CheckCondition(condition.op, condition,
+				{ card=card, player=card:GetControler(), timing=timing })
+			if not ok then return false end
+		end
 	end
 	return true
 end
@@ -778,9 +794,9 @@ function Q.enqueue_timing(cards, timing, context, options)
 				-- 탈락시키지 않는다(예: 바운스 직후 순간 패 6장 → 탈락하던 것).
 				-- 해결 경로가 can_resolve를 재검증하므로(직결 resolve_direct_item,
 				-- 엔진 timing_resolver 네이티브 조건) 무자격 항목은 거기서 진다.
-				-- 예외: 턴 소속 조건은 처리창 안에서 불변이라 미리 걸러도
-				-- 재정과 충돌하지 않는다(OP14-041 자기 턴 깜빡임 제거).
-				if turn_scope_allows(effect, card) then
+				-- 예외: 턴 소속·라이프 변동 타이밍의 라이프 조건은 미리 걸러도
+				-- 재정과 충돌하지 않는다(OP14-041 턴 / OP05-098 라이프 - 위 주석).
+				if enqueue_scope_allows(effect, card, timing) then
 					local resolver = options.engine
 						and timing_resolver(card, effect, timing) or nil
 					if resolver then
