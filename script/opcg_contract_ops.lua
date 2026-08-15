@@ -78,24 +78,45 @@ local function reset_for(duration, source)
 	if duration == "THIS_TURN" or duration == "TURN_PLAYED" or duration == nil then
 		return RESET_PHASE + PHASE_END, 1
 	end
+	-- [2026-08-15 유저 제보·지시, OP15-023 아론] 턴 소속형 기간은 코어의 페이즈
+	-- 리셋 턴 비트로 센다: RESET_SELF_TURN = 효과 핸들러(대상 카드)의 턴만,
+	-- RESET_OPPO_TURN = 그 상대 턴만 카운트(effect.cpp RESET_PHASE 분기). 그러면
+	-- 시전 시점이 누구 턴이든 count 1이 정확히 "다음 X의 해당 페이즈"다.
+	-- 종전엔 비트 없이(=양쪽 턴 모두 카운트) 시전 턴으로 1/2를 계산했는데
+	-- 그 계산이 뒤집혀 있어 상대 턴에 KO된 아론의 동결이 내 리프레시에 풀렸다.
+	-- 주의: 핸들러 = 효과가 '등록된 카드'(대상). YOUR/OPPONENT는 시전자 기준이라
+	-- 대상 소유자와 비교해 비트를 고른다(대상 없이 전역 등록되면 시전자 기준).
 	local owner = source and source:GetControler() or Duel.GetTurnPlayer()
+	local function turn_bit(target_player, want_owner_turn)
+		-- 원하는 턴이 대상 카드 소유자의 턴이면 SELF, 아니면 OPPO
+		local target = target_player == nil and owner or target_player
+		local wanted = want_owner_turn and owner or (1 - owner)
+		return (wanted == target) and RESET_SELF_TURN or RESET_OPPO_TURN
+	end
+	local target_player = X._reset_target_player  -- attach_reset이 세팅
 	local current = Duel.GetTurnPlayer()
+	-- 원하는 턴의 페이즈만 세므로 count는 항상 1 - 단, "다음 X의 턴 종료"를
+	-- 그 X의 턴 도중에 걸면 이번 턴 END가 먼저 잡히므로 2(현재 턴 END 통과).
+	-- 리프레시(턴 시작)는 이미 지나간 페이즈라 도중에 걸어도 다음 것이 1번째.
 	if duration == "UNTIL_YOUR_NEXT_TURN_START" or duration == "UNTIL_YOUR_NEXT_REFRESH" then
-		return RESET_PHASE + PHASE_DRAW, current == owner and 2 or 1
+		return RESET_PHASE + PHASE_DRAW + turn_bit(target_player, true), 1
 	end
 	if duration == "UNTIL_YOUR_NEXT_TURN_END" then
-		return RESET_PHASE + PHASE_END, current == owner and 2 or 1
+		return RESET_PHASE + PHASE_END + turn_bit(target_player, true), (current == owner) and 2 or 1
 	end
 	if duration == "UNTIL_OPPONENT_NEXT_TURN_END" then
-		return RESET_PHASE + PHASE_END, current ~= owner and 1 or 2
+		return RESET_PHASE + PHASE_END + turn_bit(target_player, false), (current ~= owner) and 2 or 1
 	end
 	if duration == "UNTIL_OPPONENT_NEXT_REFRESH" then
-		return RESET_PHASE + PHASE_DRAW, current ~= owner and 1 or 2
+		return RESET_PHASE + PHASE_DRAW + turn_bit(target_player, false), 1
 	end
 	return nil
 end
-local function attach_reset(effect, duration, source)
+local function attach_reset(effect, duration, source, target)
+	-- target = 효과가 등록될 카드(핸들러). reset_for의 턴 비트 계산에 소유자 제공.
+	X._reset_target_player = target and target.GetControler and target:GetControler() or nil
 	local reset, count = reset_for(duration, source)
+	X._reset_target_player = nil
 	-- 카드에 부착되는 기간제 효과는 그 카드가 필드를 떠나면 즉시 소멸해야
 	-- 한다(총합룰: 필드를 떠난 카드는 별개 취급). 종전엔 페이즈 타이머만 있어
 	-- 바운스/소생으로 되돌아온 같은 카드가 어택 금지 등을 그대로 짊어졌다
@@ -111,7 +132,10 @@ end
 -- 오버레이 카드에서 코어 집계에 안 잡히므로 플래그로 나른다(레스트 상태와
 -- 같은 원시). 리셋 수식은 single_effect와 동일 규약.
 local function freeze_don_flag(card, duration, source)
+	-- 플래그 핸들러 = 둥 카드 자신 → 소유자 기준 턴 비트
+	X._reset_target_player = card:GetControler()
 	local reset, count = reset_for(duration, source)
+	X._reset_target_player = nil
 	card:RegisterFlagEffect(opcg.FLAG_DON_FREEZE,
 		(reset or 0) + RESET_EVENT + RESETS_STANDARD, 0, count or 1)
 end
@@ -143,7 +167,7 @@ local function single_effect(source, target, code, value, duration)
 		effect:SetProperty(EFFECT_FLAG_CLIENT_HINT)
 	end
 	opcg.SetEffectValue(effect, value)
-	attach_reset(effect, duration, source)
+	attach_reset(effect, duration, source, target)
 	target:RegisterEffect(effect)
 	return effect
 end
@@ -289,7 +313,7 @@ local function player_effect(source, player, code, value, duration)
 	effect:SetTargetRange(player == source:GetControler() and 1 or 0,
 		player == source:GetControler() and 0 or 1)
 	opcg.SetEffectValue(effect, value)
-	attach_reset(effect, duration, source)
+	attach_reset(effect, duration, source, source)  -- 필드 효과 핸들러 = 시전자 카드
 	Duel.RegisterEffect(effect, source:GetControler())
 	return effect
 end

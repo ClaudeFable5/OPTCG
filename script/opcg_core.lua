@@ -1060,20 +1060,6 @@ function C.PayCost(op, cost, context)
 		end
 		context.last_action_succeeded = true
 		return {}
-	elseif op == "MODIFY_POWER_PER_OWN_DON" then
-		-- OP15-008 크리크 E2: 셀렉터 전 대상 각각, '그 카드에 부착된 둥!! 수 ×
-		-- amount'만큼 duration 동안 파워 수정(개별 계산).
-		cards = choose_selector(action.selector, context)
-		for _, card in ipairs(cards) do
-			local dons = opcg.GetAttachedDon and (opcg.GetAttachedDon(card) or 0) or 0
-			if dons > 0 then
-				modify_stat(context.card, card, EFFECT_UPDATE_ATTACK,
-					(action.amount or -1000) * dons, action.duration or "THIS_TURN")
-			end
-		end
-		context.last_action_succeeded = true
-		context.last_action_effected = #cards > 0
-		return remember_targets(context, cards)
 	elseif op == "GIVE_OPPONENT_DON" then
 		cards = choose_selector(cost.selector, context)
 		assert(opcg.GiveDon(other(player), cards[1], n, cost.state) == n,
@@ -1179,32 +1165,37 @@ function C.PayCost(op, cost, context)
 	return cards or {}
 end
 
-local function effect_reset(duration, source)
+local function effect_reset(duration, source, target)
 	-- battle durations really expire at the END_OF_BATTLE boundary (see
 	-- modify_stat); PHASE_END is only the can't-leak-past-the-turn fallback
 	if duration == "THIS_BATTLE" or duration == "END_OF_BATTLE" then return RESET_PHASE + PHASE_END end
 	if duration == "THIS_TURN" or duration == nil then return RESET_PHASE + PHASE_END end
+	-- [2026-08-15 유저 지시] 코어 페이즈 리셋의 턴 비트(RESET_SELF/OPPO_TURN =
+	-- 효과 핸들러 기준)로 "다음 X의 페이즈"를 정확히 센다 - contract_ops의
+	-- reset_for와 동일 규약(그쪽 주석 참조). target = 효과가 등록될 카드.
 	local owner = source and source:GetControler() or Duel.GetTurnPlayer()
 	local turn_player = Duel.GetTurnPlayer()
-	if duration == "UNTIL_YOUR_NEXT_TURN_START" then
-		return RESET_PHASE + PHASE_DRAW, turn_player == owner and 2 or 1
+	local target_player = target and target.GetControler and target:GetControler() or owner
+	local function turn_bit(want_owner_turn)
+		local wanted = want_owner_turn and owner or (1 - owner)
+		return (wanted == target_player) and RESET_SELF_TURN or RESET_OPPO_TURN
+	end
+	if duration == "UNTIL_YOUR_NEXT_TURN_START" or duration == "UNTIL_YOUR_NEXT_REFRESH" then
+		return RESET_PHASE + PHASE_DRAW + turn_bit(true), 1
 	end
 	if duration == "UNTIL_YOUR_NEXT_TURN_END" then
-		return RESET_PHASE + PHASE_END, turn_player == owner and 2 or 1
+		return RESET_PHASE + PHASE_END + turn_bit(true), (turn_player == owner) and 2 or 1
 	end
 	if duration == "UNTIL_OPPONENT_NEXT_TURN_END" then
-		return RESET_PHASE + PHASE_END, turn_player ~= owner and 1 or 2
-	end
-	if duration == "UNTIL_YOUR_NEXT_REFRESH" or duration == "UNTIL_YOUR_NEXT_TURN_START" then
-		return RESET_PHASE + PHASE_DRAW, turn_player == owner and 2 or 1
+		return RESET_PHASE + PHASE_END + turn_bit(false), (turn_player ~= owner) and 2 or 1
 	end
 	if duration == "UNTIL_OPPONENT_NEXT_REFRESH" then
-		return RESET_PHASE + PHASE_DRAW, turn_player ~= owner and 1 or 2
+		return RESET_PHASE + PHASE_DRAW + turn_bit(false), 1
 	end
 	return nil
 end
 local function modify_stat(source, target, code, amount, duration)
-	local reset, reset_count = effect_reset(duration, source)
+	local reset, reset_count = effect_reset(duration, source, target)
 	if not reset then error("unsupported stat duration: " .. tostring(duration)) end
 	local effect = Effect.CreateEffect(source)
 	effect:SetType(EFFECT_TYPE_SINGLE)
@@ -1637,6 +1628,22 @@ function C.ExecuteAction(op, action, context)
 			event.source_card = context.card
 			opcg.contract_ops.emit("ON_HAND_DISCARDED_BY_TRAIT_EFFECT", event, player)
 		end
+	elseif op == "MODIFY_POWER_PER_OWN_DON" then
+		-- OP15-008 클리크 E2: 셀렉터 전 대상 각각, '그 카드에 부착된 둥!! 수 ×
+		-- amount'만큼 duration 동안 파워 수정(개별 계산).
+		-- [2026-08-15 유저 제보 수리] 이 처리기가 C.PayCost 안에 잘못 놓여
+		-- 있어 액션 경로(ExecuteAction)에서 조용히 무시되던 것을 이곳으로 이전.
+		cards = choose_selector(action.selector, context)
+		for _, card in ipairs(cards) do
+			local dons = opcg.GetAttachedDon and (opcg.GetAttachedDon(card) or 0) or 0
+			if dons > 0 then
+				modify_stat(context.card, card, EFFECT_UPDATE_ATTACK,
+					(action.amount or -1000) * dons, action.duration or "THIS_TURN")
+			end
+		end
+		context.last_action_succeeded = true
+		context.last_action_effected = #cards > 0
+		return remember_targets(context, cards)
 	elseif op == "REST_SELF" or op == "TRASH_SELF" or op == "RETURN_SELF_TO_HAND" then
 		action = { selector={ owner="YOU", kind="SELF", count=1, mode="EXACT" } }
 		op = op == "REST_SELF" and "REST" or op == "TRASH_SELF" and "TRASH" or "RETURN_TO_HAND"
@@ -1695,11 +1702,15 @@ function C.ExecuteAction(op, action, context)
 			for _, card in ipairs(cards) do modify_counter(context.card, card, action.amount, action.duration) end
 		elseif op == "GAIN_ATTRIBUTE" then
 			-- OP15-093: "속성(斬)을 얻는다" - 부여 비트를 THIS_TURN 등 기간부로 상주
-			local reset, count = effect_reset(action.duration, context.card)
-			for _, card in ipairs(cards) do assert(opcg.GrantAttribute(card, action.attribute, reset, count), "unknown attribute") end
+			for _, card in ipairs(cards) do
+				local reset, count = effect_reset(action.duration, context.card, card)
+				assert(opcg.GrantAttribute(card, action.attribute, reset, count), "unknown attribute")
+			end
 		else
-			local reset, count = effect_reset(action.duration, context.card)
-			for _, card in ipairs(cards) do assert(opcg.GrantKeyword(card, action.keyword, reset, count), "unknown keyword") end
+			for _, card in ipairs(cards) do
+				local reset, count = effect_reset(action.duration, context.card, card)
+				assert(opcg.GrantKeyword(card, action.keyword, reset, count), "unknown keyword")
+			end
 		end
 	elseif op == "DECK_BUILD_RESTRICTION" then
 		context.last_action_succeeded = true
