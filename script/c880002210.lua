@@ -23,7 +23,9 @@ function s.initial_effect(c)
         conditions={},
         costs={},
         effect_id=[[E1]],
-        once_per_turn=false,
+        -- 턴 1회 제약(유저 지시 2026-08-15 "비슷한 부류도 OPT"): 같은 턴 2회째는
+        -- 이미 얻은 상태라 무의미한데 패를 버릴 때마다 재발동해 시끄러웠다.
+        once_per_turn=true,
         source_text=[[효과로 자신의 패가 버려졌을 때, 이 캐릭터는, 이번 턴 동안, 【속공】을 얻는다.
 (이 카드는 등장한 턴에 어택할 수 있다)]],
         timings={
