@@ -85,6 +85,13 @@ function runtime.is_quarantined(card)
     return runtime._review_definitions[card] ~= nil
 end
 
+-- 턴 1회 사용 여부(인큐 사전 검사용) - can_resolve의 ONCE_PER_TURN_USED와 같은 키
+function runtime.once_used(card, effect, context)
+    if not effect or not effect.once_per_turn then return false end
+    local usage = runtime._once_usage[card]
+    return usage ~= nil and usage[once_key(effect, context or {})] == true
+end
+
 function runtime.can_resolve(card, effect_id, context)
     local definition = runtime._definitions[card]
     if not definition then

@@ -33,7 +33,7 @@ local CONDITION = {
 	ANY_LIFE_EQ=true, CHARACTER_NAME_ABSENT=true, OTHER_CHARACTER_NAME_ABSENT=true,
 	ONLY_CHARACTERS_MATCH=true, RESTED_CARD_COUNT_GTE=true,
 	OPPONENT_RESTED_CARD_COUNT_GTE=true, FACEUP_LIFE_EXISTS=true,
-	FIELD_DON_EQ_OR_GTE=true, SELF_PLAYED_THIS_TURN=true,
+	FIELD_DON_EQ_OR_GTE=true, SELF_PLAYED_THIS_TURN=true, SELF_NOT_DISABLED=true,
 	TRASH_CONTAINS_NAMES=true,
 	BATTLE_ATTACKER_HAS_ATTRIBUTE=true, EVENT_CAUSED_BY_OWN_EFFECT=true,
 	EVENT_SOURCE_TRAIT_CONTAINS=true,
@@ -652,6 +652,11 @@ function C.CheckCondition(op, condition, context)
 	end
 	if op == "SELF_PLAYED_THIS_TURN" then
 		return context.card ~= nil and context.card:GetTurnID() == Duel.GetTurnCount()
+	end
+	if op == "SELF_NOT_DISABLED" then
+		-- [2026-08-15 OP14-056] 자기-무효 효과의 재발동 봉쇄: 이미 무효 상태면
+		-- 발동 후보에서 제외(인큐 사전검사·해결 재검사 양쪽에서 판정).
+		return context.card ~= nil and not (context.card.IsDisabled and context.card:IsDisabled())
 	end
 	if op == "TRASH_CONTAINS_NAMES" then
 		local found = {}

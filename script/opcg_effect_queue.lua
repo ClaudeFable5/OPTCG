@@ -634,11 +634,33 @@ local ENQUEUE_LIFE_TIMINGS = {
 local ENQUEUE_LIFE_CONDITIONS = { LIFE_EQ=true, LIFE_LTE=true, LIFE_GTE=true }
 local function enqueue_scope_allows(effect, card, timing)
 	local turn_player = Duel and Duel.GetTurnPlayer and Duel.GetTurnPlayer()
+	-- [2026-08-15 OP14-056 와다츠미] 턴 1회 효과는 인큐 단계에서 사용 여부를
+	-- 먼저 본다(유희왕 OPT처럼 '발동 자체'를 막는다): 같은 사건에서 중복
+	-- 발화한 아이템·무효 후 재등록된 리스너의 재발화가 큐에 쌓여 자기-무효를
+	-- 되풀이하던 무한루프를 큐 진입에서 자른다. 해결 시점 재검사는 그대로.
+	if effect.once_per_turn then
+		if opcg.runtime and opcg.runtime.once_used
+			and opcg.runtime.once_used(card, effect, { player=card:GetControler() }) then
+			return false
+		end
+		-- 같은 (카드, 효과)가 이미 큐에 대기 중이면 중복 인큐 거부 - 턴 1회
+		-- 효과가 한 처리창에서 두 번 이상 발화해 쌓이는 것 자체가 무의미하고,
+		-- 와다츠미류 자기-무효 반복의 연료였다.
+		for _, item in ipairs(Q._direct_items) do
+			if item.card == card and item.effect and item.effect.effect_id == effect.effect_id then return false end
+		end
+		for _, item in ipairs(Q._items) do
+			if item.card == card and item.effect and item.effect.effect_id == effect.effect_id then return false end
+		end
+	end
 	for _, condition in ipairs(effect.conditions or {}) do
 		if turn_player ~= nil then
 			if condition.op == "YOUR_TURN" and turn_player ~= card:GetControler() then return false end
 			if condition.op == "OPPONENT_TURN" and turn_player == card:GetControler() then return false end
 		end
+		-- 자기 무효 상태 조건(OP14-056)은 인큐 시점에 즉시 판정 - 무효 카드의
+		-- 자기-무효 효과가 큐에 들어가 프롬프트를 되풀이하는 것 자체를 차단
+		if condition.op == "SELF_NOT_DISABLED" and card.IsDisabled and card:IsDisabled() then return false end
 		if ENQUEUE_LIFE_TIMINGS[timing] and ENQUEUE_LIFE_CONDITIONS[condition.op]
 			and OPCGCore and OPCGCore.CheckCondition then
 			local ok = OPCGCore.CheckCondition(condition.op, condition,

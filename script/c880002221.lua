@@ -41,7 +41,13 @@ function s.initial_effect(c)
             },
           },
         },
-        conditions={},
+        -- [2026-08-15 유저 재지시 "OPT 제약 걸어라"] 이중 봉쇄: ①이미 무효
+        -- 상태면 발동 후보 자체 불가(인큐 사전검사+해결 재검사) ②턴 1회.
+        conditions={
+          {
+            op=[[SELF_NOT_DISABLED]],
+          },
+        },
         costs={},
         effect_id=[[E2]],
         -- 턴 1회 제약(유저 재정 2026-07-27): 무효 상태에서 같은 턴 재발동 시

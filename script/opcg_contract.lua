@@ -236,6 +236,7 @@ local known_condition = {
     LEADER_HAS_COLOR=true,
     SELF_STATE_IS=true,
     SELF_PLAYED_THIS_TURN=true,
+    SELF_NOT_DISABLED=true,
     SELF_BATTLED_OPPONENT_CHARACTER_THIS_TURN=true,
     RESTED_DON_GTE=true,
     ALL_DON_RESTED=true,
