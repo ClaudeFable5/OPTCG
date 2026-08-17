@@ -7,6 +7,12 @@ function s.initial_effect(c)
     compile_status=[[AUTO]],
     effects={
       {
+        -- [공식 Q&A Q919 2026-05-22, 유저 반영 2026-08-15] 상대 액티브 캐릭터가
+        -- 0장(레스트할 대상 없음)이어도 ①상대 캐릭터 1장까지는 다음 상대
+        -- 리프레시에 액티브 안 됨 ②레스트 2장 이상이면 리더 +2000 은 각각
+        -- 성립한다 - "그 후"는 순차일 뿐 종속(then)이 아니다. 종전엔 REST
+        -- 실패 시 뒤 액션이 전부 불발했다. 동결 대상은 REST를 했으면 그
+        -- 카드(LAST_TARGET), 못 했으면 상대의 레스트 캐릭터 1장까지 선택.
         actions={
           {
             op=[[REST]],
@@ -18,15 +24,39 @@ function s.initial_effect(c)
             },
           },
           {
-            duration=[[UNTIL_OPPONENT_NEXT_REFRESH]],
-            op=[[CANNOT_SET_ACTIVE]],
-            selector={
-              count=1,
-              kind=[[LAST_TARGET]],
-              mode=[[UP_TO]],
-              owner=[[CONTEXT]],
+            actions={
+              {
+                duration=[[UNTIL_OPPONENT_NEXT_REFRESH]],
+                op=[[CANNOT_SET_ACTIVE]],
+                selector={
+                  count=1,
+                  kind=[[LAST_TARGET]],
+                  mode=[[UP_TO]],
+                  owner=[[CONTEXT]],
+                },
+              },
             },
-            ["then"]=true,
+            conditions={
+              {
+                op=[[LAST_ACTION_SUCCEEDED]],
+              },
+            },
+            op=[[IF]],
+            otherwise={
+              {
+                duration=[[UNTIL_OPPONENT_NEXT_REFRESH]],
+                op=[[CANNOT_SET_ACTIVE]],
+                selector={
+                  count=1,
+                  filter={
+                    state=[[RESTED]],
+                  },
+                  kind=[[CHARACTER]],
+                  mode=[[UP_TO]],
+                  owner=[[OPPONENT]],
+                },
+              },
+            },
           },
           {
             actions={
@@ -53,7 +83,6 @@ function s.initial_effect(c)
               },
             },
             op=[[IF]],
-            ["then"]=true,
           },
         },
         conditions={},

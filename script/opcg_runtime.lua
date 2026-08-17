@@ -301,6 +301,7 @@ function runtime.audit_definition(definition, adapter)
             for _, nested in ipairs(action.replacement_actions or {}) do audit_action(nested) end
             for _, nested in ipairs(action.on_match or {}) do audit_action(nested) end
             for _, nested in ipairs(action.actions or {}) do audit_action(nested) end
+            for _, nested in ipairs(action.otherwise or {}) do audit_action(nested) end
         end
         for _, action in ipairs(effect.actions) do audit_action(action) end
     end

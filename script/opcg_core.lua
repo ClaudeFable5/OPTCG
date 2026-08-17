@@ -1717,6 +1717,11 @@ function C.ExecuteAction(op, action, context)
 				assert(opcg.GrantKeyword(card, action.keyword, reset, count), "unknown keyword")
 			end
 		end
+		-- [2026-08-15 ST24-004 Q&A] 대상 0장 = '효과가 실제로 적용되지 않음'.
+		-- succeeded(UP_TO는 0장도 성립)와 별개로 effected를 명시해
+		-- LAST_ACTION_SUCCEEDED 조건(IF/CHOOSE)이 정확히 갈리게 한다.
+		-- ["then"] 종속은 succeeded 기준이라 종전 동작 불변.
+		context.last_action_effected = #cards > 0
 	elseif op == "DECK_BUILD_RESTRICTION" then
 		context.last_action_succeeded = true
 		return {}
@@ -2054,7 +2059,13 @@ function C.ExecuteAction(op, action, context)
 		return {}
 	elseif op == "IF" then
 		local matched = nested_conditions_match(action.conditions, context)
-		if matched then execute_nested(action.actions, context) end
+		if matched then
+			execute_nested(action.actions, context)
+		elseif action.otherwise then
+			-- [2026-08-15 ST24-004 Q&A Q919] IF/ELSE: 조건 불충족 시 otherwise 분기
+			-- 실행(레스트 성공 시 그 카드 동결 / 실패 시 레스트 캐릭터 1장 동결)
+			execute_nested(action.otherwise, context)
+		end
 		context.last_action_succeeded = matched
 		return {}
 	elseif op == "TRANSFER_ATTACHED_DON" then
@@ -2147,6 +2158,9 @@ local function action_shape_supported(action, card)
 			if not condition_shape_supported(condition, card) then return false end
 		end
 		for _, nested in ipairs(action.actions or {}) do
+			if not action_shape_supported(nested, card) then return false end
+		end
+		for _, nested in ipairs(action.otherwise or {}) do
 			if not action_shape_supported(nested, card) then return false end
 		end
 		for _, option in ipairs(action.options or {}) do
