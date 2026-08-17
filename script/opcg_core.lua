@@ -2036,7 +2036,17 @@ function C.ExecuteAction(op, action, context)
 			context.last_action_effected = false
 			return {}
 		end
-		local timing = action.effect_timing or "MAIN"
+		-- [2026-08-15 OP14-108 레일리] effect_timing 미기재 시 원문의 【…】로 추론
+		-- (【등장 시】→ON_PLAY, 【KO 시】→ON_KO, 【카운터】→COUNTER, 그 외 MAIN):
+		-- 기본 MAIN 고정은 【등장 시】효과 발동 트리거를 조용히 깡통으로 만들었다.
+		local timing = action.effect_timing
+		if not timing then
+			local src = (context.effect and context.effect.source_text) or ""
+			if src:find("등장 시", 1, true) then timing = "ON_PLAY"
+			elseif src:find("KO 시", 1, true) then timing = "ON_KO"
+			elseif src:find("카운터", 1, true) then timing = "COUNTER"
+			else timing = "MAIN" end
+		end
 		context.last_action_succeeded = #(C.DispatchTiming(context.card, timing, context) or {}) > 0
 		return {}
 	elseif op == "CHOOSE" then

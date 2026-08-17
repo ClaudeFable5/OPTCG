@@ -43,6 +43,7 @@ function s.initial_effect(c)
       {
         actions={
           {
+            effect_timing=[[ON_PLAY]],
             op=[[ACTIVATE_CARD_EFFECT]],
           },
         },
@@ -50,6 +51,7 @@ function s.initial_effect(c)
         costs={},
         effect_id=[[T1]],
         once_per_turn=false,
+        -- [2026-08-15 유저 제보 '트리거 깡통'] effect_timing 누락 → 런타임 기본 MAIN으로 디스패치해 【등장 시】E1이 매칭 안 됐음. ON_PLAY 명시.
         source_text=[[이 카드의 【등장 시】 효과를 발동한다.]],
         timings={
           [[LIFE_TRIGGER]],
