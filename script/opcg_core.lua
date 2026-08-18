@@ -1677,13 +1677,20 @@ function C.ExecuteAction(op, action, context)
 		-- 대상 지정 없이 즉시 발린다(SelectCards가 마커를 보고 battle_target을 자동
 		-- 확정 - 단, 어택 대상이 셀렉터 후보 안일 때만; 필터 밖이면 종전 지정).
 		-- 상대 감산·부가 행동(액티브/공격 불가 등)은 종전대로 대상 지정.
+		-- [2026-08-18 유저 제보] 어택 대상이 도중에 바뀌면(OP14-060 도플라밍고류
+		-- CHANGE_ATTACK_TARGET, 블로커) 원래 대상이 아니라 '지금' 대상에게 발려야
+		-- 한다 — 진실은 코어(Duel.GetAttackTarget)에 있고 context.battle_target은
+		-- 엔진 트리거 경로(【상대의 어택 시】)의 갱신을 못 받아 원 대상에 머문다.
 		if op == "MODIFY_POWER" and context.timing == "COUNTER" and (action.amount or 0) > 0
 			and selector ~= nil and (selector.owner == nil or selector.owner == "YOU")
-			and selector.chooser == nil and context.battle_target ~= nil then
-			local merged = {}
-			for key, value in pairs(selector) do merged[key] = value end
-			merged.opcg_counter_auto_target = context.battle_target
-			selector = merged
+			and selector.chooser == nil then
+			local live_target = (Duel.GetAttackTarget and Duel.GetAttackTarget()) or context.battle_target
+			if live_target ~= nil then
+				local merged = {}
+				for key, value in pairs(selector) do merged[key] = value end
+				merged.opcg_counter_auto_target = live_target
+				selector = merged
+			end
 		end
 		if op == "KO" and selector ~= nil and selector.kind == "CHARACTER" and selector.hint == nil then
 			local merged = {}

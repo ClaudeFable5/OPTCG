@@ -252,9 +252,11 @@ local function event_counter_expectation(card, player, live)
 				if timing == "COUNTER" then timed = true break end
 			end
 			if timed then
+				-- 어택 대상은 도중에 바뀔 수 있다(블로커/CHANGE_ATTACK_TARGET) —
+				-- 코어의 현재 대상으로 판정(2026-08-18 OP14-060 제보 후속).
 				local context = { card = card, player = player, timing = "COUNTER",
 					battle = live, battle_attacker = live.attacker,
-					battle_target = live.original_target }
+					battle_target = Duel.GetAttackTarget() or live.original_target }
 				if opcg.runtime.can_resolve(card, effect.effect_id, context) then
 					sum = sum + sum_actions(effect.actions, context)
 				end
@@ -367,6 +369,12 @@ end
 local function resolve_event_counter(card, live)
 	local context = {}
 	for key, value in pairs(live.context) do context[key] = value end
+	-- [2026-08-18 유저 제보] OP14-060류 【상대의 어택 시】가 어택 대상을 바꾸면
+	-- 엔진 트리거 컨텍스트엔 battle 링크가 없어 live.context.battle_target이 원
+	-- 대상에 머물렀고, 카운터 이벤트의 자동 조준(+N)이 원 대상에 발렸다.
+	-- 코어의 현재 대상이 진실 — 여기서 맞춘다.
+	context.battle_target = Duel.GetAttackTarget() or context.battle_target
+	live.context.battle_target = context.battle_target
 	context.card = card
 	context.player = live.defending_player
 	context.event_target = card
@@ -403,6 +411,9 @@ end
 local function run_counter_step(live)
 	while true do
 		local target = Duel.GetAttackTarget()
+		-- 대상 변경(블로커·CHANGE_ATTACK_TARGET) 반영: 이후 이벤트 컨텍스트/조건이
+		-- 현재 대상을 보게 한다.
+		if target then live.context.battle_target = target end
 		if not target then
 			Duel.SetCounterPreviewExpectation(live.defending_player, 0)
 			emit_counter_final(live)

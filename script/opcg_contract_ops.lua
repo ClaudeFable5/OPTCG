@@ -918,6 +918,13 @@ function X.execute(op, action, context)
 			if context.battle and context.battle.context then
 				context.battle.context.battle_target = cards[1]
 			end
+			-- 【상대의 어택 시】(OP14-060 도플라밍고) 같은 엔진 트리거 컨텍스트엔
+			-- battle 링크가 없다 → 진행 중인 배틀 상태에 직접 반영(2026-08-18 제보:
+			-- 카운터 이벤트 자동 조준이 원 대상에 발리던 원인).
+			local live = opcg.battle and opcg.battle._live
+			if live and live.context and (not Duel.GetAttacker or live.attacker == Duel.GetAttacker()) then
+				live.context.battle_target = cards[1]
+			end
 		end
 		return cards
 	elseif op == "RETURN_DON_TO_MATCH_OPPONENT" then
