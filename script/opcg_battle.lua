@@ -728,4 +728,7 @@ function B.resolve_attack(attacker, target, context)
 	return false
 end
 
+-- 표시 전용 평가기 노출(하네스 검증용)
+B.event_counter_expectation = event_counter_expectation
+B.counter_expectation = counter_expectation
 return B

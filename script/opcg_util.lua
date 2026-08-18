@@ -759,6 +759,17 @@ function opcg.SelectCards(selector, context)
 	-- 타이밍에서는 지정 없이 즉시 적용한다. HintSelection은 남겨 적용 대상
 	-- 하이라이트만 양측에 공지. (리더 또는 캐릭터 선택형은 kind가 달라 종전대로,
 	-- 카운터 밖 리더 지정은 무르기 여지를 보존하러 종전대로.)
+	-- [2026-08-18 유저 하달] 카운터 이벤트의 자기편 파워 증가: 현재 어택 대상
+	-- (블록 후엔 블로커)이 후보 안이면 지정 없이 그 카드로 즉시 확정. 룰상
+	-- 다른 아군 지정도 합법이지만 '이번 배틀 동안'이라 어택 대상 외엔 무의미 -
+	-- UX 단축. 필터(특징 등)로 어택 대상이 후보 밖이면 종전 선택창.
+	if selector.opcg_counter_auto_target ~= nil and context.timing == "COUNTER" then
+		local target = selector.opcg_counter_auto_target
+		if candidates:IsContains(target) then
+			Duel.HintSelection(Group.FromCards(target), true)
+			return { target }
+		end
+	end
 	if selector.kind == "LEADER" and context.timing == "COUNTER"
 		and selector.chooser ~= "OPPONENT" and available == 1 then
 		Duel.HintSelection(candidates, true)

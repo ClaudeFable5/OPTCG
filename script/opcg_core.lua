@@ -1673,6 +1673,18 @@ function C.ExecuteAction(op, action, context)
 		-- KO 대상 선택 안내문(2026-08-06 유저 하달, OP08-118발 전 KO 공통):
 		-- 게임 상단에 "KO할 캐릭터를 골라주세요"를 통일 표기. 문구가
 		-- "캐릭터"라 캐릭터 셀렉터에만 붙인다(STAGE KO 5종은 제외).
+		-- [2026-08-18 유저 하달] 카운터 이벤트의 '자기편 파워 +N'은 어택 대상에게
+		-- 대상 지정 없이 즉시 발린다(SelectCards가 마커를 보고 battle_target을 자동
+		-- 확정 - 단, 어택 대상이 셀렉터 후보 안일 때만; 필터 밖이면 종전 지정).
+		-- 상대 감산·부가 행동(액티브/공격 불가 등)은 종전대로 대상 지정.
+		if op == "MODIFY_POWER" and context.timing == "COUNTER" and (action.amount or 0) > 0
+			and selector ~= nil and (selector.owner == nil or selector.owner == "YOU")
+			and selector.chooser == nil and context.battle_target ~= nil then
+			local merged = {}
+			for key, value in pairs(selector) do merged[key] = value end
+			merged.opcg_counter_auto_target = context.battle_target
+			selector = merged
+		end
 		if op == "KO" and selector ~= nil and selector.kind == "CHARACTER" and selector.hint == nil then
 			local merged = {}
 			for key, value in pairs(selector) do merged[key] = value end
