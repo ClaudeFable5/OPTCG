@@ -19,6 +19,9 @@ function s.initial_effect(c)
             amount=1000,
             duration=[[UNTIL_OPPONENT_NEXT_TURN_END]],
             op=[[MODIFY_POWER]],
+            -- [2026-08-19 유저 하달] 원문 「自分の「ドンキホーテ・ロシナンテ」と特徴《ハートの海賊団》を持つキャラすべて」:
+            -- 「돈키호테 로시난테」는 카드명 지정(리더 OP12-061/OP05-022 포함), 《하트 해적단》 쪽만 캐릭터 한정.
+            -- 종전 kind=CHARACTER 라 로시난테 리더가 빠졌다.
             selector={
               count=0,
               filter={
@@ -27,11 +30,12 @@ function s.initial_effect(c)
                     name=[[돈키호테 로시난테]],
                   },
                   {
+                    card_type=[[CHARACTER]],
                     trait=[[하트 해적단]],
                   },
                 },
               },
-              kind=[[CHARACTER]],
+              kind=[[LEADER_OR_CHARACTER]],
               mode=[[ALL]],
               owner=[[YOU]],
             },
