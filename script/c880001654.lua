@@ -33,7 +33,7 @@ function s.initial_effect(c)
         },
         conditions={
           {
-            name=[[이무]],
+            name=[[임]],
             op=[[LEADER_NAME_IS]],
             player=[[YOU]],
           },
