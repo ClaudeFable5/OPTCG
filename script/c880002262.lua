@@ -11,7 +11,7 @@ function s.initial_effect(c)
           {
             destination=[[HAND]],
             filter={
-              name_neq=[[어서 나를 해적왕으로 만들어라!!!]],
+              name_neq=[[어서 날 해적왕으로 만들어라!!!]],
               trait=[[스릴러 바크 해적단]],
             },
             look_count=3,
