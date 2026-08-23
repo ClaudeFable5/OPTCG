@@ -168,6 +168,11 @@ local EMIT_ENGINE_TIMING = {
 	ON_OWN_TRAIT_CHARACTER_KO_OR_LEFT_BY_OPPONENT_EFFECT=true,
 	ON_KO_BY_OPPONENT_EFFECT=true,
 	ON_OPPONENT_CHARACTER_RETURNED_TO_HAND_BY_OWN_EFFECT=true,
+	-- [2026-08-19 유저 제보 OP14-041 행콕] "캐릭터가 KO 당했을 때"(원인 불문)류는
+	-- 배틀 KO만 direct 디스패치되고 효과 KO엔 발신 자체가 없었다(카이도 OP01-061·
+	-- 루치·ST08 루피·라분·코비 동일). after_remove가 X.emit하도록 하면서 체인 중
+	-- 효과 KO는 엔진 경로로 수집되게 리졸버를 등록한다.
+	ON_ANY_CHARACTER_KO=true, ON_OPPONENT_CHARACTER_KO=true,
 }
 
 local function other(player) return 1 - player end

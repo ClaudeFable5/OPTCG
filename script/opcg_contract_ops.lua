@@ -1726,6 +1726,18 @@ function X.after_remove(cards, reason, destination, context)
 		if destroyed and opcg.IsCharacter(card) and opcg.GetBasePower(card) >= 6000 then
 			X.emit("ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO", event, owner)
 		end
+		-- [2026-08-19 유저 제보 OP14-041 행콕: 마가렛이 효과로 KO돼도 E2 침묵]
+		-- 원인 불문 KO 리스너(ON_ANY_CHARACTER_KO 양측 / ON_OPPONENT_CHARACTER_KO
+		-- 상대측)는 배틀 KO만 opcg_battle이 디스패치하고 효과 KO는 아무도 안 쐈다.
+		-- 실제로 트래시에 떨어진 캐릭터만(내성으로 잔존하면 제외), 배틀 KO는
+		-- 배틀 쪽이 이미 쏘므로 제외. 【KO 시】 봉인 스탬프는 본인 타이밍 전용이라
+		-- 타인 리스너엔 무관.
+		if destroyed and opcg.IsCharacter(card) and (reason & REASON_BATTLE) == 0
+			and card:IsLocation(LOCATION_GRAVE) and card:IsReason(REASON_DESTROY) then
+			X.emit("ON_ANY_CHARACTER_KO", event, owner)
+			X.emit("ON_ANY_CHARACTER_KO", event, other(owner))
+			X.emit("ON_OPPONENT_CHARACTER_KO", event, other(owner))
+		end
 	end
 end
 local function played_context(card, player, context)

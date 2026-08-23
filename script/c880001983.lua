@@ -7,55 +7,33 @@ function s.initial_effect(c)
     compile_status=[[AUTO]],
     effects={
       {
-        -- [공식 Q&A Q919 2026-05-22, 유저 반영 2026-08-15] 상대 액티브 캐릭터가
-        -- 0장(레스트할 대상 없음)이어도 ①상대 캐릭터 1장까지는 다음 상대
-        -- 리프레시에 액티브 안 됨 ②레스트 2장 이상이면 리더 +2000 은 각각
-        -- 성립한다 - "그 후"는 순차일 뿐 종속(then)이 아니다. 종전엔 REST
-        -- 실패 시 뒤 액션이 전부 불발했다. 동결 대상은 REST를 했으면 그
-        -- 카드(LAST_TARGET), 못 했으면 상대의 레스트 캐릭터 1장까지 선택.
+        -- [공식 Q&A Q919 2026-05-22, 유저 반영 2026-08-15] "그 후"는 순차일 뿐 종속이
+        -- 아니다 — 동결·+2000은 각각 성립.
+        -- [2026-08-19 유저 하달 룰링] 이미 레스트 상태인 캐릭터도 골라서 바로 동결할
+        -- 수 있다(레스트는 무변화, '그 캐릭터'=고른 카드). 그래서 REST 셀렉터를 전
+        -- 상태 허용(state=ANY)으로 열고 동결은 고른 카드(LAST_TARGET)에 무조건 건다.
+        -- 종전의 IF/otherwise 우회(액티브 없을 때만 레스트 캐릭터 동결)는 폐지.
         actions={
           {
             op=[[REST]],
             selector={
               count=1,
+              filter={
+                state=[[ANY]],
+              },
               kind=[[CHARACTER]],
               mode=[[UP_TO]],
               owner=[[OPPONENT]],
             },
           },
           {
-            actions={
-              {
-                duration=[[UNTIL_OPPONENT_NEXT_REFRESH]],
-                op=[[CANNOT_SET_ACTIVE]],
-                selector={
-                  count=1,
-                  kind=[[LAST_TARGET]],
-                  mode=[[UP_TO]],
-                  owner=[[CONTEXT]],
-                },
-              },
-            },
-            conditions={
-              {
-                op=[[LAST_ACTION_SUCCEEDED]],
-              },
-            },
-            op=[[IF]],
-            otherwise={
-              {
-                duration=[[UNTIL_OPPONENT_NEXT_REFRESH]],
-                op=[[CANNOT_SET_ACTIVE]],
-                selector={
-                  count=1,
-                  filter={
-                    state=[[RESTED]],
-                  },
-                  kind=[[CHARACTER]],
-                  mode=[[UP_TO]],
-                  owner=[[OPPONENT]],
-                },
-              },
+            duration=[[UNTIL_OPPONENT_NEXT_REFRESH]],
+            op=[[CANNOT_SET_ACTIVE]],
+            selector={
+              count=1,
+              kind=[[LAST_TARGET]],
+              mode=[[UP_TO]],
+              owner=[[CONTEXT]],
             },
           },
           {

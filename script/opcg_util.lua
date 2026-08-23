@@ -545,6 +545,10 @@ local function state_matches(c, state)
 	if state == nil then return true end
 	if state == "ACTIVE" then return opcg.IsActive(c) end
 	if state == "RESTED" then return opcg.IsRested(c) end
+	-- "ANY": 명시적 전 상태 허용 — REST 액션이 기본으로 끼우는 state=ACTIVE를
+	-- 카드 쪽에서 무효화할 때 쓴다(ST24-004 룰링: 이미 레스트인 캐릭터를 골라
+	-- 바로 동결 가능, 2026-08-19 유저 하달).
+	if state == "ANY" then return true end
 	return false
 end
 local function scalar_filter(c, key, value, context)
