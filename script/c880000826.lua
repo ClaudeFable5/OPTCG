@@ -28,6 +28,7 @@ function s.initial_effect(c)
               },
               {
                 {
+                  chooser=[[OPPONENT]],
                   count=3,
                   filter={},
                   op=[[RETURN_TRASH_TO_DECK_BOTTOM]],

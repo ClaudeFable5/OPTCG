@@ -1892,11 +1892,15 @@ function C.ExecuteAction(op, action, context)
 		remove_cards(cards, REASON_EFFECT, "HAND")
 	elseif op == "RETURN_TRASH_TO_DECK_BOTTOM" then
 		-- mode=UP_TO: "1장까지를"(OP15-091) - 0장 선택 허용
+		-- [2026-08-19 EB01-028 계열 정리] chooser=OPPONENT: "상대는 자신의 트래시에서
+		-- … 원하는 순서대로"(비올라 OP05-079류)는 카드와 순서를 상대가 고른다.
+		-- 무지정 기본은 종전대로 시전자(상대 트래시 헤이트: 루치 OP07-093 후반부).
 		local minimum = action.mode == "UP_TO" and 0 or (action.count or 1)
+		local trash_chooser = action.chooser == "OPPONENT" and other(chooser) or chooser
 		cards = assert(select_zone(player, LOCATION_GRAVE, action.filter, minimum,
-			action.count or 1, chooser, context))
+			action.count or 1, trash_chooser, context))
 		remove_cards(cards, REASON_EFFECT, "DECK_BOTTOM")
-		if action.order == "CHOOSE" and #cards > 1 then Duel.SortDeckbottom(chooser, player, #cards) end
+		if action.order == "CHOOSE" and #cards > 1 then Duel.SortDeckbottom(trash_chooser, player, #cards) end
 		context.last_action_succeeded = #cards > 0 or action.mode == "UP_TO"
 	elseif op == "PLAY_FROM_HAND" then return play_from_zone(action, LOCATION_HAND, context)
 	elseif op == "PLAY_FROM_TRASH" then return play_from_zone(action, LOCATION_GRAVE, context)

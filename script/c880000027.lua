@@ -20,6 +20,9 @@ function s.initial_effect(c)
             },
           },
           {
+            -- [2026-08-19 유저 하달] 원문 「상대는 자신의 … 되돌린다」 — 되돌릴 카드는
+            -- 상대가 고른다(츠루 OP06-051과 동일 문형). 종전엔 시전자가 골랐다.
+            chooser=[[OPPONENT]],
             op=[[RETURN_TO_HAND]],
             selector={
               count=1,

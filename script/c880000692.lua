@@ -9,6 +9,7 @@ function s.initial_effect(c)
       {
         actions={
           {
+            chooser=[[OPPONENT]],
             count=3,
             filter={},
             op=[[RETURN_TRASH_TO_DECK_BOTTOM]],
