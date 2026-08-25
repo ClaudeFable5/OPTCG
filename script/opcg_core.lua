@@ -1197,7 +1197,12 @@ local function effect_reset(duration, source, target)
 		return RESET_PHASE + PHASE_END + turn_bit(true), (turn_player == owner) and 2 or 1
 	end
 	if duration == "UNTIL_OPPONENT_NEXT_TURN_END" then
-		return RESET_PHASE + PHASE_END + turn_bit(false), (turn_player ~= owner) and 2 or 1
+		-- [2026-08-19 유저 하달, OP14-033 페로나] "다음 상대의 엔드 페이즈 종료
+		-- 시까지"는 페이즈 '발생' 기준: 상대 턴 도중 발동(트리거/KO시 소생 등장
+		-- 등)이어도 지금 진행 중인 상대 턴의 엔드가 1번째다 — 종전의 2(현재 턴
+		-- 통과)는 두 턴을 살아남는 오류. "다음 자신의 턴 종료 시까지"(아래 YOUR)는
+		-- '다음 턴'을 지칭하는 문면이라 종전 유지.
+		return RESET_PHASE + PHASE_END + turn_bit(false), 1
 	end
 	if duration == "UNTIL_OPPONENT_NEXT_REFRESH" then
 		return RESET_PHASE + PHASE_DRAW + turn_bit(false), 1

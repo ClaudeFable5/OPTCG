@@ -105,7 +105,9 @@ local function reset_for(duration, source)
 		return RESET_PHASE + PHASE_END + turn_bit(target_player, true), (current == owner) and 2 or 1
 	end
 	if duration == "UNTIL_OPPONENT_NEXT_TURN_END" then
-		return RESET_PHASE + PHASE_END + turn_bit(target_player, false), (current ~= owner) and 2 or 1
+		-- [2026-08-19 유저 하달, OP14-033] 페이즈 '발생' 기준(위 effect_reset와 동일
+		-- 규약): 상대 턴 도중 발동이어도 현재 턴 엔드가 1번째 — 2는 두 턴 생존 오류.
+		return RESET_PHASE + PHASE_END + turn_bit(target_player, false), 1
 	end
 	if duration == "UNTIL_OPPONENT_NEXT_REFRESH" then
 		return RESET_PHASE + PHASE_DRAW + turn_bit(target_player, false), 1
