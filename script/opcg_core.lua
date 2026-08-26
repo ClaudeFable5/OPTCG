@@ -1722,8 +1722,22 @@ function C.ExecuteAction(op, action, context)
 		elseif op == "RETURN_TO_HAND" then remove_cards(cards, REASON_EFFECT, "HAND")
 		elseif op == "RETURN_TO_DECK_BOTTOM" then
 			local operation = function()
+				-- [2026-08-19 유저 제보 OP06-058] "주인의 덱 맨 아래로" - 카드는 각자
+				-- 주인의 덱으로 돌아가므로(SendtoDeck nil=주인) 순서 지정도 실제로
+				-- 카드를 받은 덱을 열어야 한다. 종전엔 무조건 시전자(player) 덱을
+				-- 정렬해 상대 카드 반환 시 엉뚱한 자기 덱 밑장이 보였다. 정렬 주체는
+				-- 문면 그대로 시전자(chooser), 한 덱에 2장 이상 들어갔을 때만 의미.
+				local returned_per_owner = {}
+				for _, card in ipairs(cards) do
+					local receiver = card:GetOwner()
+					returned_per_owner[receiver] = (returned_per_owner[receiver] or 0) + 1
+				end
 				remove_cards(cards, REASON_EFFECT, "DECK_BOTTOM")
-				if action.order == "CHOOSE" and #cards > 1 then Duel.SortDeckbottom(chooser, player, #cards) end
+				if action.order == "CHOOSE" then
+					for receiver, count in pairs(returned_per_owner) do
+						if count > 1 then Duel.SortDeckbottom(chooser, receiver, count) end
+					end
+				end
 			end
 			if action.schedule then
 				assert(opcg.contract_ops.schedule(action.schedule, context.card, operation), "unsupported schedule")
