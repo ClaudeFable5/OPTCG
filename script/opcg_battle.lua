@@ -584,6 +584,13 @@ function B.install()
 		-- 데미지·KO 판정 직전의 최종 타겟을 박제(파괴 후 훅들이 참조)
 		live.final_target = Duel.GetAttackTarget() or target
 		live.final_target_is_character = opcg.IsCharacter(live.final_target)
+		-- 【두웅!!×N】 KO시 게이트용 스냅샷: 정상 배틀 KO는 네이티브 파괴라
+		-- lua 제거 경로(remove_cards/trash)의 스탬프를 안 탄다 — 8/12 수리가
+		-- 효과 KO만 덮고 이 경로를 놓쳐 재발(OP14-051 유저 재제보 2026-08-28).
+		-- 카운터 스텝까지 끝난 여기가 부착 수 최종 확정 시점.
+		if live.final_target_is_character and opcg.RecordDonAtLeave then
+			opcg.RecordDonAtLeave(live.final_target)
+		end
 	end)
 	Duel.RegisterEffect(counter, 0)
 

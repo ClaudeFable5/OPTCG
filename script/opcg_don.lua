@@ -122,7 +122,10 @@ end
 -- 카드 조회는 그 스냅샷을 읽는다(재등장하면 다음 이탈 때 덮어씀).
 opcg._don_at_leave = setmetatable({}, { __mode = "k" })
 function opcg.RecordDonAtLeave(cards)
-	if cards and cards.IsCharacter then cards = { cards } end
+	-- 단일 Card 판별을 type으로: 종전 cards.IsCharacter는 opcg 헬퍼(카드
+	-- 메서드 아님)라 항상 nil — 단일 카드 호출(배틀 648류)이 ipairs 빈 루프로
+	-- 무음 no-op이었다(OP14-051 재제보 2026-08-28의 공범).
+	if cards ~= nil and type(cards) ~= "table" then cards = { cards } end
 	for _, card in ipairs(cards or {}) do
 		if card and card.IsLocation and card:IsLocation(LOCATION_MZONE) then
 			local group = overlay_group(card)
@@ -420,6 +423,9 @@ end
 -- Attached DON -> cost area. A host leaving the field must call this before the engine
 -- disposes its overlays; returned DON is rested until Refresh Phase.
 function opcg.ReturnAttachedDon(card)
+	-- 이탈 관문 공통 스냅샷(【두웅!!×N】 KO시 게이트): 네이티브 이탈 리다이렉트
+	-- (rules.before_battler_leaves)처럼 이 함수만 타는 경로도 부착 수를 남긴다.
+	if opcg.RecordDonAtLeave then opcg.RecordDonAtLeave(card) end
 	local destination = card and opcg.GetDonCostHost(card:GetControler()) or nil
 	local source = card and overlay_group(card) or nil
 	if not destination or not source then return 0 end
