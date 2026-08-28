@@ -489,7 +489,10 @@ function C.CheckCondition(op, condition, context)
 
 	if op == "CHARACTER_EXISTS" then
 		local count = character_count(player, condition, context)
-		return count ~= nil and count > 0
+		if count == nil then return false end
+		-- [OP16-017] negate=true: "~인 캐릭터가 없을 경우" — 존재의 부정형
+		if condition.negate then return count == 0 end
+		return count > 0
 	end
 	if op == "CHARACTER_KOED_THIS_TURN" then
 		-- [OP16-100] "이번 턴, 상대 캐릭터가 KO되어 있는 경우": 전투/효과
@@ -1631,6 +1634,9 @@ function C.ExecuteAction(op, action, context)
 		cards = assert(select_zone(player, LOCATION_HAND, action.filter, minimum, action.count or 1,
 			action.chooser == "OPPONENT" and other(chooser) or player, context))
 		remove_cards(cards, REASON_EFFECT + REASON_DISCARD, "TRASH")
+		-- "버려도 된다. 그렇게 했을 경우"(OP16-035) 게이트: 실제 버린 장수 기준.
+		-- 미설정 시 래퍼가 succeeded(=true)로 폴백해 UP_TO 0장 거절도 통과됐다.
+		context.last_action_effected = #cards > 0
 		if #cards > 0 and opcg.contract_ops then
 			local event = {}
 			for key, value in pairs(context) do event[key] = value end
@@ -2258,6 +2264,19 @@ local function count_source(action, player, card)
 		local context = { card=card, player=player }
 		local predicate = filter_for(action.filter, context)
 		if not predicate then return nil end
+		if action.distinct_names then
+			-- [OP16-034] "카드명이 다른 캐릭터 1장당": 서로 다른 카드명 수를
+			-- 센다(등장 쪽 distinct_names와 같은 GetName 키 규약).
+			local group = Duel.GetMatchingGroup(function(c)
+				return opcg.IsCharacter(c) and predicate(c)
+			end, player, LOCATION_MZONE, 0, nil)
+			local names, n = {}, 0
+			for c in aux.Next(group) do
+				local name = opcg.GetName(c)
+				if name and not names[name] then names[name] = true n = n + 1 end
+			end
+			return n
+		end
 		return Duel.GetMatchingGroupCount(function(c)
 			return opcg.IsCharacter(c) and predicate(c)
 		end, player, LOCATION_MZONE, 0, nil)

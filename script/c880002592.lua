@@ -18,17 +18,32 @@ function s.initial_effect(c)
             },
           },
           {
-            count=3,
+            count=1,
             mode=[[UP_TO]],
-            op=[[GIVE_DON]],
-            optional_cost=true,
-            selector={
-              count=1,
-              kind=[[LEADER]],
-              mode=[[ALL]],
-              owner=[[YOU]],
+            op=[[TRASH_HAND]],
+            player=[[YOU]],
+          },
+          {
+            actions={
+              {
+                count=3,
+                mode=[[UP_TO]],
+                op=[[GIVE_DON]],
+                selector={
+                  count=1,
+                  kind=[[LEADER]],
+                  mode=[[ALL]],
+                  owner=[[YOU]],
+                },
+                state=[[RESTED]],
+              },
             },
-            state=[[RESTED]],
+            conditions={
+              {
+                op=[[LAST_ACTION_SUCCEEDED]],
+              },
+            },
+            op=[[IF]],
             ["then"]=true,
           },
         },

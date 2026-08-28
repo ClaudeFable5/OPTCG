@@ -12,7 +12,17 @@ function s.initial_effect(c)
             op=[[REPLACE_LEAVE_FIELD]],
             optional=true,
             reason=[[OPPONENT_EFFECT]],
-            replacement=[[KO_SELF]],
+            replacement_actions={
+              {
+                op=[[KO]],
+                selector={
+                  count=1,
+                  kind=[[SELF]],
+                  mode=[[ALL]],
+                  owner=[[YOU]],
+                },
+              },
+            },
             selector={
               count=1,
               kind=[[CHARACTER]],

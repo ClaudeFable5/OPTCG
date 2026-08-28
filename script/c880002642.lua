@@ -13,7 +13,7 @@ function s.initial_effect(c)
             filter={
               card_type=[[CHARACTER]],
               cost_lte=6,
-              name_ne=[[코즈키 모모노스케]],
+              name_neq=[[코즈키 모모노스케]],
               trait=[[와노쿠니]],
             },
             mode=[[UP_TO]],

@@ -11,7 +11,7 @@ function s.initial_effect(c)
           {
             destination=[[HAND]],
             filter={
-              name_ne=[[나미]],
+              name_neq=[[나미]],
               trait=[[와노쿠니]],
             },
             look_count=4,

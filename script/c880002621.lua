@@ -11,7 +11,7 @@ function s.initial_effect(c)
           {
             destination=[[HAND]],
             filter={
-              name_ne=[[코비]],
+              name_neq=[[코비]],
               trait=[[해군]],
             },
             look_count=5,

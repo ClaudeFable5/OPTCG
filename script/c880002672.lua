@@ -13,7 +13,7 @@ function s.initial_effect(c)
             destination=[[HAND]],
             filter={
               has_trigger=true,
-              name_ne=[[암수]],
+              name_neq=[[암수]],
             },
             mode=[[UP_TO]],
             op=[[ADD_FROM_TRASH]],

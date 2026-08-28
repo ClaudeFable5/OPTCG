@@ -14,7 +14,7 @@ function s.initial_effect(c)
             selector={
               count=1,
               filter={
-                name_ne=[[몽키 D. 루피]],
+                name_neq=[[몽키 D. 루피]],
               },
               kind=[[CHARACTER]],
               mode=[[UP_TO]],

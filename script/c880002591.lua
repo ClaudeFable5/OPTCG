@@ -9,15 +9,13 @@ function s.initial_effect(c)
       {
         actions={
           {
-            amount=1000,
+            amount_per=1000,
+            distinct_names=true,
+            divisor=1,
             duration=[[WHILE_CONDITION]],
+            filter={},
             op=[[MODIFY_POWER_PER_COUNT]],
-            per={
-              distinct_names=true,
-              filter={},
-              kind=[[CHARACTER]],
-              owner=[[YOU]],
-            },
+            source=[[CHARACTER]],
             selector={
               count=1,
               kind=[[SELF]],

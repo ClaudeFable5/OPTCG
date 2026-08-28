@@ -64,6 +64,7 @@ local known_keyword = {
     RUSH=true,
     DOUBLE_ATTACK=true,
     BANISH=true,
+    UNBLOCKABLE=true, -- 【블록 불가】(OP16 신키워드; util 비트·battle 처리 기실장)
 }
 
 local known_action = {
@@ -271,6 +272,10 @@ local known_condition = {
     ACTIVE_DON_LTE=true,
     SOURCE_EFFECT_DRAW_UNUSED_THIS_TURN=true,
     OWN_CHARACTERS_COST_SUM_GTE=true,
+    -- OP16 신조건(core엔 핸들러가 먼저 실장돼 있었는데 이 어휘 등록이 빠져
+    -- OP16-079/100이 로드 단계 assert로 죽어 있었다 — 2026-08-28 감사):
+    EVENT_PLAYED_FROM_TRASH=true,
+    CHARACTER_KOED_THIS_TURN=true,
 }
 
 local known_cost = {
