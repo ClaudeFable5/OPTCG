@@ -1,0 +1,2 @@
+-- MANUAL PRINTING ALIAS: OP17-001_P1 -> 880002707
+Duel.LoadScript("c880002707.lua", false)

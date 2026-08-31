@@ -1,0 +1,2 @@
+-- MANUAL PRINTING ALIAS: EB04-007_P2 -> 880002428
+Duel.LoadScript("c880002428.lua", false)
