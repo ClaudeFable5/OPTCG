@@ -93,11 +93,13 @@ local function description_for(card, effect, index)
 	-- 순서 선택창/발동 질문창에 어느 효과인지 원문이 뜬다.
 	local id = effect.effect_id
 	if aux and aux.Stringid and card and card.GetOriginalCode and type(id) == "string" then
+		-- 별쇄는 베이스 행의 라벨을 읽는다(RulesCode — OP17 별쇄 ??? 제보 후속)
+		local code = opcg.RulesCode and opcg.RulesCode(card) or card:GetOriginalCode()
 		local n = id:match("^E(%d)$")
 		if n and tonumber(n) <= 3 then
-			return aux.Stringid(card:GetOriginalCode(), 3 + tonumber(n))
+			return aux.Stringid(code, 3 + tonumber(n))
 		end
-		if id == "T1" then return aux.Stringid(card:GetOriginalCode(), 7) end
+		if id == "T1" then return aux.Stringid(code, 7) end
 	end
 	-- EDOPro system string 222: "Activate a Trigger Effect?"
 	return 222
