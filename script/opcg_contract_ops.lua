@@ -1461,6 +1461,16 @@ end
 -- TARGET = the player's decision (one call, prompt included),
 -- VALUE = per-card "is this one protected", OPERATION = pay + instead.
 register_native_replace = function(card, action, condition, codes)
+	-- [OP17-045 유저 제보] 코어의 rp(reason_player)는 미설정 시 턴 플레이어로
+	-- 폴백된다 — 자기 턴에 상대 효과 제거를 맞으면 OPPONENT_EFFECT 판정이
+	-- 실패해 치환이 침묵했다. 원인 효과(re)의 핸들러 주체를 우선한다.
+	local function actor_of(re, rp)
+		if re and re.GetHandlerPlayer then
+			local hp = re:GetHandlerPlayer()
+			if hp == 0 or hp == 1 then return hp end
+		end
+		return rp
+	end
 	local self_only = action.selector == nil or action.selector.kind == "SELF"
 	local predicate = nil
 	local selector_filter = nil
@@ -1518,7 +1528,7 @@ register_native_replace = function(card, action, condition, codes)
 			-- DESTROY_REPLACE twin owns those, or we would intercept twice
 			if not is_destroy_code and (r & REASON_DESTROY) ~= 0 then return false end
 			if condition and not condition(e, tp, eg, ep, ev, re, r, rp) then return false end
-			local ok, found = eligible(eg, r, rp, is_destroy_code)
+			local ok, found = eligible(eg, r, actor_of(re, rp), is_destroy_code)
 			if ok then last_found = found end
 			return ok
 		end)
@@ -1526,7 +1536,7 @@ register_native_replace = function(card, action, condition, codes)
 			-- chk==0 is the ACTION-FORBIDDEN eligibility probe the core runs
 			-- from is_activateable; the real decision call arrives without it
 			if chk == 0 then
-				local ok, found = eligible(eg, r, rp, is_destroy_code)
+				local ok, found = eligible(eg, r, actor_of(re, rp), is_destroy_code)
 				if ok then last_found = found end
 				return ok
 			end
@@ -1544,7 +1554,7 @@ register_native_replace = function(card, action, condition, codes)
 				if protects(target) then saved = target break end
 			end
 			saved = saved or last_found
-			local context = replace_context(saved or card, r, rp)
+			local context = replace_context(saved or card, r, actor_of(re, rp))
 			for _, cost in ipairs(action.replacement_costs or {}) do
 				OPCGCore.PayCost(cost.op, cost, context)
 			end
