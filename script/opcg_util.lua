@@ -501,6 +501,35 @@ function opcg.CounterGrant(card, player)
 			end
 		end
 	end
+	-- [OP17-118] 패 상주 자기 부여("패의 이 카드는 ~인 경우, 카운터+N을 가진다"):
+	-- 부여자가 패의 자기 자신이라 필드 스캔에 안 걸린다 — 카드 자신의 정의를
+	-- 판독하고, 조건은 CheckCondition으로 평가한다(selector kind=SELF 한정).
+	if card.IsLocation and card:IsLocation(LOCATION_HAND) then
+		local d = definition(card)
+		for _, effect in ipairs((d and d.effects) or {}) do
+			local resident = false
+			for _, tm in ipairs(effect.timings or {}) do
+				if tm == "RULE" or tm == "CONTINUOUS" then resident = true break end
+			end
+			if resident then
+				local ok = true
+				for _, condition in ipairs(effect.conditions or {}) do
+					if not (OPCGCore and OPCGCore.CheckCondition
+						and OPCGCore.CheckCondition(condition.op, condition, { card = card, player = player })) then
+						ok = false break
+					end
+				end
+				if ok then
+					for _, action in ipairs(effect.actions or {}) do
+						if action.op == "MODIFY_COUNTER" and (action.amount or 0) > 0
+							and (action.selector or {}).kind == "SELF" then
+							total = total + (action.amount or 0)
+						end
+					end
+				end
+			end
+		end
+	end
 	return total
 end
 
@@ -597,6 +626,7 @@ local function scalar_filter(c, key, value, context)
 		return opcg.IsLeader(c) or (opcg.IsCharacter(c) and opcg.GetCost(c) <= value)
 	end
 	if key == "power_sum_lte" then return true end
+	if key == "cost_sum_lte" then return true end
 	if key == "vanilla" then return opcg.IsVanilla(c) == value end
 	if key == "has_trigger" then return opcg.HasLifeTrigger(c) == value end
 	if key == "no_attack_effect" then return (not opcg.HasAttackEffect(c)) == value end
@@ -654,6 +684,7 @@ function opcg.CompileFilter(filter, context)
 		base_power_gte=true, counter_eq=true, vanilla=true, has_trigger=true,
 		keyword=true, character_cost_lte=true, power_sum_lte=true,
 		exclude_self=true, cost_lte_life_total=true, cost_lte_life_of=true,
+		cost_sum_lte=true,
 		cost_lte_field_don_of=true, name_eq_last_target=true,
 		color_neq_last_target=true, any=true,
 		-- scalar_filter가 처리하는데 이 프로브 화이트리스트에 빠져 있던 키들:
@@ -780,6 +811,27 @@ function opcg.SelectCards(selector, context)
 		local out = {}
 		for card in aux.Next(candidates) do out[#out + 1] = card end
 		return out
+	end
+	-- [OP17-119/118] "코스트 합계가 N 이하가 되도록": power_sum_lte와 동형 축차 선택
+	local cost_limit = selector.filter and selector.filter.cost_sum_lte
+	if cost_limit then
+		local selected, remaining = {}, cost_limit
+		for _ = 1, maximum do
+			local affordable = candidates:Filter(function(card)
+				return opcg.GetCost(card) <= remaining
+			end, nil)
+			if affordable:GetCount() == 0 then break end
+			if selector.hint then Duel.Hint(HINT_SELECTMSG, chooser, selector.hint) end
+			local picked = affordable:Select(chooser, 0, 1, nil)
+			local card = picked:GetFirst()
+			if not card then break end
+			Duel.HintSelection(picked, true)
+			selected[#selected + 1] = card
+			remaining = remaining - opcg.GetCost(card)
+			candidates:RemoveCard(card)
+		end
+		if #selected < minimum then return nil, "NOT_ENOUGH_TARGETS" end
+		return selected
 	end
 	local power_limit = selector.filter and selector.filter.power_sum_lte
 	if power_limit then

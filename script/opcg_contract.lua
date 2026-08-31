@@ -56,6 +56,8 @@ local known_timing = {
     ON_DAMAGE_OR_HIGH_POWER_CHARACTER_KO=true,
     ON_OWN_TRAIT_CHARACTER_LEFT_BY_OPPONENT_EFFECT=true,
     ON_OWN_VANILLA_CHARACTER_PLAYED_FROM_HAND=true,
+    -- [OP17-040] 자기 리더가 어택했거나 어택당했을 때(관전형, 배틀 ②에서 디스패치)
+    ON_OWN_LEADER_BATTLE=true,
     RULE=true,
 }
 
@@ -276,6 +278,9 @@ local known_condition = {
     -- OP16-079/100이 로드 단계 assert로 죽어 있었다 — 2026-08-28 감사):
     EVENT_PLAYED_FROM_TRASH=true,
     CHARACTER_KOED_THIS_TURN=true,
+    -- ST31~36/OP17 추가분(2026-08-28):
+    HAND_DISCARDED_THIS_TURN=true,
+    LEADER_NAME_IS_OR_HAS_TRAIT=true,
 }
 
 local known_cost = {

@@ -17,6 +17,7 @@ local CONDITION = {
 	LEADER_NAME_IS=true, LEADER_NAME_IS_ANY=true, LEADER_IS_MULTICOLOR=true,
 	LEADER_POWER_LTE=true, EVENT_ACTIVATED_THIS_TURN=true,
 	CHARACTER_KOED_THIS_TURN=true, EVENT_PLAYED_FROM_TRASH=true,
+	HAND_DISCARDED_THIS_TURN=true, LEADER_NAME_IS_OR_HAS_TRAIT=true,
 	FIELD_DON_LTE=true, PERSONAL_TURN_GTE=true,
 	ALL_OWN_CHARACTERS_HAVE_TRAIT=true, OPPONENT_GIVEN_DON_EXISTS=true,
 	LEADER_HAS_ATTRIBUTE=true, LEADER_HAS_COLOR=true, LEADER_STATE_IS=true,
@@ -267,6 +268,17 @@ local function remove_cards(cards, reason, destination)
 	local group = array_group(cards)
 	-- [2026-08-12] 이탈 직전 부착 둥 스냅샷(【두웅!!×N】 KO시류 게이트용)
 	if opcg.RecordDonAtLeave then opcg.RecordDonAtLeave(cards) end
+	-- [ST33-004] "효과로 자신의 패가 버려진 턴" 도장: 패에서 REASON_DISCARD로
+	-- 떠나는 카드의 주인에게 턴 번호를 남긴다(코스트 지불 포함 — 효과 사용의
+	-- 일부로 본다. TRASH_HAND 코스트/액션 등 패 버리기는 전부 이 관문을 탄다).
+	if (reason & REASON_DISCARD) ~= 0 then
+		for _, card in ipairs(cards) do
+			if card.IsLocation and card:IsLocation(LOCATION_HAND) then
+				opcg._hand_discarded = opcg._hand_discarded or {}
+				opcg._hand_discarded[card:GetControler()] = Duel.GetTurnCount and Duel.GetTurnCount() or 0
+			end
+		end
+	end
 	-- [2026-08-10 유저 재정] 이동 '시도 전' 선제 둥 반환 폐지: 내성(파괴 불가
 	-- 등)으로 잔존한 카드의 둥까지 떨어뜨렸다. 실제로 떠난 숙주의 둥은 코어
 	-- 오버레이 처분으로 트래시에 떨어지고, EVENT_TO_GRAVE 워처(RescueLooseDon)가
@@ -489,6 +501,11 @@ function C.CheckCondition(op, condition, context)
 
 	if op == "CHARACTER_EXISTS" then
 		local count = character_count(player, condition, context)
+		if condition.player == "ANY" then
+			-- [OP17-080류] 무주어 "코스트 N 이상의 캐릭터가 있을 경우": 양측 합산
+			local theirs = character_count(1 - player, condition, context)
+			count = (count ~= nil and theirs ~= nil) and (count + theirs) or nil
+		end
 		if count == nil then return false end
 		-- [OP16-017] negate=true: "~인 캐릭터가 없을 경우" — 존재의 부정형
 		if condition.negate then return count == 0 end
@@ -502,6 +519,13 @@ function C.CheckCondition(op, condition, context)
 		local log = opcg._koed_this_turn
 		return log ~= nil and log.turn == (Duel.GetTurnCount and Duel.GetTurnCount() or 0)
 			and log[target] == true
+	end
+	if op == "HAND_DISCARDED_THIS_TURN" then
+		-- [ST33-004] 이번 턴, 효과·코스트로 그 플레이어의 패가 버려졌는가
+		-- (remove_cards의 REASON_DISCARD 관문이 주인별 턴 번호를 도장).
+		local target = opcg.ResolvePlayer(condition.player or "YOU", context)
+		local log = opcg._hand_discarded
+		return log ~= nil and log[target] == (Duel.GetTurnCount and Duel.GetTurnCount() or 0)
 	end
 	if op == "EVENT_PLAYED_FROM_TRASH" then
 		-- [OP16-079] "트래시에서 캐릭터가 등장했을 때" 청취 조건: 등장
@@ -565,6 +589,11 @@ function C.CheckCondition(op, condition, context)
 		return false
 	end
 	if op == "LEADER_NAME_IS" then return lead ~= nil and opcg.GetName(lead) == condition.name end
+	if op == "LEADER_NAME_IS_OR_HAS_TRAIT" then
+		-- [OP17-003 등] "리더가 「이름」이거나 특징 《X》를 가진 경우" — 이름/특징 OR
+		return lead ~= nil and (opcg.GetName(lead) == condition.name
+			or opcg.HasTrait(lead, condition.trait))
+	end
 	if op == "LEADER_NAME_IS_ANY" then
 		-- allow_multicolor: 「이름 X 또는 다색」 조건(OP13-051 보아 행콕 등) —
 		-- 종전엔 이 플래그가 조용히 무시돼 다색 리더에서 불발(유저 제보 2026-08-12).
@@ -572,7 +601,12 @@ function C.CheckCondition(op, condition, context)
 		if condition.allow_multicolor and popcount(opcg.GetColors(lead)) > 1 then return true end
 		return contains(condition.names, opcg.GetName(lead))
 	end
-	if op == "LEADER_IS_MULTICOLOR" then return lead ~= nil and popcount(opcg.GetColors(lead)) > 1 end
+	if op == "LEADER_IS_MULTICOLOR" then
+		-- negate=true: "자신의 단색 리더"(OP17-005 등) — 다색의 부정형
+		local multi = lead ~= nil and popcount(opcg.GetColors(lead)) > 1
+		if condition.negate then return lead ~= nil and not multi end
+		return multi
+	end
 	if op == "LEADER_HAS_ATTRIBUTE" then return lead ~= nil and opcg.HasAttribute(lead, condition.attribute) end
 	if op == "LEADER_HAS_COLOR" then return lead ~= nil and opcg.HasColor(lead, condition.color) end
 	if op == "LEADER_STATE_IS" then
@@ -1292,11 +1326,14 @@ local function play_from_zone(action, location, context)
 		-- 후보에서 뺀다. EXACT여도 후보가 마르면 가능한 만큼.
 		cards = {}
 		local names = {}
+		-- [OP17-118] "코스트 합계가 N 이하가 되도록 등장": 축차 예산 차감
+		local budget = action.filter and action.filter.cost_sum_lte
 		for _ = 1, maximum do
 			local group = zone_group(player, location, action.filter, context)
 			if not group then error("UNSUPPORTED_FILTER") end
 			local candidates = group:Filter(function(candidate)
 				return playable(candidate) and not names[opcg.GetName(candidate)]
+					and (not budget or opcg.GetCost(candidate) <= budget)
 			end, nil)
 			for _, previous in ipairs(cards) do candidates:RemoveCard(previous) end
 			if candidates:GetCount() == 0 then break end
@@ -1305,6 +1342,7 @@ local function play_from_zone(action, location, context)
 			local card = selected:GetFirst()
 			if not card then break end
 			names[opcg.GetName(card)] = true
+			if budget then budget = budget - opcg.GetCost(card) end
 			cards[#cards + 1] = card
 		end
 	else
@@ -1607,6 +1645,7 @@ local function execute_nested(actions, context)
 	return out
 end
 
+local count_source -- 정의는 per-count 절(아래) — 활성화 경로 분기가 참조한다
 function C.ExecuteAction(op, action, context)
 	context = context or {}
 	if opcg.contract_ops then opcg.contract_ops.current_context = context end
@@ -1664,6 +1703,21 @@ function C.ExecuteAction(op, action, context)
 		end
 		context.last_action_succeeded = true
 		context.last_action_effected = #cards > 0
+		return remember_targets(context, cards)
+	elseif op == "MODIFY_POWER_PER_COUNT" then
+		-- [ST31-004/P-024] 활성화 경로 per-count: 해결 시점 수치를 계산해 고정
+		-- 수정(상주형은 BindCard per_count_value가 실시간 계산 — 여긴 일회성).
+		-- 종전엔 CONTINUOUS_ONLY 셰이프 게이트에 걸려 기동/등장시류가 전부
+		-- fail-closed 봉쇄됐다(P-024가 실제 피해자).
+		local n = count_source(action, player, context.card)
+		if n == nil then context.last_action_succeeded = false return {} end
+		local total = math.floor(n / (action.divisor or 1)) * (action.amount_per or 0)
+		cards = choose_selector(action.selector, context)
+		for _, card in ipairs(cards) do
+			modify_stat(context.card, card, EFFECT_UPDATE_ATTACK, total, action.duration or "THIS_TURN")
+		end
+		context.last_action_succeeded = true
+		context.last_action_effected = #cards > 0 and total ~= 0
 		return remember_targets(context, cards)
 	elseif op == "REST_SELF" or op == "TRASH_SELF" or op == "RETURN_SELF_TO_HAND" then
 		action = { selector={ owner="YOU", kind="SELF", count=1, mode="EXACT" } }
@@ -2251,9 +2305,10 @@ local function effect_is_continuous(effect)
 end
 local PER_COUNT_SOURCE = { RESTED_DON=true, TRASH=true, HAND=true, CHARACTER=true }
 local PER_COUNT_LOCATION = { TRASH=LOCATION_GRAVE, HAND=LOCATION_HAND }
-local CONTINUOUS_ONLY = { MODIFY_POWER_PER_COUNT=true, MODIFY_COST_PER_COUNT=true }
+-- MODIFY_POWER_PER_COUNT는 활성화 경로 처리기 추가로 상주 전용 제한 해제
+local CONTINUOUS_ONLY = { MODIFY_COST_PER_COUNT=true }
 local KO_REASON = { BATTLE=true, OPPONENT_BATTLE=true, EFFECT=true, OPPONENT_EFFECT=true, ANY=true }
-local function count_source(action, player, card)
+count_source = function(action, player, card)
 	if action.source == "RESTED_DON" then
 		-- No current IR action filters DON cards. Reject such a shape until the
 		-- DON group itself is exposed instead of silently ignoring the filter.
@@ -2479,6 +2534,7 @@ local function register_continuous(card, effect, your_turn, opponent_turn)
 			or action.op == "MODIFY_POWER_PER_COUNT" and EFFECT_UPDATE_ATTACK
 			or action.op == "MODIFY_COST_PER_COUNT" and EFFECT_UPDATE_LEVEL
 			or action.op == "GAIN_KEYWORD" and opcg.KEYWORD_EFFECT[action.keyword]
+			or action.op == "SET_BASE_POWER" and EFFECT_SET_BASE_ATTACK
 		local rest_code, rest_value
 		if not effect_code then
 			if action.op == "CANNOT_BE_KO" then
@@ -2497,6 +2553,7 @@ local function register_continuous(card, effect, your_turn, opponent_turn)
 		native:SetCode(rest_code or effect_code)
 		if rest_code then native:SetValue(rest_value)
 		elseif action.op == "MODIFY_POWER_PER_COUNT" or action.op == "MODIFY_COST_PER_COUNT" then native:SetValue(per_count_value(action))
+		elseif action.op == "SET_BASE_POWER" then native:SetValue(action.value or 0)
 		elseif action.op ~= "GAIN_KEYWORD" then native:SetValue(action.amount or 0) end
 		native:SetCondition(continuous_condition(card, effect, your_turn, opponent_turn))
 		if selector.kind == "SELF" then

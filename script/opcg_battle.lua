@@ -541,6 +541,14 @@ function B.install()
 		-- 발화해 루시(OP15-002)류 펌프가 블록 결정보다 늦게 떴다.
 		-- 나열 = attacker(턴P) 먼저, 원 대상(비턴P) 다음.
 		dispatch({attacker, target}, "WHEN_ATTACKING_OR_ATTACKED", live.context)
+		-- [OP17-040] "자신의 리더가 어택했을 때나 어택당했을 때" — 리더 전투를
+		-- 지켜보는 자기편 필드 카드용 관전 타이밍(어택 시 창과 같은 자리).
+		if opcg.IsLeader(attacker) then
+			dispatch(field_cards(live.attacking_player), "ON_OWN_LEADER_BATTLE", live.context)
+		end
+		if opcg.IsLeader(target) then
+			dispatch(field_cards(live.defending_player), "ON_OWN_LEADER_BATTLE", live.context)
+		end
 		-- 어택시 창 마감 펌프: 선행 임의효과 거절로 표류 중인 [상대의 어택 시]
 		-- 계열 잔여 후보를 블록 프롬프트 전에 완주시킨다(타이밍 통일).
 		if opcg.effect_queue and opcg.effect_queue.pump_window then
