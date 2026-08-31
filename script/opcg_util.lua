@@ -453,6 +453,17 @@ function opcg.ConsumePlayDiscounts(c, player)
 		if discount_applies(d, c) then d.uses = (d.uses or 0) - 1 end
 	end
 end
+-- 별쇄(881 alias행) 카드의 스트링 참조는 베이스 행에서 읽는다: 별쇄 행은
+-- texts strs가 비어 선택지 라벨(str9+)이 ???로 떴다(OP17-049_P1 실전 제보
+-- 2026-08-28). cdb alias 우선, printing_alias 표 폴백.
+function opcg.RulesCode(c)
+	if not c then return 0 end
+	local alias = c.GetAlias and c:GetAlias() or 0
+	if alias ~= 0 then return alias end
+	local code = c.GetOriginalCode and c:GetOriginalCode() or 0
+	local mapped = opcg.printing_alias and opcg.printing_alias[code]
+	return mapped or code
+end
 function opcg.GetCounter(c)
 	-- 카운터무는 cdb def=-2 - 생값 비교(counter_eq=0)가 영원히 빗나가던
 	-- 원흉이라 0으로 정규화한다(EB01-001 유저 제보 2026-08-03).

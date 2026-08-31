@@ -9,8 +9,8 @@ function s.initial_effect(c)
       {
         actions={
           {
-            keyword=[[RUSH]],
-            op=[[GAIN_KEYWORD]],
+            duration=[[TURN_PLAYED]],
+            op=[[ALLOW_ATTACK_CHARACTER]],
             selector={
               count=1,
               kind=[[SELF]],
@@ -28,37 +28,6 @@ function s.initial_effect(c)
         },
         costs={},
         effect_id=[[E1]],
-        once_per_turn=false,
-        source_text=[[자신의 리더가 속성(참)을 가진 경우, 이 캐릭터는 【속공：캐릭터】를 얻는다.]],
-        timings={
-          [[CONTINUOUS]],
-        },
-      },
-      {
-        actions={
-          {
-            op=[[CANNOT_ATTACK_LEADER]],
-            selector={
-              count=1,
-              kind=[[SELF]],
-              mode=[[ALL]],
-              owner=[[YOU]],
-            },
-          },
-        },
-        conditions={
-          {
-            attribute=[[SLASH]],
-            op=[[LEADER_HAS_ATTRIBUTE]],
-            player=[[YOU]],
-          },
-          {
-            op=[[SELF_PLAYED_THIS_TURN]],
-            player=[[YOU]],
-          },
-        },
-        costs={},
-        effect_id=[[E1b]],
         once_per_turn=false,
         source_text=[[자신의 리더가 속성(참)을 가진 경우, 이 캐릭터는 【속공：캐릭터】를 얻는다.]],
         timings={

@@ -9,12 +9,12 @@ function s.initial_effect(c)
       {
         actions={
           {
-            duration=[[THIS_TURN]],
-            op=[[CANNOT_ATTACK_LEADER]],
+            duration=[[TURN_PLAYED]],
+            op=[[ALLOW_ATTACK_CHARACTER]],
             selector={
               count=1,
               kind=[[SELF]],
-              mode=[[ALL]],
+              mode=[[UP_TO]],
               owner=[[YOU]],
             },
           },
@@ -25,7 +25,7 @@ function s.initial_effect(c)
         once_per_turn=false,
         source_text=[[【속공：캐릭터】(이 카드는 등장한 턴에 캐릭터에게 어택할 수 있다)]],
         timings={
-          [[ON_PLAY]],
+          [[CONTINUOUS]],
         },
       },
 
@@ -62,9 +62,7 @@ function s.initial_effect(c)
         },
       },
     },
-    keywords={
-      [[RUSH]],
-    },
+    keywords={},
     rules_id=[[OP17-048]],
     schema_version=1,
   })

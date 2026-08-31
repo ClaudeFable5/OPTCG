@@ -786,7 +786,7 @@ function X.execute(op, action, context)
 			-- 옵션 라벨 = cdb str9+(등록 시 배정 슬롯; opcg_contract 참조)
 			local sbase = action._string_base or 8
 			for index, item in ipairs(available) do
-				descriptions[index] = aux.Stringid(context.card:GetOriginalCode(), sbase + item.index - 1)
+				descriptions[index] = aux.Stringid(opcg.RulesCode(context.card), sbase + item.index - 1)
 			end
 			selected = Duel.SelectOption(player, table.unpack(descriptions)) + 1
 		end
@@ -1443,7 +1443,7 @@ end
 local function apply_replacement(action, context)
 	-- str4 = 예/아니오 질문 라벨(str1은 인쇄체계 예약이라 사용 금지)
 	if action.optional and Duel.SelectYesNo
-		and not Duel.SelectYesNo(context.player, aux.Stringid(context.card:GetOriginalCode(), 3)) then
+		and not Duel.SelectYesNo(context.player, aux.Stringid(opcg.RulesCode(context.card), 3)) then
 		return false
 	end
 	for _, cost in ipairs(action.replacement_costs or {}) do
@@ -1535,7 +1535,7 @@ register_native_replace = function(card, action, condition, codes)
 			if Duel.SelectEffectYesNo then
 				return Duel.SelectEffectYesNo(tp, card)
 			end
-			return Duel.SelectYesNo(tp, aux.Stringid(card:GetOriginalCode(), 3))
+			return Duel.SelectYesNo(tp, aux.Stringid(opcg.RulesCode(card), 3))
 		end)
 		native:SetValue(function(e, target) return protects(target) end)
 		native:SetOperation(function(e, tp, eg, ep, ev, re, r, rp)

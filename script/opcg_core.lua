@@ -1180,7 +1180,7 @@ function C.PayCost(op, cost, context)
 		local selected = 1
 		if #available > 1 then
 			local descriptions = {}
-			local code = context.card:GetOriginalCode()
+			local code = opcg.RulesCode(context.card) -- 별쇄→베이스(스트링 라벨)
 			for index = 1, #available do descriptions[index] = aux.Stringid(code, index - 1) end
 			selected = Duel.SelectOption(player, table.unpack(descriptions)) + 1
 		end
@@ -2165,7 +2165,7 @@ function C.ExecuteAction(op, action, context)
 		end
 		if #available == 0 then context.last_action_succeeded = false return {} end
 		local descriptions = {}
-		local code = context.card:GetOriginalCode()
+		local code = opcg.RulesCode(context.card) -- 별쇄→베이스(스트링 라벨)
 		-- 옵션 라벨 = cdb str9+(카드당 CHOOSE 복수면 등록 시 배정된 시작 슬롯);
 		-- str1/2/14는 인쇄체계 예약, str4=예/아니오, str5~8=효과 순서 라벨
 		local sbase = action._string_base or 8
