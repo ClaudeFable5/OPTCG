@@ -99,7 +99,9 @@ local function description_for(card, effect, index)
 		if n and tonumber(n) <= 3 then
 			return aux.Stringid(code, 3 + tonumber(n))
 		end
-		if id == "T1" then return aux.Stringid(code, 7) end
+		-- T1은 자기 행 str8: 리뉴얼 인쇄(_R, 트리거가 그 인쇄 전용)는 베이스에
+		-- 라벨이 없다 — 별쇄/리뉴얼 전 행에 str8을 채워 두는 게 짝 규약.
+		if id == "T1" then return aux.Stringid(card:GetOriginalCode(), 7) end
 	end
 	-- EDOPro system string 222: "Activate a Trigger Effect?"
 	return 222
