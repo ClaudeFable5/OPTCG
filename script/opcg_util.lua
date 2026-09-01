@@ -864,6 +864,16 @@ function opcg.SelectCards(selector, context)
 		if #selected < minimum then return nil, "NOT_ENOUGH_TARGETS" end
 		return selected
 	end
+	-- 강제 확정 선택(후보 수 ≤ 최소 요구 = 고를 여지 없음)은 선택창을 생략하고
+	-- 전 후보를 자동 확정한다 — "자신의 리더를 …" 계열의 원클릭화(OP17-040
+	-- 유저 하달 2026-08-28). UP_TO(minimum 0)는 '할지 말지'가 실선택이라 유지.
+	-- 가시성은 종전 관용구대로 HintSelection 공지를 그대로 태운다.
+	if minimum > 0 and candidates:GetCount() <= minimum then
+		Duel.HintSelection(candidates, true)
+		local out = {}
+		for card in aux.Next(candidates) do out[#out + 1] = card end
+		return out
+	end
 	if selector.hint then Duel.Hint(HINT_SELECTMSG, chooser, selector.hint) end
 	local selected = candidates:Select(chooser, minimum, maximum, nil)
 	-- 효과 대상 가시성(2026-07-27): 고른 카드를 양측에 공지 — 현대 EDOPro
