@@ -34,6 +34,35 @@ function s.initial_effect(c)
           [[ACTIVATE_MAIN]],
         },
       },
+      {
+        actions={
+          {
+            op=[[KO]],
+            selector={
+              count=1,
+              filter={
+                cost_lte=5,
+              },
+              kind=[[CHARACTER]],
+              mode=[[UP_TO]],
+              owner=[[OPPONENT]],
+            },
+          },
+        },
+        conditions={},
+        costs={
+          {
+            count=1,
+            op=[[TRASH_HAND]],
+          },
+        },
+        effect_id=[[T1]],
+        once_per_turn=false,
+        source_text=[[자신의 패 1장을 버릴 수 있다：상대의 코스트 5 이하인 캐릭터 1장까지를 KO한다.]],
+        timings={
+          [[LIFE_TRIGGER]],
+        },
+      },
     },
     keywords={},
     rules_id=[[OP17-101]],

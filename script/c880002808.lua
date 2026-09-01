@@ -30,6 +30,22 @@ function s.initial_effect(c)
           [[ON_KO]],
         },
       },
+      {
+        actions={
+          {
+            op=[[PLAY_SELF]],
+            rested=false,
+          },
+        },
+        conditions={},
+        costs={},
+        effect_id=[[T1]],
+        once_per_turn=false,
+        source_text=[[이 카드를 등장시킨다.]],
+        timings={
+          [[LIFE_TRIGGER]],
+        },
+      },
     },
     keywords={},
     rules_id=[[OP17-102]],

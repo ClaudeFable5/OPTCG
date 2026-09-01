@@ -32,6 +32,54 @@ function s.initial_effect(c)
           [[COUNTER]],
         },
       },
+      {
+        actions={
+          {
+            op=[[OPPONENT_CHOOSES]],
+            option_conditions={
+              {
+                {
+                  count=3,
+                  op=[[HAND_GTE]],
+                  player=[[OPPONENT]],
+                },
+              },
+              {},
+            },
+            options={
+              {
+                {
+                  count=3,
+                  op=[[TRASH_HAND]],
+                  player=[[OPPONENT]],
+                },
+              },
+              {
+                {
+                  op=[[KO]],
+                  selector={
+                    count=1,
+                    filter={
+                      cost_lte=6,
+                    },
+                    kind=[[CHARACTER]],
+                    mode=[[UP_TO]],
+                    owner=[[OPPONENT]],
+                  },
+                },
+              },
+            },
+          },
+        },
+        conditions={},
+        costs={},
+        effect_id=[[T1]],
+        once_per_turn=false,
+        source_text=[[상대는 자신의 패 3장을 버려도 된다. 그렇게 하지 않았을 경우, 상대의 코스트 6 이하인 캐릭터 1장까지를 KO한다.]],
+        timings={
+          [[LIFE_TRIGGER]],
+        },
+      },
     },
     keywords={},
     rules_id=[[OP17-117]],

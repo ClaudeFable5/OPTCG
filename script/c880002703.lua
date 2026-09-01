@@ -33,6 +33,28 @@ function s.initial_effect(c)
           [[ON_PLAY]],
         },
       },
+      {
+        actions={
+          {
+            op=[[PLAY_SELF]],
+            rested=false,
+          },
+        },
+        conditions={
+          {
+            count=3,
+            op=[[LIFE_LTE]],
+            player=[[OPPONENT]],
+          },
+        },
+        costs={},
+        effect_id=[[T1]],
+        once_per_turn=false,
+        source_text=[[상대의 라이프가 3장 이하인 경우, 이 카드를 등장시킨다.]],
+        timings={
+          [[LIFE_TRIGGER]],
+        },
+      },
     },
     keywords={},
     rules_id=[[ST36-002]],

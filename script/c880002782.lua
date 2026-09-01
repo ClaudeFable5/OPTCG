@@ -34,6 +34,28 @@ function s.initial_effect(c)
           [[COUNTER]],
         },
       },
+      {
+        actions={
+          {
+            count=2,
+            op=[[DRAW]],
+            player=[[YOU]],
+          },
+        },
+        conditions={},
+        costs={
+          {
+            count=1,
+            op=[[RETURN_DON]],
+          },
+        },
+        effect_id=[[T1]],
+        once_per_turn=false,
+        source_text=[[두웅!!-1：카드를 2장 뽑는다.]],
+        timings={
+          [[LIFE_TRIGGER]],
+        },
+      },
     },
     keywords={},
     rules_id=[[OP17-076]],

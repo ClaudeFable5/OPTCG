@@ -31,6 +31,32 @@ function s.initial_effect(c)
           [[ON_PLAY]],
         },
       },
+      {
+        actions={
+          {
+            destination=[[HAND]],
+            filter={
+              trait=[[빅 맘 해적단]],
+            },
+            look_count=5,
+            op=[[SEARCH_DECK_TOP]],
+            player=[[YOU]],
+            rest_destination=[[DECK_BOTTOM]],
+            rest_order=[[CHOOSE]],
+            reveal=true,
+            select_count=1,
+            select_mode=[[UP_TO]],
+          },
+        },
+        conditions={},
+        costs={},
+        effect_id=[[T1]],
+        once_per_turn=false,
+        source_text=[[자신의 덱 위에서 5장을 보고, 특징 《빅 맘 해적단》을 가진 카드 1장까지를 공개하고 패에 넣는다. 그 후, 나머지를 원하는 순서로 덱 아래에 놓는다.]],
+        timings={
+          [[LIFE_TRIGGER]],
+        },
+      },
     },
     keywords={},
     rules_id=[[OP17-109]],

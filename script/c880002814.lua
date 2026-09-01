@@ -5,7 +5,32 @@ function s.initial_effect(c)
   opcg.RegisterCard(c,{
     base_card_no=[[OP17-108]],
     compile_status=[[MANUAL]],
-    effects={},
+    effects={
+      {
+        actions={
+          {
+            op=[[REST]],
+            selector={
+              count=1,
+              filter={
+                cost_lte=6,
+              },
+              kind=[[CHARACTER]],
+              mode=[[UP_TO]],
+              owner=[[OPPONENT]],
+            },
+          },
+        },
+        conditions={},
+        costs={},
+        effect_id=[[T1]],
+        once_per_turn=false,
+        source_text=[[상대의 코스트 6 이하인 캐릭터 1장까지를 레스트로 한다.]],
+        timings={
+          [[LIFE_TRIGGER]],
+        },
+      },
+    },
     keywords={
       [[BLOCKER]],
     },

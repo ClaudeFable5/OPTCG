@@ -37,6 +37,28 @@ function s.initial_effect(c)
           [[COUNTER]],
         },
       },
+      {
+        actions={
+          {
+            count=1,
+            destination=[[HAND]],
+            filter={
+              trait=[[엘바프]],
+            },
+            mode=[[UP_TO]],
+            op=[[ADD_FROM_TRASH]],
+            player=[[YOU]],
+          },
+        },
+        conditions={},
+        costs={},
+        effect_id=[[T1]],
+        once_per_turn=false,
+        source_text=[[자신의 트래시에서 특징 《엘바프》를 가진 카드 1장까지를 패에 넣는다.]],
+        timings={
+          [[LIFE_TRIGGER]],
+        },
+      },
     },
     keywords={},
     rules_id=[[OP17-096]],

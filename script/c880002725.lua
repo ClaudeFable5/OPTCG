@@ -32,6 +32,29 @@ function s.initial_effect(c)
           [[MAIN]],
         },
       },
+      {
+        actions={
+          {
+            amount=1000,
+            duration=[[THIS_TURN]],
+            op=[[MODIFY_POWER]],
+            selector={
+              count=1,
+              kind=[[LEADER]],
+              mode=[[EXACT]],
+              owner=[[YOU]],
+            },
+          },
+        },
+        conditions={},
+        costs={},
+        effect_id=[[T1]],
+        once_per_turn=false,
+        source_text=[[자신의 리더를 이번 턴 동안 파워 +1000.]],
+        timings={
+          [[LIFE_TRIGGER]],
+        },
+      },
     },
     keywords={},
     rules_id=[[OP17-019]],
