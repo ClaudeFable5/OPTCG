@@ -1,11 +1,11 @@
 [
   {
-    "name": "OPCGPro_Mobile_REV48.apk",
-    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r48/OPCGPro_Mobile_REV48.apk",
-    "md5": "b077213d89a501ad5822ce5b8aaf44b4",
-    "sha256": "923e40e1f4af9ed8a45a574e85c4e1136c05f251deb7889b9b2f5216f995ee88",
-    "size": 106217388,
-    "rev": 48,
-    "notes": "Android REV48: lower-right chat, top-right FPS, local-turn end button, Going Merry, no upstream changelog popup"
+    "name": "OPCGPro_Mobile_REV49.apk",
+    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r49/OPCGPro_Mobile_REV49.apk",
+    "md5": "e0af31bd03043a4ae7aa51f83c337241",
+    "sha256": "9d7e7657c1087c177c9116afe727007346347ec93991895cfb81f02cc5e0c3ab",
+    "size": 106217528,
+    "rev": 49,
+    "notes": "Android REV49: single-mode End Turn regression fix; retains REV48 mobile updater and UI changes"
   }
 ]
