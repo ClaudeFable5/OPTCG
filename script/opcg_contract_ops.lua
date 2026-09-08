@@ -1693,7 +1693,12 @@ function X.emit(timing, context, player, cards)
 end
 function X.after_remove(cards, reason, destination, context)
 	context = context or {}
-	local effect = (reason & REASON_EFFECT) ~= 0
+	-- [OP07-038/ST17-002 유저 제보 2026-09-08] 효과의 '코스트'로 필드를 벗어난
+	-- 것도 그 효과에 의해 벗어난 것으로 취급한다(OPCG 룰). 트라팔가 로의 자기
+	-- 캐릭터 바운스는 코스트(RETURN_OWN_CARD_TO_HAND=REASON_COST)라 종전 순수
+	-- REASON_EFFECT 게이트를 못 넘어, 행콕(OP07-038)의 '캐릭터가 자신의 효과로
+	-- 필드를 벗어났을 때' 트리거가 통째로 침묵했다.
+	local effect = (reason & (REASON_EFFECT | REASON_COST)) ~= 0
 	local destroyed = (reason & REASON_DESTROY) ~= 0
 	local source_player = context.reason_player or context.effect_player
 		or (context.card and context.card:GetControler())
@@ -1707,7 +1712,11 @@ function X.after_remove(cards, reason, destination, context)
 		event.event_count = 1
 		event.reason = reason
 		event.reason_player = source_player
-		if effect and opcg.IsCharacter(card) then
+		-- '필드를 벗어남' 계열은 실제 MZONE 이탈만 인정한다. REASON_COST 확장으로
+		-- 손패 캐릭터 카드를 코스트로 버리는 경우(필드 이탈 아님)까지 이 트리거가
+		-- 오발화하지 않도록 직전 위치를 게이트한다.
+		local from_field = (not card.IsPreviousLocation) or card:IsPreviousLocation(LOCATION_MZONE)
+		if effect and from_field and opcg.IsCharacter(card) then
 			X.emit("ON_OWN_CHARACTER_LEFT_BY_EFFECT", event, owner)
 			if source_player ~= nil and source_player ~= owner then
 				X.emit("ON_OWN_TRAIT_CHARACTER_LEFT_BY_OPPONENT_EFFECT", event, owner)
