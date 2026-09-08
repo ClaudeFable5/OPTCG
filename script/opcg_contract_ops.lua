@@ -1717,7 +1717,13 @@ function X.after_remove(cards, reason, destination, context)
 		-- 오발화하지 않도록 직전 위치를 게이트한다.
 		local from_field = (not card.IsPreviousLocation) or card:IsPreviousLocation(LOCATION_MZONE)
 		if effect and from_field and opcg.IsCharacter(card) then
-			X.emit("ON_OWN_CHARACTER_LEFT_BY_EFFECT", event, owner)
+			-- [OP07-038 행콕 / OP08-046 샤쿠야쿠] "캐릭터가 자신의 효과로 필드를
+			-- 벗어났을 때"의 발동 주체는 이탈 카드의 주인(owner)이 아니라 그 효과의
+			-- 시전자(source_player)다 — 상대 캐릭터를 자기 효과로 되돌려도(로의 본문
+			-- 바운스 등) 시전자의 트리거가 성립한다. 종전엔 owner에게만 발신해
+			-- 상대 캐릭터 대상 시 시전자 리더가 후보에서 빠져 침묵했다(유저 제보
+			-- 2026-09-08: 코스트 자기 바운스만 반응·본문 상대 바운스 무반응).
+			X.emit("ON_OWN_CHARACTER_LEFT_BY_EFFECT", event, source_player or owner)
 			if source_player ~= nil and source_player ~= owner then
 				X.emit("ON_OWN_TRAIT_CHARACTER_LEFT_BY_OPPONENT_EFFECT", event, owner)
 				X.emit("ON_OWN_TRAIT_CHARACTER_KO_OR_LEFT_BY_OPPONENT_EFFECT", event, owner)
