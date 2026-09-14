@@ -1,11 +1,11 @@
 [
   {
-    "name": "OPCGPro_Mobile_REV50.apk",
-    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r50/OPCGPro_Mobile_REV50.apk",
-    "md5": "9d79fde2b97f795c51c26440dad8944c",
-    "sha256": "933aada025bd50c4deadd77c524b4049168047ee97bc474385940b377e80821e",
-    "size": 106218820,
-    "rev": 50,
-    "notes": "Android REV50: deck editor honors unlimited-copy overrides for OP16-042, Pacifista, and Biscuit Soldier; includes latest OPCG script fixes"
+    "name": "OPCGPro_Mobile_REV52.apk",
+    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r52/OPCGPro_Mobile_REV52.apk",
+    "md5": "6628bd423555f0367161e8e6e5468d28",
+    "sha256": "587d2e15f1f1d196c8d8512d339153722d35b02e6e420ec14f2cddb089429568",
+    "size": 106224799,
+    "rev": 52,
+    "notes": "Android REV52 hotfix: fixes the turn-1 crash of REV51 (null cursor control in the field log preview). Same features as REV51."
   }
 ]
