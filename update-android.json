@@ -1,11 +1,11 @@
 [
   {
-    "name": "OPCGPro_Mobile_REV51.apk",
-    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r51/OPCGPro_Mobile_REV51.apk",
-    "md5": "833b6e7a0ee459f75b912ce650f50f9c",
-    "sha256": "dac75da801db949a42ce6548bdf5b42476530873835e07719a320a27dab05c00",
-    "size": 106224939,
-    "rev": 51,
-    "notes": "Android REV51: attack-state dim overlay, compact field log, fixed search candidate dimming, two-color deck filter, and replay life-card viewer"
+    "name": "OPCGPro_Mobile_REV50.apk",
+    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r50/OPCGPro_Mobile_REV50.apk",
+    "md5": "9d79fde2b97f795c51c26440dad8944c",
+    "sha256": "933aada025bd50c4deadd77c524b4049168047ee97bc474385940b377e80821e",
+    "size": 106218820,
+    "rev": 50,
+    "notes": "Android REV50: deck editor honors unlimited-copy overrides for OP16-042, Pacifista, and Biscuit Soldier; includes latest OPCG script fixes"
   }
 ]
