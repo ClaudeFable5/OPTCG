@@ -506,6 +506,59 @@ function R.register_game_start()
 		end)
 		Duel.RegisterEffect(rested_play, 0)
 
+		-- [2026-09-14 유저 요청] 어택 가능 판정 흑백(클라 필드 표시)의 정본은 이 룰 레이어다.
+		-- 턴 플레이어의 리더/캐릭터(MZONE 0~5)마다 코어 판정(Card.CanAttack =
+		-- is_capable_attack, 위 declare_rules 포함)으로 "어택 선언 불가"를 매겨 6비트
+		-- 마스크를 HINT 220으로 보낸다(비트 i = 자리 i 어택 불가, player = 카드 주인).
+		-- 클라(gframe)는 마스크를 카드에 붙여 어두운 판을 그릴 뿐 스스로 판정하지 않는다.
+		-- 판정 시점(유저 규정): ①자기 턴 메인 페이즈 시작(리프레시 뒤) ②등장 직후
+		-- ③효과 처리 직후(체인 끝) ④배틀 끝(공격자 레스트) ⑤엔드 페이즈 시작.
+		-- 비턴 플레이어 쪽은 건드리지 않는다 - 자기 턴에 매긴 상태가 다음 자기 턴까지
+		-- 유지된다(등장 직후 어택 불가는 최소 다음 상대 턴까지 보여야 함).
+		-- 사유 구분: 기본(레스트·자기 첫 턴·등장 턴 캐릭터)은 다음 자기 턴 판정까지 유지,
+		-- 효과(어택 불가 부여, 리프레시에 액티브가 안 된 레스트)는 그 턴 엔드 페이즈에
+		-- 해제(유저: "실효가 끝나는 턴의 엔드시 해제, 기본 식별과 일관성 없어도 됨").
+		local HINT_ATTACK_STATE = 220
+		local no_refresh_rested = {} -- 메인 시작 시점에 레스트였던 카드(리프레시 불발 = 효과 사유)
+		local function broadcast_attack_state(player, at_main_start, at_end_phase)
+			if player ~= 0 and player ~= 1 then return end
+			if at_main_start then no_refresh_rested = {} end
+			local mask = 0
+			local turn = Duel.GetTurnCount()
+			local g = Duel.GetMatchingGroup(function(c)
+				return c:GetSequence() <= 5 and (opcg.IsLeader(c) or opcg.IsCharacter(c))
+			end, player, LOCATION_MZONE, 0, nil)
+			for c in aux.Next(g) do
+				local rested = opcg.IsRested(c)
+				if at_main_start and rested then no_refresh_rested[c] = true end
+				if not rested then no_refresh_rested[c] = nil end -- 한 번 액티브가 됐으면 이후 레스트는 기본 사유
+				if not c:CanAttack() then
+					local basic = (rested and not no_refresh_rested[c]) or turn <= 2
+						or (opcg.IsCharacter(c) and c.GetTurnID and c:GetTurnID() == turn)
+					if basic or not at_end_phase then
+						mask = mask | (1 << c:GetSequence())
+					end
+				end
+			end
+			Duel.Hint(HINT_ATTACK_STATE, player, mask)
+		end
+		R.broadcast_attack_state = broadcast_attack_state
+		local function attack_state_hook(code, at_main_start, at_end_phase)
+			local hook = Effect.GlobalEffect()
+			hook:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
+			hook:SetCode(code)
+			hook:SetOperation(function()
+				broadcast_attack_state(Duel.GetTurnPlayer(), at_main_start, at_end_phase)
+			end)
+			Duel.RegisterEffect(hook, 0)
+		end
+		attack_state_hook(EVENT_PHASE_START + PHASE_MAIN1, true, false)
+		attack_state_hook(EVENT_SUMMON_SUCCESS, false, false)
+		attack_state_hook(EVENT_SPSUMMON_SUCCESS, false, false)
+		attack_state_hook(EVENT_CHAIN_END, false, false)
+		attack_state_hook(EVENT_DAMAGE_STEP_END, false, false)
+		attack_state_hook(EVENT_PHASE_START + PHASE_END, false, true)
+
 		-- OPCG has no face-down set; close the free MSET path outright.
 		local no_set = Effect.GlobalEffect()
 		no_set:SetType(EFFECT_TYPE_FIELD)
