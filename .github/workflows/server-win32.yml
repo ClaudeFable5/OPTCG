@@ -2,8 +2,9 @@ name: server-win32
 # OPTCG 게임 서버(Multiroptcg = ClaudeFable5/Multiroptcg, Multirole 포크)를 Win32(i686)로 빌드해
 # 실행기 배치(tools/deploy-now/deploy-now.bat)가 내려받는 릴리스 자산을 갱신한다.
 #
-#  build          : MSYS2 mingw32 + boost 직접 빌드(upstream DyXel/Multirole 의 PKGBUILD - MSYS2 가 32비트
-#                   boost 패키지를 끊음)로 multirole.exe / hornet.exe 생성, Multiroptcg-win32.zip(+ .sha256) → 아티팩트
+#  build          : MSYS2 mingw32 로 multirole.exe / hornet.exe 생성 → Multiroptcg-win32.zip(+ .sha256) → 아티팩트.
+#                   MSYS2 가 32비트 boost·libgit2 패키지를 끊어서(2023-12 "32-bit packages" 감축) boost 는
+#                   upstream DyXel/Multirole 의 PKGBUILD 로, libgit2 는 소스에서(정적, WinHTTP) 직접 빌드한다.
 #  smoke          : windows 러너에서 deploy-now.bat 을 실제로 실행 - 폴더의 zip 설치 → 서버 기동 →
 #                   GitHub OPTCG 카드 데이터 클론 → 코어(ocgcore.dll, 32비트) 적재 → 방 목록 7922 응답 →
 #                   reload(웹훅) → stop 까지 확인
@@ -42,6 +43,8 @@ env:
   MULTIROPTCG_REPO: ClaudeFable5/Multiroptcg
   # upstream master (2026-07-12 "manually build boost for mingw" 포함) - .github/mingw-w64-boost 레시피 출처
   UPSTREAM_MULTIROLE_SHA: f258e00b8d02a888dac9b54f9fedf3fd177951b8
+  # mingw32 용 libgit2 패키지가 없어 소스에서 빌드 (MSYS2 가 패키징하는 것과 같은 판)
+  LIBGIT2_REF: v1.9.7
 
 jobs:
   build:
@@ -60,12 +63,32 @@ jobs:
           repository: DyXel/Multirole
           ref: ${{ env.UPSTREAM_MULTIROLE_SHA }}
           path: upstream-multirole
+      - name: Checkout libgit2 (no mingw32 package any more)
+        uses: actions/checkout@v4
+        with:
+          repository: libgit2/libgit2
+          ref: ${{ env.LIBGIT2_REF }}
+          path: libgit2-src
       - name: Setup msys2 (mingw32)
         uses: msys2/setup-msys2@v2
         with:
           update: true
           msystem: mingw32
-          install: mingw-w64-i686-toolchain make mingw-w64-i686-libgit2-winhttp mingw-w64-i686-fmt mingw-w64-i686-sqlite3 mingw-w64-i686-openssl pkgconf mingw-w64-i686-meson mingw-w64-i686-cmake patch
+          install: mingw-w64-i686-toolchain make mingw-w64-i686-fmt mingw-w64-i686-sqlite3 mingw-w64-i686-openssl pkgconf mingw-w64-i686-meson mingw-w64-i686-ninja mingw-w64-i686-cmake patch
+      - name: Build libgit2 (static, WinHTTP, bundled deps)
+        shell: msys2 {0}
+        run: |
+          prefix="$(cygpath -m "${MINGW_PREFIX}")"
+          cmake -S libgit2-src -B libgit2-build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="${prefix}" \
+            -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTS=OFF -DBUILD_CLI=OFF -DBUILD_EXAMPLES=OFF -DBUILD_FUZZERS=OFF \
+            -DUSE_HTTPS=WinHTTP -DUSE_SSH=OFF -DUSE_BUNDLED_ZLIB=ON -DREGEX_BACKEND=builtin \
+            -DUSE_HTTP_PARSER=builtin -DUSE_SHA256=builtin -DUSE_ICONV=OFF -DUSE_THREADS=ON
+          cmake --build libgit2-build --parallel "$(nproc)"
+          cmake --install libgit2-build
+          pkg-config --modversion libgit2
+          pkg-config --static --libs libgit2
       - name: Build boost (MSYS2 no longer ships mingw32 boost)
         shell: msys2 {0}
         run: |
@@ -90,6 +113,7 @@ jobs:
             echo "Multiroptcg Win32 server package"
             echo "source : https://github.com/${MULTIROPTCG_REPO}/commit/$(git -C multiroptcg rev-parse HEAD) ($(git -C multiroptcg log -1 --format=%cs))"
             echo "built  : $(date -u +%Y-%m-%dT%H:%M:%SZ) by ${GITHUB_REPOSITORY} ${GITHUB_WORKFLOW} run ${GITHUB_RUN_ID} (${GITHUB_SHA::12})"
+            echo "deps   : libgit2 ${LIBGIT2_REF} (static, WinHTTP), boost from DyXel/Multirole@${UPSTREAM_MULTIROLE_SHA::12}, MSYS2 mingw32"
             echo "data   : https://github.com/ClaudeFable5/OPTCG (config.json repos[0].remote)"
           } > pkg/VERSION.txt
           cat pkg/VERSION.txt
