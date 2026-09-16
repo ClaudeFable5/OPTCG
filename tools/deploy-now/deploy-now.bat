@@ -152,7 +152,12 @@ if not exist "%ZIP_NAME%.sha256" (
 set "EXPECTED="
 for /f "usebackq" %%a in ("%ZIP_NAME%.sha256") do if not defined EXPECTED set "EXPECTED=%%a"
 set "ACTUAL="
-for /f "usebackq delims=" %%h in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-FileHash -Algorithm SHA256 -LiteralPath '%ZIP_NAME%').Hash.ToLower()"`) do set "ACTUAL=%%h"
+rem certutil 은 모든 윈도우에 있고 PowerShell 모듈 경로 영향을 안 받는다 - 출력 2번째 줄이 해시
+for /f "skip=1 delims=" %%h in ('certutil -hashfile "%ZIP_NAME%" SHA256 2^>nul') do if not defined ACTUAL set "ACTUAL=%%h"
+if defined ACTUAL set "ACTUAL=%ACTUAL: =%"
+if defined ACTUAL if not "%ACTUAL:~64%"=="" set "ACTUAL="
+if defined ACTUAL if "%ACTUAL:~63,1%"=="" set "ACTUAL="
+if not defined ACTUAL for /f "usebackq delims=" %%h in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-FileHash -Algorithm SHA256 -LiteralPath '%ZIP_NAME%').Hash.ToLower()"`) do set "ACTUAL=%%h"
 if not defined ACTUAL (
     echo  [..] 해시 계산 불가 - 검증 생략
     exit /b 0
