@@ -1,11 +1,11 @@
 [
   {
-    "name": "OPCGPro_Mobile_REV52.apk",
-    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r52/OPCGPro_Mobile_REV52.apk",
-    "md5": "6628bd423555f0367161e8e6e5468d28",
-    "sha256": "587d2e15f1f1d196c8d8512d339153722d35b02e6e420ec14f2cddb089429568",
-    "size": 106224799,
-    "rev": 52,
-    "notes": "Android REV52 hotfix: fixes the turn-1 crash of REV51 (null cursor control in the field log preview). Same features as REV51."
+    "name": "OPCGPro_Mobile_REV53.apk",
+    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r53/OPCGPro_Mobile_REV53.apk",
+    "md5": "14878e6c52bffade26f9016f55553112",
+    "sha256": "ff810f06dbc842f2cd87e3bf52df248657fb20ebb899a1525eef1830c9ce3979",
+    "size": 106224945,
+    "rev": 53,
+    "notes": "Android REV53: game server address changed to 182.237.204.36 (config/configs.json). Same features as REV52."
   }
 ]
