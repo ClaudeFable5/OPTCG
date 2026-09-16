@@ -1,0 +1,250 @@
+name: server-win32
+# OPTCG 게임 서버(Multiroptcg = ClaudeFable5/Multiroptcg, Multirole 포크)를 Win32(i686)로 빌드해
+# 실행기 배치(tools/deploy-now/deploy-now.bat)가 내려받는 릴리스 자산을 갱신한다.
+#
+#  build          : MSYS2 mingw32 + boost 직접 빌드(upstream DyXel/Multirole 의 PKGBUILD - MSYS2 가 32비트
+#                   boost 패키지를 끊음)로 multirole.exe / hornet.exe 생성, Multiroptcg-win32.zip(+ .sha256) → 아티팩트
+#  smoke          : windows 러너에서 deploy-now.bat 을 실제로 실행 - 폴더의 zip 설치 → 서버 기동 →
+#                   GitHub OPTCG 카드 데이터 클론 → 코어(ocgcore.dll, 32비트) 적재 → 방 목록 7922 응답 →
+#                   reload(웹훅) → stop 까지 확인
+#  publish        : 릴리스 태그 server-win32 에 zip 업로드(덮어쓰기)
+#  smoke-download : 배치 파일 하나만 있는 빈 폴더에서 deploy-now.bat install 로 릴리스 다운로드 경로 확인
+#
+# 32비트로 빌드하는 이유: 카드 데이터 저장소의 ocgcore.dll 이 Win32(i386)라 hornet.exe 도 32비트여야 적재된다.
+on:
+  workflow_dispatch:
+    inputs:
+      multiroptcg_ref:
+        description: "빌드할 ClaudeFable5/Multiroptcg ref (브랜치/태그/SHA)"
+        required: false
+        default: master
+      publish:
+        description: "릴리스 server-win32 에 업로드"
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/server-win32.yml'
+      - 'tools/deploy-now/**'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: server-win32
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: server-win32
+  ZIP_NAME: Multiroptcg-win32.zip
+  MULTIROPTCG_REPO: ClaudeFable5/Multiroptcg
+  # upstream master (2026-07-12 "manually build boost for mingw" 포함) - .github/mingw-w64-boost 레시피 출처
+  UPSTREAM_MULTIROLE_SHA: f258e00b8d02a888dac9b54f9fedf3fd177951b8
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout Multiroptcg
+        uses: actions/checkout@v4
+        with:
+          repository: ClaudeFable5/Multiroptcg
+          ref: ${{ inputs.multiroptcg_ref || 'master' }}
+          path: multiroptcg
+      - name: Checkout upstream Multirole (mingw32 boost recipe)
+        uses: actions/checkout@v4
+        with:
+          repository: DyXel/Multirole
+          ref: ${{ env.UPSTREAM_MULTIROLE_SHA }}
+          path: upstream-multirole
+      - name: Setup msys2 (mingw32)
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          msystem: mingw32
+          install: mingw-w64-i686-toolchain make mingw-w64-i686-libgit2-winhttp mingw-w64-i686-fmt mingw-w64-i686-sqlite3 mingw-w64-i686-openssl pkgconf mingw-w64-i686-meson mingw-w64-i686-cmake patch
+      - name: Build boost (MSYS2 no longer ships mingw32 boost)
+        shell: msys2 {0}
+        run: |
+          cd upstream-multirole/.github/mingw-w64-boost
+          MAKEFLAGS="--jobs=$(nproc)" PKGEXT='.pkg.tar' CARCH=i686 makepkg -i --noconfirm
+      - name: Meson build
+        shell: msys2 {0}
+        run: |
+          cd multiroptcg
+          # upstream edo9300 2026-07-12 "remove unneeded BOOST_JSON_STANDALONE compile flag" (포크에 아직 없음)
+          sed -i "/-DBOOST_JSON_STANDALONE/d" meson.build
+          LDFLAGS="-static-libstdc++ -static-libgcc -static" meson setup build -Dbuildtype=release -Dstrip=true -Db_lto=true -Db_ndebug=true
+          meson compile -C build -j$(nproc)
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p pkg
+          cp multiroptcg/build/multirole.exe multiroptcg/build/hornet.exe pkg/
+          cp tools/deploy-now/config.json tools/deploy-now/deploy-now.bat tools/deploy-now/README.md pkg/
+          {
+            echo "Multiroptcg Win32 server package"
+            echo "source : https://github.com/${MULTIROPTCG_REPO}/commit/$(git -C multiroptcg rev-parse HEAD) ($(git -C multiroptcg log -1 --format=%cs))"
+            echo "built  : $(date -u +%Y-%m-%dT%H:%M:%SZ) by ${GITHUB_REPOSITORY} ${GITHUB_WORKFLOW} run ${GITHUB_RUN_ID} (${GITHUB_SHA::12})"
+            echo "data   : https://github.com/ClaudeFable5/OPTCG (config.json repos[0].remote)"
+          } > pkg/VERSION.txt
+          cat pkg/VERSION.txt
+          (cd pkg && 7z a -tzip "../${ZIP_NAME}" . >/dev/null)
+          sha256sum "${ZIP_NAME}" | tee "${ZIP_NAME}.sha256"
+          7z l "${ZIP_NAME}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Multiroptcg-win32
+          path: |
+            Multiroptcg-win32.zip
+            Multiroptcg-win32.zip.sha256
+          if-no-files-found: error
+
+  smoke:
+    needs: build
+    runs-on: windows-latest
+    env:
+      DEPLOY_NOW_CI: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Multiroptcg-win32
+          path: stage
+      - name: deploy-now.bat - install from local zip, boot, reload, stop
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $dir = Join-Path $env:RUNNER_TEMP 'TalkFile_deploy-now'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Copy-Item tools/deploy-now/deploy-now.bat $dir
+          Copy-Item "stage/$($env:ZIP_NAME)" $dir
+          Copy-Item "stage/$($env:ZIP_NAME).sha256" $dir
+          $out = Join-Path $dir 'console.log'
+          $err = Join-Path $dir 'console.err'
+          $p = Start-Process -FilePath cmd.exe -ArgumentList '/c', 'deploy-now.bat' -WorkingDirectory $dir -RedirectStandardOutput $out -RedirectStandardError $err -PassThru
+          $deadline = (Get-Date).AddMinutes(15)
+          $body = ''
+          while ((Get-Date) -lt $deadline) {
+            if ($p.HasExited) { break }
+            try { $body = (& curl.exe -s --max-time 3 http://127.0.0.1:7922/) -join '' } catch { $body = '' }
+            if ($body -match '"rooms"') { break }
+            Start-Sleep -Seconds 5
+          }
+          Write-Host "---- console.log ----"; Get-Content $out -ErrorAction SilentlyContinue | Select-Object -Last 60
+          Write-Host "---- console.err ----"; Get-Content $err -ErrorAction SilentlyContinue | Select-Object -Last 20
+          if ($p.HasExited) { throw "deploy-now.bat exited early (code $($p.ExitCode))" }
+          if ($body -notmatch '"rooms"') { throw "lobby listing (7922) did not answer within 15 minutes: '$body'" }
+          Write-Host "lobby listing: $body"
+          foreach ($f in 'multirole.exe','hornet.exe','config.json','VERSION.txt','sync\optcg-data\cards-opcg.cdb','sync\optcg-data\lflists\OPCG.lflist.conf') {
+            if (-not (Test-Path (Join-Path $dir $f))) { throw "missing after install/boot: $f" }
+          }
+          # CoreProvider copies the core into tmp/ and test-loads it through hornet.exe before the lobby answers
+          $core = Get-ChildItem (Join-Path $dir 'tmp') -Filter '*ocgcore.dll' -ErrorAction SilentlyContinue
+          if (-not $core) { throw "core was not copied into tmp/ (CoreProvider did not pick up ocgcore.dll)" }
+          Write-Host "core in tmp/: $($core.Name -join ', ')"
+          # firewall rules were added by the batch (runner is elevated)
+          netsh advfirewall firewall show rule name="OPTCG Multiroptcg 7911" | Out-Null; if ($LASTEXITCODE -ne 0) { throw "firewall rule 7911 missing" }
+          netsh advfirewall firewall show rule name="OPTCG Multiroptcg 7922" | Out-Null; if ($LASTEXITCODE -ne 0) { throw "firewall rule 7922 missing" }
+          # webhook reload path
+          $reload = (& cmd.exe /c "cd /d `"$dir`" && deploy-now.bat reload 2>&1") -join "`n"
+          Write-Host $reload
+          if ($reload -notmatch 'Payload received') { throw "reload did not reach the webhook" }
+          # stop path: the run loop must exit on stop.flag
+          Write-Host ((& cmd.exe /c "cd /d `"$dir`" && deploy-now.bat stop 2>&1") -join "`n")
+          $p.WaitForExit(20000) | Out-Null
+          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force; throw "run loop did not exit after stop" }
+          if (Get-Process -Name multirole -ErrorAction SilentlyContinue) { throw "multirole.exe still running after stop" }
+          Write-Host "---- console.log (final) ----"; Get-Content $out | Select-Object -Last 30
+          Write-Host "SMOKE OK"
+      - name: Diagnostics on failure (direct boot, captured output)
+        if: failure()
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $dir = Join-Path $env:RUNNER_TEMP 'TalkFile_deploy-now'
+          Get-Process -Name multirole,hornet -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Get-ChildItem $dir -ErrorAction SilentlyContinue | Select-Object Name, Length | Format-Table -AutoSize
+          if (Test-Path (Join-Path $dir 'multirole.exe')) {
+            $o = Join-Path $dir 'direct.out'; $e = Join-Path $dir 'direct.err'
+            $q = Start-Process -FilePath (Join-Path $dir 'multirole.exe') -WorkingDirectory $dir -RedirectStandardOutput $o -RedirectStandardError $e -PassThru
+            Start-Sleep -Seconds 90
+            if (-not $q.HasExited) { Stop-Process -Id $q.Id -Force }
+            Get-Process -Name hornet -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+            Write-Host "---- direct.out ----"; Get-Content $o -ErrorAction SilentlyContinue | Select-Object -Last 80
+            Write-Host "---- direct.err ----"; Get-Content $e -ErrorAction SilentlyContinue | Select-Object -Last 40
+          }
+      - name: Cleanup
+        if: always()
+        shell: pwsh
+        run: Get-Process -Name multirole,hornet -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+  publish:
+    needs: [build, smoke]
+    if: ${{ github.event_name == 'push' || inputs.publish }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Multiroptcg-win32
+      - name: Upload to release server-win32
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          unzip -p "${ZIP_NAME}" VERSION.txt > VERSION.txt
+          {
+            echo "OPTCG 게임 서버(Multiroptcg, Multirole 포크) Win32 실행 파일."
+            echo
+            echo "설치·실행기 \`tools/deploy-now/deploy-now.bat\` 이 이 자산(\`${ZIP_NAME}\`)을 내려받아 설치한다."
+            echo "배치 파일 하나만 폴더에 두고 더블클릭하면 된다. 자세한 사용법은 zip 안의 README.md."
+            echo
+            echo '```'
+            cat VERSION.txt
+            echo "sha256 : $(cut -d' ' -f1 "${ZIP_NAME}.sha256")"
+            echo '```'
+            echo
+            echo "이 릴리스는 워크플로우 server-win32 가 실행될 때마다 같은 태그에 덮어쓴다."
+          } > notes.md
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release edit "${RELEASE_TAG}" --title "OPTCG 서버 (Multiroptcg Win32)" --notes-file notes.md
+          else
+            gh release create "${RELEASE_TAG}" --target "${GITHUB_SHA}" --title "OPTCG 서버 (Multiroptcg Win32)" --notes-file notes.md
+          fi
+          gh release upload "${RELEASE_TAG}" "${ZIP_NAME}" "${ZIP_NAME}.sha256" --clobber
+          gh release view "${RELEASE_TAG}"
+
+  smoke-download:
+    needs: publish
+    runs-on: windows-latest
+    env:
+      DEPLOY_NOW_CI: "1"
+      DEPLOY_NOW_NO_FIREWALL: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: deploy-now.bat install - batch alone in an empty folder, download from the release
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $dir = Join-Path $env:RUNNER_TEMP 'deploy-now-download'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Copy-Item tools/deploy-now/deploy-now.bat $dir
+          $log = (& cmd.exe /c "cd /d `"$dir`" && deploy-now.bat install 2>&1") -join "`n"
+          $code = $LASTEXITCODE
+          Write-Host $log
+          if ($code -ne 0) { throw "deploy-now.bat install failed ($code)" }
+          foreach ($f in 'multirole.exe','hornet.exe','config.json','VERSION.txt') {
+            if (-not (Test-Path (Join-Path $dir $f))) { throw "missing after download install: $f" }
+          }
+          if ($log -notmatch '체크섬 확인') { throw "sha256 verification did not run" }
+          Get-Content (Join-Path $dir 'VERSION.txt')
+          Write-Host "DOWNLOAD SMOKE OK"

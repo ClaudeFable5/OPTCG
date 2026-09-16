@@ -1,0 +1,2 @@
+# 배치 파일은 CRLF 그대로 보존(플랫폼별 EOL 변환 금지) - cmd.exe 는 LF 전용 배치에서 goto/label 을 잘못 읽을 수 있다
+*.bat -text
