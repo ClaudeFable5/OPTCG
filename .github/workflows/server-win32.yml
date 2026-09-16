@@ -7,7 +7,8 @@ name: server-win32
 #  smoke          : windows 러너에서 deploy-now.bat 을 실제로 실행 - 폴더의 zip 설치 → 서버 기동 →
 #                   GitHub OPTCG 카드 데이터 클론 → 코어(ocgcore.dll, 32비트) 적재 → 방 목록 7922 응답 →
 #                   reload(웹훅) → stop 까지 확인
-#  publish        : 릴리스 태그 server-win32 에 zip 업로드(덮어쓰기)
+#  publish        : 릴리스 태그 server-win32 에 zip 업로드(덮어쓰기) - main 푸시, 수동 실행(publish=true),
+#                   또는 커밋 메시지에 [publish] 가 있을 때만. claude/** 브랜치 푸시는 기본적으로 빌드·검증만.
 #  smoke-download : 배치 파일 하나만 있는 빈 폴더에서 deploy-now.bat install 로 릴리스 다운로드 경로 확인
 #
 # 32비트로 빌드하는 이유: 카드 데이터 저장소의 ocgcore.dll 이 Win32(i386)라 hornet.exe 도 32비트여야 적재된다.
@@ -23,7 +24,7 @@ on:
         type: boolean
         default: true
   push:
-    branches: [main]
+    branches: [main, 'claude/**']
     paths:
       - '.github/workflows/server-win32.yml'
       - 'tools/deploy-now/**'
@@ -187,7 +188,7 @@ jobs:
 
   publish:
     needs: [build, smoke]
-    if: ${{ github.event_name == 'push' || inputs.publish }}
+    if: ${{ github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.publish) || contains(github.event.head_commit.message, '[publish]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
