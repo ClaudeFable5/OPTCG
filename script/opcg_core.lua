@@ -1383,14 +1383,16 @@ local function search_deck_top(action, context)
 	-- 보고 박은 값)를 무시하고, 무조건 서치(필터 없음 - 울티 OP05-043,
 	-- OP12-079류)만 비공개를 존중한다.
 	local filtered_pick = action.filter ~= nil and next(action.filter) ~= nil
-	if (filtered_pick or action.reveal ~= false) and #cards > 0
-		and action.destination ~= "LIFE_TOP" then
+	local public_pick = (filtered_pick or action.reveal ~= false) and #cards > 0
+		and action.destination ~= "LIFE_TOP"
+	if public_pick then
 		Duel.ConfirmCards(other(chooser), selected)
 	end
+	local moved = 0
 	if action.destination == "HAND" then
-		Duel.SendtoHand(selected, player, REASON_EFFECT)
+		moved = Duel.SendtoHand(selected, player, REASON_EFFECT)
 	elseif action.destination == "TRASH" then
-		Duel.SendtoGrave(selected, REASON_EFFECT)
+		moved = Duel.SendtoGrave(selected, REASON_EFFECT)
 	elseif action.destination == "LIFE_TOP" then
 		for card in aux.Next(selected) do
 			Duel.Sendto(card, LOCATION_EXTRA, REASON_EFFECT,
@@ -1398,6 +1400,10 @@ local function search_deck_top(action, context)
 		end
 	else
 		error("unsupported SEARCH_DECK_TOP destination")
+	end
+	if moved > 0 and (public_pick or action.destination == "TRASH") then
+		opcg.LogPublicCardMovement(opcg.HINT_FIELD_LOG_SEARCH, player, cards,
+			action.destination == "HAND" and LOCATION_HAND or LOCATION_GRAVE)
 	end
 	if top:GetCount() > 0 then
 		if action.rest_destinations then

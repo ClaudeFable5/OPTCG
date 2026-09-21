@@ -2,6 +2,22 @@
 -- Card scripts use this layer so native core hooks can replace individual operations later.
 opcg = opcg or {}
 
+-- Display-only public movement receipts (gframe HINT_OPCG_SEARCH_CARD/COUNTER_CARD).
+-- Callers own the public/committed decision; never call this for a private look,
+-- a selection candidate, or a generic hand cost.
+opcg.HINT_FIELD_LOG_SEARCH = 221
+opcg.HINT_FIELD_LOG_COUNTER = 222
+function opcg.LogPublicCardMovement(hint, player, cards, destination)
+    if not Duel.Hint or (hint ~= opcg.HINT_FIELD_LOG_SEARCH
+        and hint ~= opcg.HINT_FIELD_LOG_COUNTER) then return end
+    for _, card in ipairs(cards or {}) do
+        if card and card.IsLocation and card:IsLocation(destination) then
+            local code = card:GetCode()
+            if code and code > 0 then Duel.Hint(hint, player, code) end
+        end
+    end
+end
+
 -- Native Effect:SetValue accepts only an integer or a Lua function. OPCG
 -- operators also need to associate structured action tables and strings with
 -- effects, so keep those values in a label-keyed Lua side table.

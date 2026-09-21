@@ -395,7 +395,11 @@ local function resolve_event_counter(card, live)
 		before_resolve = function()
 			-- 이벤트 카운터의 둥 코스트는 사용 선언 즉시 지불
 			opcg.RestDon(live.defending_player, opcg.GetCost(card))
-			Duel.SendtoGrave(card, REASON_RULE)
+			local moved = Duel.SendtoGrave(card, REASON_RULE)
+			if moved > 0 then
+				opcg.LogPublicCardMovement(opcg.HINT_FIELD_LOG_COUNTER,
+					live.defending_player, {card}, LOCATION_GRAVE)
+			end
 			return true
 		end,
 	})
@@ -461,7 +465,12 @@ local function run_counter_step(live)
 						break
 					end
 				end
-				Duel.SendtoGrave(chars, REASON_COST)
+				local used_cards = array(chars)
+				local moved = Duel.SendtoGrave(chars, REASON_COST)
+				if moved > 0 then
+					opcg.LogPublicCardMovement(opcg.HINT_FIELD_LOG_COUNTER,
+						live.defending_player, used_cards, LOCATION_GRAVE)
+				end
 				if target then
 					apply_counter_power(live, target, total)
 					live.counter_power = live.counter_power + total

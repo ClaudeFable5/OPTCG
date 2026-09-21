@@ -447,8 +447,13 @@ local function action_play_from_deck(action, context)
 	local chooser = source_player(context)
 	local minimum = action.mode == "EXACT" and (action.count or 1) or 0
 	local cards = select_zone(player, LOCATION_DECK, action.filter, minimum, action.count or 1, chooser, context)
-	if action.reveal ~= false and #cards > 0 then Duel.ConfirmCards(other(chooser), to_group(cards)) end
-	if action.destination == "HAND" then Duel.SendtoHand(to_group(cards), player, REASON_EFFECT)
+	local public_pick = action.reveal ~= false and #cards > 0
+	if public_pick then Duel.ConfirmCards(other(chooser), to_group(cards)) end
+	if action.destination == "HAND" then
+		local moved = Duel.SendtoHand(to_group(cards), player, REASON_EFFECT)
+		if public_pick and moved > 0 then
+			opcg.LogPublicCardMovement(opcg.HINT_FIELD_LOG_SEARCH, player, cards, LOCATION_HAND)
+		end
 	else
 		local played = {}
 		for _, card in ipairs(cards) do
