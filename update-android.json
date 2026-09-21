@@ -1,11 +1,11 @@
 [
   {
-    "name": "OPCGPro_Mobile_REV53.apk",
-    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r53/OPCGPro_Mobile_REV53.apk",
-    "md5": "14878e6c52bffade26f9016f55553112",
-    "sha256": "ff810f06dbc842f2cd87e3bf52df248657fb20ebb899a1525eef1830c9ce3979",
-    "size": 106224945,
-    "rev": 53,
-    "notes": "Android REV53: game server address changed to 182.237.204.36 (config/configs.json). Same features as REV52."
+    "name": "OPCGPro_Mobile_REV56.apk",
+    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r56/OPCGPro_Mobile_REV56.apk",
+    "md5": "9942d22323b139f99fb50a8a0e354b01",
+    "sha256": "19b76ce23dbb9ffb90ce06ed0518610f09c8225f0b6501e70770febe6bf10b96",
+    "size": 106242941,
+    "rev": 56,
+    "notes": "Android REV56: ports PC r53-r56 (visual card log, pair-ban search, resizable panels, movable chat/log popups, player info next to the leader, hidden chain marks). Static background; orbit camera disabled."
   }
 ]
