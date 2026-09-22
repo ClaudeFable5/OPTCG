@@ -1,11 +1,11 @@
 [
   {
-    "name": "OPCGPro_Mobile_REV57.apk",
-    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r57/OPCGPro_Mobile_REV57.apk",
-    "md5": "a538cf4f736a6a80a64a0216e77b1213",
-    "sha256": "adb3efb6345e09a5af525146a77d98a4bdfa75bb0626bb7fd7c957a87a331aaa",
-    "size": 106307035,
-    "rev": 57,
-    "notes": "Android REV57: shared HTTPS room invitation copy/paste and text/OPTCGSim deck import."
+    "sha256": "ec824c8083aef150e6a6718c4e935d260cba215142bf88b03b8dc24cb994563a",
+    "size": 106310599,
+    "name": "OPCGPro_Mobile_REV58.apk",
+    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r58/OPCGPro_Mobile_REV58.apk",
+    "md5": "6be8c9cde0c499f2ae0fd4bad99052b6",
+    "rev": 58,
+    "notes": "Android REV58: Main/Testbed invitation profiles, copy timing fix and separate server settings. Testbed external native access requires router forwarding; main server remains available."
   }
 ]
