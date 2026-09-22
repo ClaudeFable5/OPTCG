@@ -1,11 +1,11 @@
 [
   {
-    "name": "OPCGPro_Mobile_REV56.apk",
-    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r56/OPCGPro_Mobile_REV56.apk",
-    "md5": "9942d22323b139f99fb50a8a0e354b01",
-    "sha256": "19b76ce23dbb9ffb90ce06ed0518610f09c8225f0b6501e70770febe6bf10b96",
-    "size": 106242941,
-    "rev": 56,
-    "notes": "Android REV56: ports PC r53-r56 (visual card log, pair-ban search, resizable panels, movable chat/log popups, player info next to the leader, hidden chain marks). Static background; orbit camera disabled."
+    "name": "OPCGPro_Mobile_REV57.apk",
+    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r57/OPCGPro_Mobile_REV57.apk",
+    "md5": "a538cf4f736a6a80a64a0216e77b1213",
+    "sha256": "adb3efb6345e09a5af525146a77d98a4bdfa75bb0626bb7fd7c957a87a331aaa",
+    "size": 106307035,
+    "rev": 57,
+    "notes": "Android REV57: shared HTTPS room invitation copy/paste and text/OPTCGSim deck import."
   }
 ]
