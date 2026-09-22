@@ -689,7 +689,13 @@ local ENQUEUE_LIFE_TIMINGS = {
 	ON_YOUR_LIFE_DECREASED=true, ON_OPPONENT_LIFE_DECREASED=true,
 }
 local ENQUEUE_LIFE_CONDITIONS = { LIFE_EQ=true, LIFE_LTE=true, LIFE_GTE=true }
-local function enqueue_scope_allows(effect, card, timing)
+-- KO victim identity is part of the event, not a condition that can become
+-- true after pending effects resolve. Reject unrelated KOs before they occupy
+-- a once-per-turn slot (OP14-041, including invalid -> valid KOs in one batch).
+local ENQUEUE_KO_CONDITIONS = {
+	EVENT_TARGET_TRAIT_CONTAINS=true, EVENT_TARGET_BASE_POWER_GTE=true,
+}
+local function enqueue_scope_allows(effect, card, timing, context)
 	local turn_player = Duel and Duel.GetTurnPlayer and Duel.GetTurnPlayer()
 	-- [2026-08-15 OP14-056 와다츠미] 턴 1회 효과는 인큐 단계에서 사용 여부를
 	-- 먼저 본다(유희왕 OPT처럼 '발동 자체'를 막는다): 같은 사건에서 중복
@@ -718,6 +724,10 @@ local function enqueue_scope_allows(effect, card, timing)
 		-- 자기 무효 상태 조건(OP14-056)은 인큐 시점에 즉시 판정 - 무효 카드의
 		-- 자기-무효 효과가 큐에 들어가 프롬프트를 되풀이하는 것 자체를 차단
 		if condition.op == "SELF_NOT_DISABLED" and card.IsDisabled and card:IsDisabled() then return false end
+		if timing == "ON_ANY_CHARACTER_KO" and ENQUEUE_KO_CONDITIONS[condition.op]
+			and OPCGCore and OPCGCore.CheckCondition then
+			if not OPCGCore.CheckCondition(condition.op, condition, context) then return false end
+		end
 		if ENQUEUE_LIFE_TIMINGS[timing] and ENQUEUE_LIFE_CONDITIONS[condition.op]
 			and OPCGCore and OPCGCore.CheckCondition then
 			local ok = OPCGCore.CheckCondition(condition.op, condition,
@@ -868,6 +878,10 @@ function Q.enqueue_timing(cards, timing, context, options)
 				item_context.card = card
 				item_context.player = card:GetControler()
 				item_context.timing = timing
+				-- This is a new triggered effect, not the ignition effect that
+				-- caused the event. Inheriting its flag skips can_resolve conditions
+				-- and can consume OP14-041's once-per-turn use on an unrelated KO.
+				item_context.ignition = nil
 				-- [2026-08-12 유저 재정, OP07-038] 조건(패 매수 등) 판정 시점은
 				-- '모든 효과 처리가 끝난 직후' — 인큐 시점의 중간 상태로 미리
 				-- 탈락시키지 않는다(예: 바운스 직후 순간 패 6장 → 탈락하던 것).
@@ -875,7 +889,7 @@ function Q.enqueue_timing(cards, timing, context, options)
 				-- 엔진 timing_resolver 네이티브 조건) 무자격 항목은 거기서 진다.
 				-- 예외: 턴 소속·라이프 변동 타이밍의 라이프 조건은 미리 걸러도
 				-- 재정과 충돌하지 않는다(OP14-041 턴 / OP05-098 라이프 - 위 주석).
-				if enqueue_scope_allows(effect, card, timing) then
+				if enqueue_scope_allows(effect, card, timing, item_context) then
 					local resolver = options.engine
 						and timing_resolver(card, effect, timing) or nil
 					if resolver then
