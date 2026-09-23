@@ -1,11 +1,11 @@
 [
   {
-    "name": "OPCGPro_Mobile_REV59.apk",
-    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r59/OPCGPro_Mobile_REV59.apk",
-    "md5": "2c483324f8b60de49ee9df446ccf62d6",
-    "sha256": "14da3bf86292ef8b8fa2b36c7aa8f0454ca94c7457f91da4464288fba2b3a608",
-    "size": 106313574,
-    "rev": 59,
-    "notes": "Android REV59: open room invites in OPCGPRO and remember the update-confirmation choice."
+    "sha256": "e0c99f8d7875cde6c39022d32c5e5b85dc4f76c36ec01bd9243ea336a2a5e800",
+    "size": 106314539,
+    "name": "OPCGPro_Mobile_REV60.apk",
+    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r60/OPCGPro_Mobile_REV60.apk",
+    "md5": "d29aa41d6ba8279bd6885ec2d714136e",
+    "rev": 60,
+    "notes": "Android REV60: remove circular startup and pre-launch ZIP sync; restore native Git updates and correct CA path; preserve existing data, invitations and server profiles."
   }
 ]
