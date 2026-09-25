@@ -847,7 +847,7 @@ function X.execute(op, action, context)
 			local moved_don = 0
 			if amount > 0 then
 				if resting then moved_don = opcg.RestDon(player, amount)
-				else moved_don = opcg.SetDonActive(player, amount) end
+				else moved_don = opcg.SetDonActive(player, amount, context) end
 			end
 			context.last_action_succeeded = moved_don > 0 or action.mode == "UP_TO"
 			return {}
@@ -855,7 +855,7 @@ function X.execute(op, action, context)
 		local pool = Group.CreateGroup()
 		local chars = opcg.GetCandidateGroup and opcg.GetCandidateGroup(action.card_selector, context)
 		if chars then pool:Merge(chars) end
-		if opcg.DonStateGroup then
+		if opcg.DonStateGroup and (resting or opcg.CanSetDonActive(player, context)) then
 			pool:Merge(opcg.DonStateGroup(player, not resting))
 		end
 		local maximum = math.min(action.count or 1, pool:GetCount())
@@ -868,7 +868,7 @@ function X.execute(op, action, context)
 		local moved = 0
 		for _, card in ipairs(picked) do
 			if opcg.IsDon and opcg.IsDon(card) then
-				if opcg.SetDonRestedCard(card, resting, player) then moved = moved + 1 end
+				if opcg.SetDonRestedCard(card, resting, player, context) then moved = moved + 1 end
 			else
 				if resting then opcg.SetRested(card, context) else opcg.SetActive(card, true) end
 				moved = moved + 1
