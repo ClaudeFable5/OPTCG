@@ -724,6 +724,13 @@ local function enqueue_scope_allows(effect, card, timing, context)
 		-- 자기 무효 상태 조건(OP14-056)은 인큐 시점에 즉시 판정 - 무효 카드의
 		-- 자기-무효 효과가 큐에 들어가 프롬프트를 되풀이하는 것 자체를 차단
 		if condition.op == "SELF_NOT_DISABLED" and card.IsDisabled and card:IsDisabled() then return false end
+		-- EB02-035 (official Q871): the number returned belongs to this event.
+		-- An invalid one-DON event must not reserve the once-per-turn queue slot
+		-- and discard a later valid two-DON event in the same processing batch.
+		if timing == "ON_DON_RETURNED" and condition.op == "EVENT_COUNT_GTE"
+			and OPCGCore and OPCGCore.CheckCondition then
+			if not OPCGCore.CheckCondition(condition.op, condition, context) then return false end
+		end
 		if timing == "ON_ANY_CHARACTER_KO" and ENQUEUE_KO_CONDITIONS[condition.op]
 			and OPCGCore and OPCGCore.CheckCondition then
 			if not OPCGCore.CheckCondition(condition.op, condition, context) then return false end

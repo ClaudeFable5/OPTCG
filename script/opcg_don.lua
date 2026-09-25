@@ -337,7 +337,15 @@ function opcg.RestDon(player, amount)
 	set_group_rested(selected, true)
 	return selected:GetCount()
 end
+-- Player prohibitions (OP10-030) apply to effects; individual DON freeze
+-- remains refresh-only. Keep the effect source to distinguish Characters.
+function opcg.CanSetDonActive(player, context)
+	return not (opcg.EFFECT_CANNOT_SET_DON_ACTIVE and opcg.contract_ops
+		and opcg.contract_ops.player_has
+		and opcg.contract_ops.player_has(player, opcg.EFFECT_CANNOT_SET_DON_ACTIVE, nil, context))
+end
 function opcg.SetDonActive(player, amount, context)
+	if not opcg.CanSetDonActive(player, context) then return 0 end
 	local source = overlay_group(opcg.GetDonCostHost(player))
 	if not source then return 0 end
 	local selected = first_n(source, amount or 0, filter_rested)
@@ -346,8 +354,9 @@ function opcg.SetDonActive(player, amount, context)
 end
 -- [OPCG] 낱장 지정 상태 전환(선택형 효과용 — OP12-037 "캐릭터 또는 두웅!!
 -- 합계 N장" 재설계): 효과 경로라 동결 제약을 받지 않는다(집행은 RefreshDon).
-function opcg.SetDonRestedCard(card, rested, player)
+function opcg.SetDonRestedCard(card, rested, player, context)
 	if not is_don(card) then return false end
+	if not rested and not opcg.CanSetDonActive(player or card:GetControler(), context) then return false end
 	return set_rested(card, rested and true or false, player) ~= false
 end
 -- 코스트 에리어에서 상태별 둥 무리(rested=true → 레스트만 / false → 액티브만)

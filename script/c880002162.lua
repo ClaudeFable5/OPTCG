@@ -41,6 +41,32 @@ function s.initial_effect(c)
           [[ON_PLAY]],
         },
       },
+      {
+        actions={
+          {
+            duration=[[THIS_TURN]],
+            op=[[CANNOT_ATTACK]],
+            selector={
+              count=1,
+              filter={
+                cost_lte=6,
+                name_neq=[[몽키 D. 루피]],
+              },
+              kind=[[CHARACTER]],
+              mode=[[UP_TO]],
+              owner=[[OPPONENT]],
+            },
+          },
+        },
+        conditions={},
+        costs={},
+        effect_id=[[T1]],
+        once_per_turn=false,
+        source_text=[[이번 턴 동안, 상대의 「몽키 D. 루피」 이외의 코스트 6 이하인 캐릭터 1장까지는 어택할 수 없다.]],
+        timings={
+          [[LIFE_TRIGGER]],
+        },
+      },
     },
     keywords={},
     rules_id=[[EB03-059]],
