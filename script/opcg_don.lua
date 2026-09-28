@@ -27,6 +27,14 @@ function opcg.StampNegatedKO(cards)
 		end
 	end
 end
+-- 배틀을 살아남은(내성·치환) 캐릭터의 스탬프 회수용 — 같은 턴 뒤의 KO를
+-- 잘못 봉인하지 않도록 배틀 종료 관문이 부른다.
+function opcg.ClearNegatedKO(cards)
+	if cards and cards.IsDisabled then cards = { cards } end
+	for _, card in ipairs(cards or {}) do
+		if card and card.ResetFlagEffect then card:ResetFlagEffect(opcg.FLAG_NEGATED_KO) end
+	end
+end
 opcg.DON_MAX = 10
 -- 룰상 둥!! 덱 크기 변경(OP15-058 에넬 리더 = 6장): 리더의 상주 효과
 -- (EFFECT_DON_DECK_SIZE, 값 = 크기)를 조회. 효과 기반이라 무효화도 자연 반영.

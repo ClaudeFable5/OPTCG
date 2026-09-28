@@ -608,6 +608,13 @@ function B.install()
 		if live.final_target_is_character and opcg.RecordDonAtLeave then
 			opcg.RecordDonAtLeave(live.final_target)
 		end
+		-- [2026-09-28 유저 제보 OP14-096] 무효된 채 KO된 캐릭터의 【KO 시】 봉인 스탬프도
+		-- 같은 구멍이다: 무효(EFFECT_DISABLE)는 필드를 떠나는 순간 리셋되므로 둥 스냅샷과
+		-- 같은 시점(아직 필드에서 무효가 읽히는 마지막 순간)에 찍는다. 배틀을 살아남으면
+		-- ⑤에서 회수한다.
+		if live.final_target_is_character and opcg.StampNegatedKO then
+			opcg.StampNegatedKO(live.final_target)
+		end
 	end)
 	Duel.RegisterEffect(counter, 0)
 
@@ -678,6 +685,13 @@ function B.install()
 					REASON_BATTLE + REASON_DESTROY, live.attacking_player,
 					live.attacking_player, 0)
 			end
+		end
+		-- 내성·치환으로 배틀을 살아남았으면 ③에서 찍은 무효-KO 스탬프는 이 배틀의
+		-- 것이 아니다 — 같은 턴 뒤의 KO(그때 무효가 풀려 있을 수 있다)를 잘못
+		-- 봉인하지 않도록 회수한다.
+		if target and target.IsLocation and target:IsLocation(LOCATION_MZONE)
+			and opcg.ClearNegatedKO then
+			opcg.ClearNegatedKO(target)
 		end
 		-- ON_KO 본체는 네이티브 EVENT_DESTROYED 바인딩이 발화 — 여기서는
 		-- 관점형 KO 타이밍(자/타/전장)만 이름으로 디스패치한다.
