@@ -195,6 +195,12 @@ local function trash(cards, reason)
 	end
 	local group = to_group(cards)
 	if opcg.RecordDonAtLeave then opcg.RecordDonAtLeave(cards) end -- 둥 요구치 스냅샷
+	-- [2026-09-28] 효과 KO가 이 경로(SendtoGrave + REASON_DESTROY)로도 나간다 —
+	-- 무효된 채 KO되면 【KO 시】가 봉인돼야 하므로 여기서도 스탬프를 찍는다
+	-- (무효는 필드를 떠나는 순간 리셋되므로 이동 전이 유일한 판독 시점).
+	if (reason & REASON_DESTROY) ~= 0 and opcg.StampNegatedKO then
+		opcg.StampNegatedKO(cards)
+	end
 	-- [2026-08-10 유저 재정] 선제 둥 반환 폐지(내성 잔존 시 둥 유지) —
 	-- 실제 이탈분은 EVENT_TO_GRAVE 워처가 코스트로 레스트 귀환시킨다.
 	local moved = Duel.SendtoGrave(group, reason)
