@@ -1,11 +1,11 @@
 [
   {
-    "sha256": "ecceb37aa25603949420a1f974f8033e08b22013639954060ce650a0ff20e16a",
-    "size": 106315059,
-    "name": "OPCGPro_Mobile_REV61.apk",
-    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r61/OPCGPro_Mobile_REV61.apk",
-    "md5": "9f81e8ab1ac9e1a2bf2b3d946f64717e",
-    "rev": 61,
-    "notes": "Android REV61: use the current slyni web invitation address; accept legacy links; preserve startup behavior, app identity and assets."
+    "sha256": "32aab86d87ffb86534b948581261128726e04ebc8b3f2d02947672d1776a701b",
+    "size": 106325204,
+    "name": "OPCGPro_Mobile_REV62_final.apk",
+    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r62/OPCGPro_Mobile_REV62_final.apk",
+    "md5": "6a0ba99fe1f80075f98fd42265004729",
+    "rev": 62,
+    "notes": "Android REV62: OPCG room settings and observer hand visibility (requires updated server), topdown hand framing and card proportions, cleaner game settings. Existing app identity, startup and assets retained."
   }
 ]
