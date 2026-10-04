@@ -1895,7 +1895,8 @@ function C.ExecuteAction(op, action, context)
 		return {}
 	elseif op == "RETURN_DON" then
 		local minimum = action.mode == "EXACT" and (action.count or 1) or 0
-		context.last_action_succeeded = opcg.ReturnDon(player, action.count or 1, chooser, action.state, minimum) >= minimum
+		local return_chooser = action.chooser ~= nil and context_player(action.chooser, context) or player
+		context.last_action_succeeded = opcg.ReturnDon(player, action.count or 1, return_chooser, action.state, minimum) >= minimum
 		return {}
 	elseif op == "NATIVE_EFFECT" then
 		-- 예비 함수(유저 하달 2026-07-29 "정 모르겠으면 유희왕 효과로 우겨라"):
