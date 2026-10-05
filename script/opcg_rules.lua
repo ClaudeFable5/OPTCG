@@ -559,6 +559,40 @@ function R.register_game_start()
 		attack_state_hook(EVENT_DAMAGE_STEP_END, false, false)
 		attack_state_hook(EVENT_PHASE_START + PHASE_END, false, true)
 
+		-- Public keyword display, using the same live predicate as battle.lua.
+		-- A client cannot infer conditional/borrowed BLOCKER from card text or
+		-- CLIENT_HINT: the latter only tracks effect registration/removal, not
+		-- field-effect targets or conditions. HINT 223 carries one MZONE mask
+		-- per controller; bit i means the face-up Character at i has BLOCKER.
+		-- This identifies the keyword, not whether it can block this attack.
+		local HINT_BLOCKER_STATE = 223
+		local blocker_masks = {}
+		local function broadcast_blocker_state(player)
+			if player ~= 0 and player ~= 1 then return end
+			local mask = 0
+			local cards = Duel.GetMatchingGroup(function(c)
+				local seq = c:GetSequence()
+				return seq >= 0 and seq < 6 and c:IsFaceup()
+					and opcg.IsCharacter(c) and opcg.HasKeyword(c, "BLOCKER")
+			end, player, LOCATION_MZONE, 0, nil)
+			for c in aux.Next(cards) do
+				mask = mask | (1 << c:GetSequence())
+			end
+			if blocker_masks[player] ~= mask then
+				blocker_masks[player] = mask
+				Duel.Hint(HINT_BLOCKER_STATE, player, mask)
+			end
+		end
+		R.broadcast_blocker_state = broadcast_blocker_state
+		local blocker_state = Effect.GlobalEffect()
+		blocker_state:SetType(EFFECT_TYPE_FIELD + EFFECT_TYPE_CONTINUOUS)
+		blocker_state:SetCode(EVENT_ADJUST)
+		blocker_state:SetOperation(function()
+			broadcast_blocker_state(0)
+			broadcast_blocker_state(1)
+		end)
+		Duel.RegisterEffect(blocker_state, 0)
+
 		-- OPCG has no face-down set; close the free MSET path outright.
 		local no_set = Effect.GlobalEffect()
 		no_set:SetType(EFFECT_TYPE_FIELD)
