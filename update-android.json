@@ -1,11 +1,11 @@
 [
   {
-    "sha256": "32aab86d87ffb86534b948581261128726e04ebc8b3f2d02947672d1776a701b",
-    "size": 106325204,
-    "name": "OPCGPro_Mobile_REV62_final.apk",
-    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r62/OPCGPro_Mobile_REV62_final.apk",
-    "md5": "6a0ba99fe1f80075f98fd42265004729",
-    "rev": 62,
-    "notes": "Android REV62: OPCG room settings and observer hand visibility (requires updated server), topdown hand framing and card proportions, cleaner game settings. Existing app identity, startup and assets retained."
+    "sha256": "ff9239884e820e0170ab7f9716b7a1291fab84df7f139f03f57f311db7a0768e",
+    "size": 106326405,
+    "name": "OPCGPro_Mobile_REV63.apk",
+    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r63/OPCGPro_Mobile_REV63.apk",
+    "md5": "38bb50bcf4eb573af3401de372c6a8cf",
+    "rev": 63,
+    "notes": "Android REV63: live BLOCKER shield beside card power and topdown end-turn button beside the board. Blocker state requires updated game rules script. Existing app identity, startup, assets and invitation handling retained."
   }
 ]
