@@ -20,27 +20,19 @@ function s.initial_effect(c)
             },
           },
           {
-            actions={
-              {
-                duration=[[UNTIL_OPPONENT_NEXT_REFRESH]],
-                op=[[CANNOT_SET_ACTIVE]],
-                selector={
-                  count=1,
-                  kind=[[LAST_TARGET]],
-                  mode=[[UP_TO]],
-                  owner=[[CONTEXT]],
-                },
+            -- OP05-094: the second "up to 1" selects independently after -3 cost.
+            -- Official text: https://en.onepiece-cardgame.com/cardlist/?series=569105
+            duration=[[UNTIL_OPPONENT_NEXT_REFRESH]],
+            op=[[CANNOT_SET_ACTIVE]],
+            selector={
+              count=1,
+              filter={
+                cost_eq=0,
               },
+              kind=[[CHARACTER]],
+              mode=[[UP_TO]],
+              owner=[[OPPONENT]],
             },
-            conditions={
-              {
-                filter={
-                  cost_eq=0,
-                },
-                op=[[LAST_TARGET_MATCHES]],
-              },
-            },
-            op=[[IF]],
             ["then"]=true,
           },
         },
