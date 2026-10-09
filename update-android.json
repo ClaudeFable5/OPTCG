@@ -1,11 +1,11 @@
 [
   {
-    "sha256": "592a57c135c56cf3dc56af3cba2373975cda2420f1e563f20b8bb03f1ea91af6",
-    "size": 106326741,
-    "name": "OPCGPro_Mobile_REV64.apk",
-    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r64/OPCGPro_Mobile_REV64.apk",
-    "md5": "217300ad434d5c23922723e26dccc3b7",
-    "rev": 64,
-    "notes": "Android REV64: invitation links now use opcgpro-web.angelwitchfantasia.chatgpt.site. Existing Slyni, Tsuhikina and opcgpro invitation input remains accepted. Existing app identity, signer, assets, native Git updates and REV63 UI retained."
+    "sha256": "46515be930f69b95df5f1c4377c26e04f144f861650536a010dceea3877cddec",
+    "size": 106333575,
+    "name": "OPCGPro_Mobile_REV65.apk",
+    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r65/OPCGPro_Mobile_REV65.apk",
+    "md5": "dd05d1b3b791be4fa60d81921c8ad79b",
+    "rev": 65,
+    "notes": "Android REV65: waiting room moved left; selected own deck preview on the right refreshes on deck selection. Existing ready/send path, signer, assets, native Git updates and server profiles retained."
   }
 ]
