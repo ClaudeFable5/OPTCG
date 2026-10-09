@@ -1,11 +1,11 @@
 [
   {
-    "sha256": "ff9239884e820e0170ab7f9716b7a1291fab84df7f139f03f57f311db7a0768e",
-    "size": 106326405,
-    "name": "OPCGPro_Mobile_REV63.apk",
-    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r63/OPCGPro_Mobile_REV63.apk",
-    "md5": "38bb50bcf4eb573af3401de372c6a8cf",
-    "rev": 63,
-    "notes": "Android REV63: live BLOCKER shield beside card power and topdown end-turn button beside the board. Blocker state requires updated game rules script. Existing app identity, startup, assets and invitation handling retained."
+    "sha256": "592a57c135c56cf3dc56af3cba2373975cda2420f1e563f20b8bb03f1ea91af6",
+    "size": 106326741,
+    "name": "OPCGPro_Mobile_REV64.apk",
+    "url": "https://github.com/ClaudeFable5/OPTCG/releases/download/mobile-r64/OPCGPro_Mobile_REV64.apk",
+    "md5": "217300ad434d5c23922723e26dccc3b7",
+    "rev": 64,
+    "notes": "Android REV64: invitation links now use opcgpro-web.angelwitchfantasia.chatgpt.site. Existing Slyni, Tsuhikina and opcgpro invitation input remains accepted. Existing app identity, signer, assets, native Git updates and REV63 UI retained."
   }
 ]
